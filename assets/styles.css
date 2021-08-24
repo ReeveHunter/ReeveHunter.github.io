@@ -1,0 +1,34 @@
+body {
+	background-color: LightYellow;
+}
+
+h1 {
+	color: DimGray;
+	text-align: center;
+	font-family: 'Walter Turncoat', cursive;
+}
+p {
+	color: DarkSlateGray;
+	text-align: center;
+	font-family: 'Raleway', sans-serif;
+}
+
+a {
+	color: inherit;
+}
+
+.container {
+	height: 400px;
+	position: relative;
+	background-color: LemonChiffon;
+	border: 20px solid DarkSlateGray;
+}
+
+.center {
+	margin: 0;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	-ms-transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%);
+}
