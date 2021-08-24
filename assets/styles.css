@@ -28,7 +28,7 @@ a {
 
 .center {
 	margin: 0;
-	background-color: lightgray;
+    background: rgba(240, 240, 240, 0.5);
 	position: absolute;
 	top: 50%;
 	left: 50%;
