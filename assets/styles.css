@@ -28,6 +28,9 @@ a {
 
 .center {
 	margin: 0;
+	padding: 20px;
+	padding-left: 50px;
+	padding-right: 50px;
     background: rgba(240, 240, 240, 0.9);
 	position: absolute;
 	top: 50%;
