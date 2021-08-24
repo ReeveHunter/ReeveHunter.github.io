@@ -26,13 +26,6 @@ a {
 	color: inherit;
 }
 
-.container {
-	height: 400px;
-	position: relative;
-	/* background-color: LemonChiffon; */
-	border: 20px solid DarkSlateGray;
-}
-
 .center {
 	margin: 0;
 	position: absolute;
