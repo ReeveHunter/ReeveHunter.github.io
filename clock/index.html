@@ -21,7 +21,7 @@
         
         #time {
             color: white;
-            font-size: 96px;
+            font-size: 120px;
             font-weight: bold;
         }
     </style>
@@ -32,7 +32,8 @@
     <script>
         function updateTime() {
             const now = new Date();
-            const hours = now.getHours();
+            let hours = now.getHours();
+            hours = hours % 12 || 12; // Convert to 12-hour format
             const minutes = now.getMinutes().toString().padStart(2, '0');
             document.getElementById('time').textContent = `${hours}:${minutes}`;
         }
