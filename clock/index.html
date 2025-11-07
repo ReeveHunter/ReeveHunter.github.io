@@ -17,6 +17,7 @@
             align-items: center;
             height: 100vh;
             font-family: 'Montserrat', sans-serif;
+            flex-direction: column;
         }
         
         #time {
@@ -24,19 +25,321 @@
             font-size: 120px;
             font-weight: bold;
         }
+        
+        #endTime {
+            color: #555;
+            font-size: 36px;
+            font-weight: bold;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        #progressContainer {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        #progressBar {
+            width: 500px;
+            height: 30px;
+            background-color: #333;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #progressFill {
+            height: 100%;
+            background-color: #888;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        #progressError {
+            color: #f44336;
+            font-size: 18px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        #menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(40, 40, 40, 0.95);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            flex-wrap: wrap;
+        }
+        
+        #menu.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        #menu label {
+            color: white;
+            font-size: 16px;
+        }
+        
+        #menu input[type="time"] {
+            padding: 8px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        #menu input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        #menu button {
+            padding: 8px 16px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: bold;
+        }
+        
+        #menu button:hover {
+            background-color: #45a049;
+        }
+        
+        #menu button.clear {
+            background-color: #f44336;
+        }
+        
+        #menu button.clear:hover {
+            background-color: #da190b;
+        }
+        
+        #menu button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        
+        .menu-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 15px;
+            border-left: 2px solid #666;
+        }
+        
+        .menu-section:first-child {
+            border-left: none;
+        }
+        
+        #startTimeControls {
+            display: none;
+            gap: 10px;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
+    <div id="menu">
+        <div class="menu-section">
+            <label for="endTimeInput">End Time:</label>
+            <input type="time" id="endTimeInput">
+            <button onclick="setEndTime()">Set</button>
+            <button class="clear" onclick="clearEndTime()">Clear</button>
+        </div>
+        
+        <div class="menu-section">
+            <input type="checkbox" id="progressToggle" onchange="toggleProgressBar()">
+            <label for="progressToggle">Progress Bar</label>
+        </div>
+        
+        <div class="menu-section" id="startTimeControls">
+            <label for="startTimeInput">Start Time:</label>
+            <input type="time" id="startTimeInput">
+            <button onclick="setStartTime()">Set</button>
+            <button onclick="setStartTimeNow()">Use Now</button>
+        </div>
+    </div>
+    
     <div id="time"></div>
+    <div id="endTime"></div>
+    <div id="progressContainer">
+        <div id="progressBar">
+            <div id="progressFill"></div>
+        </div>
+        <div id="progressError"></div>
+    </div>
     
     <script>
+        let endTimeValue = null;
+        let endTimeValue24 = null;
+        let startTimeValue = null;
+        let progressBarEnabled = false;
+        let mouseIdleTimer = null;
+        
         function updateTime() {
             const now = new Date();
             let hours = now.getHours();
-            hours = hours % 12 || 12; // Convert to 12-hour format
+            hours = hours % 12 || 12;
             const minutes = now.getMinutes().toString().padStart(2, '0');
             document.getElementById('time').textContent = `${hours}:${minutes}`;
+            
+            updateEndTimeDisplay();
+            updateProgressBar();
         }
+        
+        function updateEndTimeDisplay() {
+            const endTimeDiv = document.getElementById('endTime');
+            if (endTimeValue) {
+                endTimeDiv.textContent = `End Time: ${endTimeValue}`;
+                endTimeDiv.style.display = 'block';
+            } else {
+                endTimeDiv.style.display = 'none';
+            }
+        }
+        
+        function timeToMinutes(timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+        
+        function getCurrentTimeIn24Hour() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+        
+        function updateProgressBar() {
+            const container = document.getElementById('progressContainer');
+            const fill = document.getElementById('progressFill');
+            const error = document.getElementById('progressError');
+            
+            if (!progressBarEnabled) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            error.style.display = 'none';
+            
+            if (!startTimeValue) {
+                error.textContent = 'Please set a start time';
+                error.style.display = 'block';
+                fill.style.width = '0%';
+                return;
+            }
+            
+            if (!endTimeValue24) {
+                error.textContent = 'Please set an end time';
+                error.style.display = 'block';
+                fill.style.width = '0%';
+                return;
+            }
+            
+            const currentTime = getCurrentTimeIn24Hour();
+            const currentMinutes = timeToMinutes(currentTime);
+            const startMinutes = timeToMinutes(startTimeValue);
+            const endMinutes = timeToMinutes(endTimeValue24);
+            
+            if (currentMinutes < startMinutes) {
+                fill.style.width = '0%';
+                return;
+            }
+            
+            if (currentMinutes > endMinutes) {
+                error.textContent = 'Current time is after end time';
+                error.style.display = 'block';
+                fill.style.width = '100%';
+                return;
+            }
+            
+            const totalMinutes = endMinutes - startMinutes;
+            const elapsedMinutes = currentMinutes - startMinutes;
+            const percentage = (elapsedMinutes / totalMinutes) * 100;
+            
+            fill.style.width = `${percentage}%`;
+        }
+        
+        function setEndTime() {
+            const input = document.getElementById('endTimeInput');
+            if (input.value) {
+                endTimeValue24 = input.value; // Store 24-hour format for calculations
+                const [hours24, minutes] = input.value.split(':');
+                let hours = parseInt(hours24);
+                hours = hours % 12 || 12;
+                endTimeValue = `${hours}:${minutes}`; // Display format
+                updateEndTimeDisplay();
+                updateProgressBar();
+            }
+        }
+        
+        function clearEndTime() {
+            endTimeValue = null;
+            endTimeValue24 = null;
+            document.getElementById('endTimeInput').value = '';
+            updateEndTimeDisplay();
+            updateProgressBar();
+        }
+        
+        function setStartTime() {
+            const input = document.getElementById('startTimeInput');
+            if (input.value) {
+                startTimeValue = input.value;
+                updateProgressBar();
+            }
+        }
+        
+        function setStartTimeNow() {
+            const now = getCurrentTimeIn24Hour();
+            document.getElementById('startTimeInput').value = now;
+            startTimeValue = now;
+            updateProgressBar();
+        }
+        
+        function toggleProgressBar() {
+            progressBarEnabled = document.getElementById('progressToggle').checked;
+            const startControls = document.getElementById('startTimeControls');
+            
+            if (progressBarEnabled) {
+                startControls.style.display = 'flex';
+            } else {
+                startControls.style.display = 'none';
+            }
+            
+            updateProgressBar();
+        }
+        
+        function showMenu() {
+            document.getElementById('menu').classList.add('visible');
+            clearTimeout(mouseIdleTimer);
+            mouseIdleTimer = setTimeout(hideMenu, 3000);
+        }
+        
+        function hideMenu() {
+            document.getElementById('menu').classList.remove('visible');
+        }
+        
+        document.addEventListener('mousemove', (e) => {
+            if (e.clientY < 100) {
+                showMenu();
+            } else {
+                clearTimeout(mouseIdleTimer);
+                mouseIdleTimer = setTimeout(hideMenu, 2000);
+            }
+        });
         
         updateTime();
         setInterval(updateTime, 1000);
