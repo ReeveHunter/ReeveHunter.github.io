@@ -237,6 +237,18 @@
             { filename: "16 American Salute by Gould.mp3", composer: "Gould", majorWork: null, selection: "American Salute" }
         ];
         
+        // Shuffle the pieces array
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+        
+        let shuffledPieces = shuffleArray(pieces);
+        
         let currentIndex = 0;
         let isPlaying = false;
         let clipTimeout = null;
@@ -399,6 +411,13 @@
                 isPaused = false;
                 currentIndex--;
                 loadTrack();
+                // Wait for audio to load, then auto-play
+                const checkLoaded = setInterval(() => {
+                    if (audioLoaded) {
+                        clearInterval(checkLoaded);
+                        playClip();
+                    }
+                }, 50);
             }
         });
         
