@@ -244,6 +244,9 @@
         let audioDuration = 0;
         let clipStartTime = 10;
         let hasPlayedOnce = false;
+        let clipStartTimes = []; // Store start times for each track
+        let isPaused = false;
+        let pausedTime = 0;
         
         const audio = document.getElementById('audio');
         const playBtn = document.getElementById('playBtn');
@@ -265,6 +268,8 @@
             audio.src = audioFile;
             audioLoaded = false;
             hasPlayedOnce = false;
+            isPaused = false;
+            pausedTime = 0;
             
             // Reset display
             infoBox.classList.add('hidden');
@@ -272,6 +277,7 @@
             
             // Disable buttons while loading
             playBtn.disabled = true;
+            playBtn.textContent = 'Play Clip';
             revealComposer.disabled = true;
             revealSelection.disabled = true;
             revealBoth.disabled = true;
@@ -283,17 +289,26 @@
             audioLoaded = true;
             audioDuration = audio.duration;
             
-            // Calculate safe start time for 20 second clip
-            // Skip first 10 seconds, but ensure we have 20 seconds of audio left
-            const maxStartTime = Math.max(10, audioDuration - 20);
-            const minStartTime = 10;
-            
-            if (audioDuration <= 30) {
-                // If audio is too short, use what we have
-                clipStartTime = minStartTime;
+            // Check if we already have a start time for this track
+            if (clipStartTimes[currentIndex] === undefined) {
+                // Calculate safe start time for 20 second clip
+                // Skip first 10 seconds, but ensure we have 20 seconds of audio left
+                const maxStartTime = Math.max(10, audioDuration - 20);
+                const minStartTime = 10;
+                
+                if (audioDuration <= 30) {
+                    // If audio is too short, use what we have
+                    clipStartTime = minStartTime;
+                } else {
+                    // Random start time between 10 seconds and (duration - 20 seconds)
+                    clipStartTime = minStartTime + Math.random() * (maxStartTime - minStartTime);
+                }
+                
+                // Store this start time
+                clipStartTimes[currentIndex] = clipStartTime;
             } else {
-                // Random start time between 10 seconds and (duration - 20 seconds)
-                clipStartTime = minStartTime + Math.random() * (maxStartTime - minStartTime);
+                // Use the previously stored start time
+                clipStartTime = clipStartTimes[currentIndex];
             }
             
             playBtn.disabled = false;
@@ -321,7 +336,15 @@
         function playClip() {
             if (!audioLoaded) return;
             
-            audio.currentTime = clipStartTime;
+            // If resuming from pause, continue from paused position
+            if (isPaused) {
+                audio.currentTime = pausedTime;
+                isPaused = false;
+            } else {
+                // Starting fresh - go to the clip start time
+                audio.currentTime = clipStartTime;
+            }
+            
             audio.play();
             isPlaying = true;
             hasPlayedOnce = true;
@@ -335,20 +358,27 @@
             infoBox.classList.add('hidden');
             infoBox.innerHTML = '<div>Listening...</div>';
             
-            // Stop after 20 seconds
+            // Calculate remaining time in the 20-second clip
+            const currentOffset = audio.currentTime - clipStartTime;
+            const remainingTime = Math.max(0, 20000 - (currentOffset * 1000));
+            
+            // Stop after remaining time
             if (clipTimeout) clearTimeout(clipTimeout);
             clipTimeout = setTimeout(() => {
                 audio.pause();
                 isPlaying = false;
+                isPaused = false;
                 playBtn.textContent = 'Replay Clip';
                 infoBox.innerHTML = '<div>Click reveal buttons to check your answer</div>';
-            }, 20000);
+            }, remainingTime);
         }
         
         function pauseClip() {
+            pausedTime = audio.currentTime;
+            isPaused = true;
             audio.pause();
             isPlaying = false;
-            playBtn.textContent = hasPlayedOnce ? 'Replay Clip' : 'Play Clip';
+            playBtn.textContent = 'Resume';
             if (clipTimeout) {
                 clearTimeout(clipTimeout);
                 clipTimeout = null;
@@ -366,6 +396,7 @@
         backBtn.addEventListener('click', () => {
             if (currentIndex > 0) {
                 pauseClip();
+                isPaused = false;
                 currentIndex--;
                 loadTrack();
             }
@@ -374,8 +405,16 @@
         nextBtn.addEventListener('click', () => {
             if (currentIndex < pieces.length - 1) {
                 pauseClip();
+                isPaused = false;
                 currentIndex++;
                 loadTrack();
+                // Wait for audio to load, then auto-play
+                const checkLoaded = setInterval(() => {
+                    if (audioLoaded) {
+                        clearInterval(checkLoaded);
+                        playClip();
+                    }
+                }, 50);
             } else {
                 // Show completion
                 pauseClip();
@@ -410,6 +449,9 @@
         
         restartBtn.addEventListener('click', () => {
             currentIndex = 0;
+            clipStartTimes = []; // Reset stored start times
+            isPaused = false;
+            pausedTime = 0;
             document.querySelector('.progress').style.display = 'block';
             document.querySelector('.navigation').style.display = 'flex';
             infoBox.style.display = 'flex';
