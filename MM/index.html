@@ -274,7 +274,7 @@
         const revealControls = document.getElementById('revealControls');
         
         function loadTrack() {
-            const piece = pieces[currentIndex];
+            const piece = shuffledPieces[currentIndex];
             const audioFile = `audio/${piece.filename}`;
             
             audio.src = audioFile;
@@ -333,7 +333,9 @@
         });
         
         function updateProgress() {
-            progressText.textContent = `Track ${currentIndex + 1} of ${pieces.length}`;
+            // Show how many have been listened to (current position + 1 when playing)
+            const listenedCount = hasPlayedOnce ? currentIndex + 1 : currentIndex;
+            progressText.textContent = `Listened: ${listenedCount} of ${shuffledPieces.length}`;
             backBtn.disabled = currentIndex === 0;
             nextBtn.disabled = false;
         }
@@ -369,6 +371,11 @@
             
             infoBox.classList.add('hidden');
             infoBox.innerHTML = '<div>Listening...</div>';
+            
+            // Update progress to show we've listened to this one
+            if (currentIndex > 0 || hasPlayedOnce) {
+                updateProgress();
+            }
             
             // Calculate remaining time in the 20-second clip
             const currentOffset = audio.currentTime - clipStartTime;
@@ -422,7 +429,7 @@
         });
         
         nextBtn.addEventListener('click', () => {
-            if (currentIndex < pieces.length - 1) {
+            if (currentIndex < shuffledPieces.length - 1) {
                 pauseClip();
                 isPaused = false;
                 currentIndex++;
@@ -446,19 +453,19 @@
         });
         
         revealComposer.addEventListener('click', () => {
-            const piece = pieces[currentIndex];
+            const piece = shuffledPieces[currentIndex];
             infoBox.classList.remove('hidden');
             infoBox.innerHTML = `<div class="composer">${piece.composer}</div>`;
         });
         
         revealSelection.addEventListener('click', () => {
-            const piece = pieces[currentIndex];
+            const piece = shuffledPieces[currentIndex];
             infoBox.classList.remove('hidden');
             infoBox.innerHTML = `<div class="selection">${formatSelection(piece)}</div>`;
         });
         
         revealBoth.addEventListener('click', () => {
-            const piece = pieces[currentIndex];
+            const piece = shuffledPieces[currentIndex];
             infoBox.classList.remove('hidden');
             infoBox.innerHTML = `
                 <div class="composer">${piece.composer}</div>
@@ -471,6 +478,7 @@
             clipStartTimes = []; // Reset stored start times
             isPaused = false;
             pausedTime = 0;
+            shuffledPieces = shuffleArray(pieces); // Reshuffle for new session
             document.querySelector('.progress').style.display = 'block';
             document.querySelector('.navigation').style.display = 'flex';
             infoBox.style.display = 'flex';
