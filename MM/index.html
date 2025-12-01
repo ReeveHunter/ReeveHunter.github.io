@@ -40,8 +40,69 @@
         .subtitle {
             text-align: center;
             color: #666;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-size: 14px;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+        
+        .toggle-label {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            cursor: pointer;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(24px);
         }
         
         .progress {
@@ -95,6 +156,135 @@
         
         .play-btn:hover:not(:disabled) {
             background: #45a049;
+        }
+        
+        .spelling-section {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 12px;
+            display: none;
+        }
+        
+        .spelling-section.active {
+            display: block;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-label {
+            display: block;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .spelling-input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+        
+        .spelling-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .accent-btn {
+            padding: 8px 12px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .accent-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .feedback {
+            margin-top: 5px;
+            font-size: 13px;
+            min-height: 20px;
+        }
+        
+        .feedback.correct {
+            color: #4CAF50;
+            font-weight: 500;
+        }
+        
+        .feedback.incorrect {
+            color: #f44336;
+        }
+        
+        .diff-display {
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+        
+        .char-correct {
+            color: #4CAF50;
+        }
+        
+        .char-wrong {
+            background: #ffcdd2;
+            color: #c62828;
+            padding: 2px 1px;
+        }
+        
+        .char-missing {
+            background: #fff9c4;
+            color: #f57f17;
+            padding: 2px 1px;
+        }
+        
+        .char-extra {
+            background: #ffcdd2;
+            text-decoration: line-through;
+            padding: 2px 1px;
+        }
+        
+        .check-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        .check-btn:hover {
+            background: #5568d3;
+        }
+        
+        .check-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
         
         .info-box {
@@ -188,6 +378,14 @@
         <h1>UIL Music Memory Practice</h1>
         <div class="subtitle">5th Grade • 2025-2026</div>
         
+        <div class="toggle-container">
+            <span class="toggle-label">Spelling Practice Mode</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="spellingToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        
         <div class="progress">
             <div class="progress-text" id="progressText">Listened: 0 of 16</div>
         </div>
@@ -196,6 +394,30 @@
             <button class="nav-btn" id="backBtn" disabled>← Back</button>
             <button class="nav-btn play-btn" id="playBtn">Play Clip</button>
             <button class="nav-btn" id="nextBtn">Next →</button>
+        </div>
+        
+        <div class="spelling-section" id="spellingSection">
+            <div class="input-group">
+                <label class="input-label">Composer:</label>
+                <div class="input-wrapper">
+                    <input type="text" class="spelling-input" id="composerInput" placeholder="Enter composer name">
+                    <button class="accent-btn" data-char="é">é</button>
+                    <button class="accent-btn" data-char="è">è</button>
+                </div>
+                <div class="feedback" id="composerFeedback"></div>
+            </div>
+            
+            <div class="input-group">
+                <label class="input-label">Major Work - Selection:</label>
+                <div class="input-wrapper">
+                    <input type="text" class="spelling-input" id="selectionInput" placeholder="Enter major work and selection">
+                    <button class="accent-btn" data-char="é">é</button>
+                    <button class="accent-btn" data-char="è">è</button>
+                </div>
+                <div class="feedback" id="selectionFeedback"></div>
+            </div>
+            
+            <button class="check-btn" id="checkSpellingBtn">Check Spelling</button>
         </div>
         
         <div class="info-box hidden" id="infoBox">
@@ -237,7 +459,6 @@
             { filename: "16 American Salute by Gould.mp3", composer: "Gould", majorWork: null, selection: "American Salute" }
         ];
         
-        // Shuffle the pieces array
         function shuffleArray(array) {
             const shuffled = [...array];
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -248,7 +469,6 @@
         }
         
         let shuffledPieces = shuffleArray(pieces);
-        
         let currentIndex = 0;
         let isPlaying = false;
         let clipTimeout = null;
@@ -256,9 +476,11 @@
         let audioDuration = 0;
         let clipStartTime = 10;
         let hasPlayedOnce = false;
-        let clipStartTimes = []; // Store start times for each track
+        let clipStartTimes = [];
         let isPaused = false;
         let pausedTime = 0;
+        let spellingMode = false;
+        let trackInputs = {}; // Store inputs for each track
         
         const audio = document.getElementById('audio');
         const playBtn = document.getElementById('playBtn');
@@ -272,6 +494,122 @@
         const completion = document.getElementById('completion');
         const restartBtn = document.getElementById('restartBtn');
         const revealControls = document.getElementById('revealControls');
+        const spellingToggle = document.getElementById('spellingToggle');
+        const spellingSection = document.getElementById('spellingSection');
+        const composerInput = document.getElementById('composerInput');
+        const selectionInput = document.getElementById('selectionInput');
+        const checkSpellingBtn = document.getElementById('checkSpellingBtn');
+        const composerFeedback = document.getElementById('composerFeedback');
+        const selectionFeedback = document.getElementById('selectionFeedback');
+        
+        // Accent button handlers
+        document.querySelectorAll('.accent-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const char = btn.dataset.char;
+                const input = btn.parentElement.querySelector('.spelling-input');
+                const start = input.selectionStart;
+                const end = input.selectionEnd;
+                const text = input.value;
+                input.value = text.substring(0, start) + char + text.substring(end);
+                input.focus();
+                input.selectionStart = input.selectionEnd = start + 1;
+            });
+        });
+        
+        spellingToggle.addEventListener('change', () => {
+            spellingMode = spellingToggle.checked;
+            if (spellingMode) {
+                spellingSection.classList.add('active');
+                restoreInputs();
+            } else {
+                spellingSection.classList.remove('active');
+            }
+        });
+        
+        function saveInputs() {
+            trackInputs[currentIndex] = {
+                composer: composerInput.value,
+                selection: selectionInput.value,
+                composerFeedback: composerFeedback.innerHTML,
+                selectionFeedback: selectionFeedback.innerHTML
+            };
+        }
+        
+        function restoreInputs() {
+            const saved = trackInputs[currentIndex];
+            if (saved) {
+                composerInput.value = saved.composer;
+                selectionInput.value = saved.selection;
+                composerFeedback.innerHTML = saved.composerFeedback;
+                selectionFeedback.innerHTML = saved.selectionFeedback;
+            } else {
+                composerInput.value = '';
+                selectionInput.value = '';
+                composerFeedback.innerHTML = '';
+                selectionFeedback.innerHTML = '';
+            }
+        }
+        
+        function formatSelection(piece) {
+            if (piece.majorWork) {
+                return `${piece.majorWork} - ${piece.selection}`;
+            }
+            return piece.selection;
+        }
+        
+        function compareStrings(input, correct) {
+            let html = '';
+            const maxLen = Math.max(input.length, correct.length);
+            
+            for (let i = 0; i < maxLen; i++) {
+                if (i >= correct.length) {
+                    // Extra character in input
+                    html += `<span class="char-extra">${input[i]}</span>`;
+                } else if (i >= input.length) {
+                    // Missing character from input
+                    html += `<span class="char-missing">${correct[i]}</span>`;
+                } else if (input[i] === correct[i]) {
+                    // Correct character
+                    html += `<span class="char-correct">${input[i]}</span>`;
+                } else {
+                    // Wrong character
+                    html += `<span class="char-wrong">${input[i]}</span>`;
+                }
+            }
+            
+            return html;
+        }
+        
+        checkSpellingBtn.addEventListener('click', () => {
+            const piece = shuffledPieces[currentIndex];
+            const composerCorrect = piece.composer;
+            const selectionCorrect = formatSelection(piece);
+            
+            const composerInput = document.getElementById('composerInput').value;
+            const selectionInput = document.getElementById('selectionInput').value;
+            
+            // Check composer
+            if (composerInput === composerCorrect) {
+                composerFeedback.className = 'feedback correct';
+                composerFeedback.innerHTML = '✓ Correct!';
+            } else {
+                composerFeedback.className = 'feedback incorrect';
+                const diff = compareStrings(composerInput, composerCorrect);
+                composerFeedback.innerHTML = `✗ Incorrect<div class="diff-display">${diff}</div>`;
+            }
+            
+            // Check selection
+            if (selectionInput === selectionCorrect) {
+                selectionFeedback.className = 'feedback correct';
+                selectionFeedback.innerHTML = '✓ Correct!';
+            } else {
+                selectionFeedback.className = 'feedback incorrect';
+                const diff = compareStrings(selectionInput, selectionCorrect);
+                selectionFeedback.innerHTML = `✗ Incorrect<div class="diff-display">${diff}</div>`;
+            }
+            
+            saveInputs();
+        });
         
         function loadTrack() {
             const piece = shuffledPieces[currentIndex];
@@ -283,16 +621,18 @@
             isPaused = false;
             pausedTime = 0;
             
-            // Reset display
             infoBox.classList.add('hidden');
             infoBox.innerHTML = '<div>Loading track...</div>';
             
-            // Disable buttons while loading
             playBtn.disabled = true;
             playBtn.textContent = 'Play Clip';
             revealComposer.disabled = true;
             revealSelection.disabled = true;
             revealBoth.disabled = true;
+            
+            if (spellingMode) {
+                restoreInputs();
+            }
             
             audio.load();
         }
@@ -301,25 +641,18 @@
             audioLoaded = true;
             audioDuration = audio.duration;
             
-            // Check if we already have a start time for this track
             if (clipStartTimes[currentIndex] === undefined) {
-                // Calculate safe start time for 20 second clip
-                // Skip first 10 seconds, but ensure we have 20 seconds of audio left
                 const maxStartTime = Math.max(10, audioDuration - 20);
                 const minStartTime = 10;
                 
                 if (audioDuration <= 30) {
-                    // If audio is too short, use what we have
                     clipStartTime = minStartTime;
                 } else {
-                    // Random start time between 10 seconds and (duration - 20 seconds)
                     clipStartTime = minStartTime + Math.random() * (maxStartTime - minStartTime);
                 }
                 
-                // Store this start time
                 clipStartTimes[currentIndex] = clipStartTime;
             } else {
-                // Use the previously stored start time
                 clipStartTime = clipStartTimes[currentIndex];
             }
             
@@ -333,29 +666,19 @@
         });
         
         function updateProgress() {
-            // Show how many have been listened to (current position + 1 when playing)
             const listenedCount = hasPlayedOnce ? currentIndex + 1 : currentIndex;
             progressText.textContent = `Listened: ${listenedCount} of ${shuffledPieces.length}`;
             backBtn.disabled = currentIndex === 0;
             nextBtn.disabled = false;
         }
         
-        function formatSelection(piece) {
-            if (piece.majorWork) {
-                return `${piece.majorWork} - ${piece.selection}`;
-            }
-            return piece.selection;
-        }
-        
         function playClip() {
             if (!audioLoaded) return;
             
-            // If resuming from pause, continue from paused position
             if (isPaused) {
                 audio.currentTime = pausedTime;
                 isPaused = false;
             } else {
-                // Starting fresh - go to the clip start time
                 audio.currentTime = clipStartTime;
             }
             
@@ -364,7 +687,6 @@
             hasPlayedOnce = true;
             playBtn.textContent = 'Pause';
             
-            // Enable reveal buttons after first play
             revealComposer.disabled = false;
             revealSelection.disabled = false;
             revealBoth.disabled = false;
@@ -372,16 +694,13 @@
             infoBox.classList.add('hidden');
             infoBox.innerHTML = '<div>Listening...</div>';
             
-            // Update progress to show we've listened to this one
             if (currentIndex > 0 || hasPlayedOnce) {
                 updateProgress();
             }
             
-            // Calculate remaining time in the 20-second clip
             const currentOffset = audio.currentTime - clipStartTime;
             const remainingTime = Math.max(0, 20000 - (currentOffset * 1000));
             
-            // Stop after remaining time
             if (clipTimeout) clearTimeout(clipTimeout);
             clipTimeout = setTimeout(() => {
                 audio.pause();
@@ -414,11 +733,11 @@
         
         backBtn.addEventListener('click', () => {
             if (currentIndex > 0) {
+                if (spellingMode) saveInputs();
                 pauseClip();
                 isPaused = false;
                 currentIndex--;
                 loadTrack();
-                // Wait for audio to load, then auto-play
                 const checkLoaded = setInterval(() => {
                     if (audioLoaded) {
                         clearInterval(checkLoaded);
@@ -430,11 +749,11 @@
         
         nextBtn.addEventListener('click', () => {
             if (currentIndex < shuffledPieces.length - 1) {
+                if (spellingMode) saveInputs();
                 pauseClip();
                 isPaused = false;
                 currentIndex++;
                 loadTrack();
-                // Wait for audio to load, then auto-play
                 const checkLoaded = setInterval(() => {
                     if (audioLoaded) {
                         clearInterval(checkLoaded);
@@ -442,10 +761,11 @@
                     }
                 }, 50);
             } else {
-                // Show completion
                 pauseClip();
                 document.querySelector('.progress').style.display = 'none';
                 document.querySelector('.navigation').style.display = 'none';
+                document.querySelector('.toggle-container').style.display = 'none';
+                spellingSection.style.display = 'none';
                 infoBox.style.display = 'none';
                 revealControls.style.display = 'none';
                 completion.style.display = 'block';
@@ -475,19 +795,23 @@
         
         restartBtn.addEventListener('click', () => {
             currentIndex = 0;
-            clipStartTimes = []; // Reset stored start times
+            clipStartTimes = [];
             isPaused = false;
             pausedTime = 0;
-            shuffledPieces = shuffleArray(pieces); // Reshuffle for new session
+            trackInputs = {};
+            shuffledPieces = shuffleArray(pieces);
             document.querySelector('.progress').style.display = 'block';
             document.querySelector('.navigation').style.display = 'flex';
+            document.querySelector('.toggle-container').style.display = 'flex';
+            if (spellingMode) {
+                spellingSection.style.display = 'block';
+            }
             infoBox.style.display = 'flex';
             revealControls.style.display = 'flex';
             completion.style.display = 'none';
             loadTrack();
         });
         
-        // Initialize
         loadTrack();
     </script>
 </body>
