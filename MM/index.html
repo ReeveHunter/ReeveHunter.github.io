@@ -250,12 +250,7 @@
 
         
         .char-missing {
-            display: inline;
             color: #f44336;
-        }
-        
-        .char-missing::before {
-            content: '_';
         }
         
         .char-extra {
@@ -628,7 +623,7 @@
                 } else if (op.type === 'delete') {
                     html += `<span class="char-extra">${op.char}</span>`;
                 } else if (op.type === 'insert' || op.type === 'replace') {
-                    html += `<span class="char-missing">█</span>`;
+                    html += `<span class="char-missing">_</span>`;
                 }
             }
             
