@@ -247,16 +247,18 @@
             color: #4CAF50;
         }
         
-        .char-wrong {
-            background: #ffcdd2;
-            color: #c62828;
-            padding: 2px 1px;
-        }
+
         
         .char-missing {
-            background: #fff9c4;
-            color: #f57f17;
-            padding: 2px 1px;
+            background: #424242;
+            color: #424242;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+        
+        .char-missing::before {
+            content: '█';
+            color: #424242;
         }
         
         .char-extra {
@@ -559,25 +561,92 @@
         
         function compareStrings(input, correct) {
             let html = '';
-            const maxLen = Math.max(input.length, correct.length);
             
-            for (let i = 0; i < maxLen; i++) {
-                if (i >= correct.length) {
-                    // Extra character in input
-                    html += `<span class="char-extra">${input[i]}</span>`;
-                } else if (i >= input.length) {
-                    // Missing character from input
-                    html += `<span class="char-missing">${correct[i]}</span>`;
-                } else if (input[i] === correct[i]) {
-                    // Correct character
-                    html += `<span class="char-correct">${input[i]}</span>`;
+            // Find longest common subsequence to align characters properly
+            const lcs = findLCS(input, correct);
+            let inputIdx = 0;
+            let correctIdx = 0;
+            let lcsIdx = 0;
+            
+            while (correctIdx < correct.length || inputIdx < input.length) {
+                if (correctIdx >= correct.length) {
+                    // Extra characters at the end
+                    html += `<span class="char-extra">${input[inputIdx]}</span>`;
+                    inputIdx++;
+                } else if (inputIdx >= input.length) {
+                    // Missing characters
+                    html += `<span class="char-missing">█</span>`;
+                    correctIdx++;
+                } else if (input[inputIdx] === correct[correctIdx]) {
+                    // Correct character in correct position
+                    html += `<span class="char-correct">${input[inputIdx]}</span>`;
+                    inputIdx++;
+                    correctIdx++;
+                    if (lcsIdx < lcs.length && input[inputIdx - 1] === lcs[lcsIdx]) {
+                        lcsIdx++;
+                    }
                 } else {
-                    // Wrong character
-                    html += `<span class="char-wrong">${input[i]}</span>`;
+                    // Check if this character appears later in correct position
+                    let foundInLCS = false;
+                    if (lcsIdx < lcs.length) {
+                        // If input char matches next LCS char, it's in right place but something is missing before it
+                        if (input[inputIdx] === lcs[lcsIdx] && input[inputIdx] === correct[correctIdx + 1]) {
+                            html += `<span class="char-missing">█</span>`;
+                            correctIdx++;
+                            foundInLCS = true;
+                        }
+                        // If correct char matches next LCS char, input has extra char here
+                        else if (correct[correctIdx] === lcs[lcsIdx] && correct[correctIdx] === input[inputIdx + 1]) {
+                            html += `<span class="char-extra">${input[inputIdx]}</span>`;
+                            inputIdx++;
+                            foundInLCS = true;
+                        }
+                    }
+                    
+                    if (!foundInLCS) {
+                        // Wrong character at this position
+                        html += `<span class="char-missing">█</span>`;
+                        correctIdx++;
+                        inputIdx++;
+                    }
                 }
             }
             
             return html;
+        }
+        
+        // Find longest common subsequence for better alignment
+        function findLCS(str1, str2) {
+            const m = str1.length;
+            const n = str2.length;
+            const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+            
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (str1[i - 1] === str2[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                    }
+                }
+            }
+            
+            // Backtrack to find LCS
+            let lcs = '';
+            let i = m, j = n;
+            while (i > 0 && j > 0) {
+                if (str1[i - 1] === str2[j - 1]) {
+                    lcs = str1[i - 1] + lcs;
+                    i--;
+                    j--;
+                } else if (dp[i - 1][j] > dp[i][j - 1]) {
+                    i--;
+                } else {
+                    j--;
+                }
+            }
+            
+            return lcs;
         }
         
         checkSpellingBtn.addEventListener('click', () => {
