@@ -4,345 +4,384 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clock</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
-            background-color: black;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: 'Montserrat', sans-serif;
-            flex-direction: column;
+            box-sizing: border-box;
         }
-        
-        #time {
+        body {
+            background: black;
             color: white;
-            font-size: 120px;
-            font-weight: bold;
-        }
-        
-        #endTime {
-            color: #555;
-            font-size: 36px;
-            font-weight: bold;
-            margin-top: 20px;
-            display: none;
-        }
-        
-        #progressContainer {
-            margin-top: 30px;
-            display: none;
-        }
-        
-        #progressBar {
-            width: 500px;
-            height: 30px;
-            background-color: #333;
-            border-radius: 15px;
+            font-family: 'Montserrat', sans-serif;
             overflow: hidden;
-            position: relative;
+            height: 100vh;
         }
-        
-        #progressFill {
-            height: 100%;
-            background-color: #888;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        
-        #progressError {
-            color: #f44336;
-            font-size: 18px;
-            margin-top: 10px;
-            display: none;
-        }
-        
         #menu {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            background-color: rgba(40, 40, 40, 0.95);
+            background: rgba(30, 30, 30, 0.95);
             padding: 20px;
             display: flex;
-            justify-content: center;
-            align-items: center;
             gap: 15px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
+            align-items: center;
             flex-wrap: wrap;
+            opacity: 0;
+            transform: translateY(-100%);
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 1000;
         }
-        
         #menu.visible {
             opacity: 1;
-            pointer-events: all;
+            transform: translateY(0);
         }
-        
-        #menu label {
-            color: white;
-            font-size: 16px;
-        }
-        
-        #menu input[type="time"] {
+        #menu input[type="time"],
+        #menu input[type="number"] {
             padding: 8px;
-            font-size: 16px;
-            border: none;
+            background: #333;
+            border: 1px solid #555;
+            color: white;
             border-radius: 4px;
-            font-family: 'Montserrat', sans-serif;
         }
-        
-        #menu input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-        
         #menu button {
             padding: 8px 16px;
-            font-size: 16px;
-            background-color: #4CAF50;
-            color: white;
+            background: #555;
             border: none;
+            color: white;
             border-radius: 4px;
             cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-weight: bold;
         }
-        
         #menu button:hover {
-            background-color: #45a049;
+            background: #666;
         }
-        
-        #menu button.clear {
-            background-color: #f44336;
-        }
-        
-        #menu button.clear:hover {
-            background-color: #da190b;
-        }
-        
-        #menu button:disabled {
-            background-color: #666;
-            cursor: not-allowed;
-        }
-        
-        .menu-section {
+        #menu label {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 5px 15px;
-            border-left: 2px solid #666;
+            gap: 8px;
         }
-        
-        .menu-section:first-child {
-            border-left: none;
-        }
-        
-        #startTimeControls {
-            display: none;
-            gap: 10px;
+        .menu-group {
+            display: flex;
+            gap: 8px;
             align-items: center;
+            padding: 5px 10px;
+            background: rgba(50, 50, 50, 0.5);
+            border-radius: 6px;
+        }
+        #clock-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 30px;
+        }
+        #time {
+            font-size: 120px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        #end-time-display {
+            font-size: 36px;
+            color: #888;
+            min-height: 44px;
+        }
+        #progress-container {
+            width: 500px;
+        }
+        #progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #333;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        #progress-fill {
+            height: 100%;
+            background: #888;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        #error-message {
+            color: #ff6b6b;
+            font-size: 18px;
+            margin-top: 10px;
+            min-height: 22px;
+        }
+        input[type="number"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
     </style>
 </head>
 <body>
     <div id="menu">
-        <div class="menu-section">
-            <label for="endTimeInput">End Time:</label>
-            <input type="time" id="endTimeInput">
-            <button onclick="setEndTime()">Set</button>
-            <button class="clear" onclick="clearEndTime()">Clear</button>
-        </div>
-        
-        <div class="menu-section">
-            <input type="checkbox" id="progressToggle" onchange="toggleProgressBar()">
-            <label for="progressToggle">Progress Bar</label>
-        </div>
-        
-        <div class="menu-section" id="startTimeControls">
-            <label for="startTimeInput">Start Time:</label>
-            <input type="time" id="startTimeInput">
+        <div class="menu-group">
+            <span>Start:</span>
+            <input type="time" id="start-time">
             <button onclick="setStartTime()">Set</button>
-            <button onclick="setStartTimeNow()">Use Now</button>
+            <button onclick="useNow()">Use Now</button>
+        </div>
+        <div class="menu-group">
+            <span>End:</span>
+            <input type="time" id="end-time">
+            <button onclick="setEndTime()">Set</button>
+            <button onclick="clearEndTime()">Clear</button>
+        </div>
+        <div class="menu-group">
+            <label>
+                <input type="checkbox" id="progress-checkbox" onchange="toggleProgress()">
+                Progress Bar
+            </label>
+        </div>
+        <div class="menu-group">
+            <label>
+                <input type="checkbox" id="extra-time-checkbox" onchange="toggleExtraTime()">
+                Extra Time
+            </label>
+            <input type="number" id="extra-minutes" min="1" value="30" disabled>
+            <span>minutes</span>
         </div>
     </div>
-    
-    <div id="time"></div>
-    <div id="endTime"></div>
-    <div id="progressContainer">
-        <div id="progressBar">
-            <div id="progressFill"></div>
+
+    <div id="clock-container">
+        <div id="time">12:00</div>
+        <div id="end-time-display"></div>
+        <div id="progress-container" style="display: none;">
+            <div id="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+            <div id="error-message"></div>
         </div>
-        <div id="progressError"></div>
     </div>
-    
+
     <script>
-        let endTimeValue = null;
-        let endTimeValue24 = null;
-        let startTimeValue = null;
-        let progressBarEnabled = false;
-        let mouseIdleTimer = null;
-        
-        function updateTime() {
+        let startTime = null;
+        let endTime = null;
+        let progressEnabled = false;
+        let extraTimeEnabled = false;
+        let menuTimeout;
+        let typingTimeout;
+        let isTyping = false;
+
+        function updateClock() {
             const now = new Date();
             let hours = now.getHours();
+            const minutes = now.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
             hours = hours % 12 || 12;
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            document.getElementById('time').textContent = `${hours}:${minutes}`;
-            
-            updateEndTimeDisplay();
-            updateProgressBar();
-        }
-        
-        function updateEndTimeDisplay() {
-            const endTimeDiv = document.getElementById('endTime');
-            if (endTimeValue) {
-                endTimeDiv.textContent = `End Time: ${endTimeValue}`;
-                endTimeDiv.style.display = 'block';
-            } else {
-                endTimeDiv.style.display = 'none';
+            const timeStr = `${hours}:${minutes.toString().padStart(2, '0')}`;
+            document.getElementById('time').textContent = timeStr;
+
+            if (progressEnabled) {
+                updateProgress();
             }
         }
-        
+
         function timeToMinutes(timeStr) {
             const [hours, minutes] = timeStr.split(':').map(Number);
             return hours * 60 + minutes;
         }
-        
-        function getCurrentTimeIn24Hour() {
+
+        function minutesToTime12Hour(minutes) {
+            let hours = Math.floor(minutes / 60) % 24;
+            const mins = minutes % 60;
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            return `${hours}:${mins.toString().padStart(2, '0')} ${ampm}`;
+        }
+
+        function getCurrentMinutes() {
+            const now = new Date();
+            return now.getHours() * 60 + now.getMinutes();
+        }
+
+        function updateProgress() {
+            const errorMsg = document.getElementById('error-message');
+            const endTimeDisplay = document.getElementById('end-time-display');
+            const progressFill = document.getElementById('progress-fill');
+
+            errorMsg.textContent = '';
+            
+            if (!startTime || !endTime) {
+                endTimeDisplay.textContent = '';
+                progressFill.style.width = '0%';
+                if (!startTime && !endTime) {
+                    errorMsg.textContent = 'Please set start and end times';
+                } else if (!startTime) {
+                    errorMsg.textContent = 'Please set start time';
+                } else {
+                    errorMsg.textContent = 'Please set end time';
+                }
+                return;
+            }
+
+            const currentMinutes = getCurrentMinutes();
+            const startMinutes = timeToMinutes(startTime);
+            const originalEndMinutes = timeToMinutes(endTime);
+            let endMinutes = originalEndMinutes;
+            let displayEndTime = endTime;
+            let isExtraTime = false;
+
+            // Check if we're past the original end time and extra time is enabled
+            if (currentMinutes >= originalEndMinutes && extraTimeEnabled) {
+                const extraMins = parseInt(document.getElementById('extra-minutes').value) || 0;
+                endMinutes = originalEndMinutes + extraMins;
+                displayEndTime = minutesToTime12Hour(endMinutes);
+                isExtraTime = true;
+            }
+
+            // Calculate progress first to determine if we're truly done
+            let progressPercentage = 0;
+            let isDone = false;
+
+            if (currentMinutes < startMinutes) {
+                // Before start time - show empty bar silently
+                progressPercentage = 0;
+            } else if (currentMinutes >= endMinutes) {
+                // At or after final end time (including extended end time)
+                progressPercentage = 100;
+                isDone = true;
+            } else {
+                // Between start and end
+                const totalDuration = endMinutes - startMinutes;
+                const elapsed = currentMinutes - startMinutes;
+                progressPercentage = (elapsed / totalDuration) * 100;
+            }
+
+            progressFill.style.width = `${progressPercentage}%`;
+
+            // Display end time or Times Up message
+            if (isDone) {
+                endTimeDisplay.textContent = 'Times Up!';
+            } else if (isExtraTime) {
+                endTimeDisplay.textContent = `Extra Time until ${displayEndTime}`;
+            } else {
+                const [hours, mins] = endTime.split(':').map(Number);
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12;
+                endTimeDisplay.textContent = `End Time: ${displayHours}:${mins.toString().padStart(2, '0')} ${ampm}`;
+            }
+        }
+
+        function setStartTime() {
+            const input = document.getElementById('start-time').value;
+            if (input) {
+                startTime = input;
+                if (progressEnabled) updateProgress();
+            }
+        }
+
+        function setEndTime() {
+            const input = document.getElementById('end-time').value;
+            if (input) {
+                endTime = input;
+                if (progressEnabled) updateProgress();
+            }
+        }
+
+        function clearEndTime() {
+            endTime = null;
+            document.getElementById('end-time').value = '';
+            document.getElementById('end-time-display').textContent = '';
+            document.getElementById('progress-fill').style.width = '0%';
+            if (progressEnabled) updateProgress();
+        }
+
+        function useNow() {
             const now = new Date();
             const hours = now.getHours().toString().padStart(2, '0');
             const minutes = now.getMinutes().toString().padStart(2, '0');
-            return `${hours}:${minutes}`;
+            const timeStr = `${hours}:${minutes}`;
+            document.getElementById('start-time').value = timeStr;
+            startTime = timeStr;
+            if (progressEnabled) updateProgress();
         }
-        
-        function updateProgressBar() {
-            const container = document.getElementById('progressContainer');
-            const fill = document.getElementById('progressFill');
-            const error = document.getElementById('progressError');
+
+        function toggleProgress() {
+            progressEnabled = document.getElementById('progress-checkbox').checked;
+            const container = document.getElementById('progress-container');
+            container.style.display = progressEnabled ? 'block' : 'none';
             
-            if (!progressBarEnabled) {
-                container.style.display = 'none';
-                return;
+            if (!progressEnabled) {
+                document.getElementById('extra-time-checkbox').checked = false;
+                extraTimeEnabled = false;
+                document.getElementById('extra-minutes').disabled = true;
             }
             
-            container.style.display = 'block';
-            error.style.display = 'none';
-            
-            if (!startTimeValue) {
-                error.textContent = 'Please set a start time';
-                error.style.display = 'block';
-                fill.style.width = '0%';
-                return;
-            }
-            
-            if (!endTimeValue24) {
-                error.textContent = 'Please set an end time';
-                error.style.display = 'block';
-                fill.style.width = '0%';
-                return;
-            }
-            
-            const currentTime = getCurrentTimeIn24Hour();
-            const currentMinutes = timeToMinutes(currentTime);
-            const startMinutes = timeToMinutes(startTimeValue);
-            const endMinutes = timeToMinutes(endTimeValue24);
-            
-            if (currentMinutes < startMinutes) {
-                fill.style.width = '0%';
-                return;
-            }
-            
-            if (currentMinutes > endMinutes) {
-                error.textContent = 'Current time is after end time';
-                error.style.display = 'block';
-                fill.style.width = '100%';
-                return;
-            }
-            
-            const totalMinutes = endMinutes - startMinutes;
-            const elapsedMinutes = currentMinutes - startMinutes;
-            const percentage = (elapsedMinutes / totalMinutes) * 100;
-            
-            fill.style.width = `${percentage}%`;
-        }
-        
-        function setEndTime() {
-            const input = document.getElementById('endTimeInput');
-            if (input.value) {
-                endTimeValue24 = input.value; // Store 24-hour format for calculations
-                const [hours24, minutes] = input.value.split(':');
-                let hours = parseInt(hours24);
-                hours = hours % 12 || 12;
-                endTimeValue = `${hours}:${minutes}`; // Display format
-                updateEndTimeDisplay();
-                updateProgressBar();
+            if (progressEnabled) {
+                updateProgress();
             }
         }
-        
-        function clearEndTime() {
-            endTimeValue = null;
-            endTimeValue24 = null;
-            document.getElementById('endTimeInput').value = '';
-            updateEndTimeDisplay();
-            updateProgressBar();
-        }
-        
-        function setStartTime() {
-            const input = document.getElementById('startTimeInput');
-            if (input.value) {
-                startTimeValue = input.value;
-                updateProgressBar();
-            }
-        }
-        
-        function setStartTimeNow() {
-            const now = getCurrentTimeIn24Hour();
-            document.getElementById('startTimeInput').value = now;
-            startTimeValue = now;
-            updateProgressBar();
-        }
-        
-        function toggleProgressBar() {
-            progressBarEnabled = document.getElementById('progressToggle').checked;
-            const startControls = document.getElementById('startTimeControls');
+
+        function toggleExtraTime() {
+            extraTimeEnabled = document.getElementById('extra-time-checkbox').checked;
+            document.getElementById('extra-minutes').disabled = !extraTimeEnabled || !progressEnabled;
             
-            if (progressBarEnabled) {
-                startControls.style.display = 'flex';
-            } else {
-                startControls.style.display = 'none';
+            if (!progressEnabled && extraTimeEnabled) {
+                document.getElementById('extra-time-checkbox').checked = false;
+                extraTimeEnabled = false;
+                document.getElementById('extra-minutes').disabled = true;
             }
             
-            updateProgressBar();
+            if (progressEnabled) updateProgress();
         }
-        
+
         function showMenu() {
-            document.getElementById('menu').classList.add('visible');
-            clearTimeout(mouseIdleTimer);
-            mouseIdleTimer = setTimeout(hideMenu, 3000);
+            const menu = document.getElementById('menu');
+            menu.classList.add('visible');
+            clearTimeout(menuTimeout);
+            if (!isTyping) {
+                menuTimeout = setTimeout(() => {
+                    menu.classList.remove('visible');
+                }, 3000);
+            }
         }
-        
-        function hideMenu() {
-            document.getElementById('menu').classList.remove('visible');
+
+        function hideMenuDelayed() {
+            if (!isTyping) {
+                clearTimeout(menuTimeout);
+                menuTimeout = setTimeout(() => {
+                    document.getElementById('menu').classList.remove('visible');
+                }, 3000);
+            }
         }
-        
+
+        // Menu visibility handling
         document.addEventListener('mousemove', (e) => {
             if (e.clientY < 100) {
                 showMenu();
-            } else {
-                clearTimeout(mouseIdleTimer);
-                mouseIdleTimer = setTimeout(hideMenu, 2000);
             }
         });
-        
-        updateTime();
-        setInterval(updateTime, 1000);
+
+        // Handle typing in inputs
+        const inputs = document.querySelectorAll('#menu input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                isTyping = true;
+                clearTimeout(menuTimeout);
+            });
+
+            input.addEventListener('blur', () => {
+                isTyping = false;
+                hideMenuDelayed();
+            });
+
+            input.addEventListener('input', () => {
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    isTyping = false;
+                    hideMenuDelayed();
+                }, 3000);
+            });
+        });
+
+        // Update clock every second
+        setInterval(updateClock, 1000);
+        updateClock();
     </script>
 </body>
 </html>
