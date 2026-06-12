@@ -1,0 +1,11 @@
+[
+  { "id": 1, "name": "Leftovers",                          "tags": [] },
+  { "id": 2, "name": "Grilled chicken, potatoes & veg",   "tags": ["grill"] },
+  { "id": 3, "name": "Vegan chili",                        "tags": ["veggie-friendly"] },
+  { "id": 4, "name": "Pasta with red sauce",               "tags": [] },
+  { "id": 5, "name": "Pasta with ground beef & red sauce", "tags": [] },
+  { "id": 6, "name": "Salmon, rice & veg",                 "tags": [] },
+  { "id": 7, "name": "Steak, veg & potato or rice",        "tags": [] },
+  { "id": 8, "name": "Pulled pork (Instant Pot)",          "tags": ["special"] },
+  { "id": 9, "name": "Roast (Instant Pot)",                "tags": ["special"] }
+]

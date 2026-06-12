@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Dinner Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream: #faf7f2;
+    --cream-dark: #f0ebe1;
+    --cream-border: #e0d8cc;
+    --ink: #2a2318;
+    --ink-mid: #6b5f4f;
+    --ink-light: #a0927e;
+    --rust: #c45c2a;
+    --rust-light: #f5ede7;
+    --rust-border: #e8c4b0;
+    --green: #3a6b47;
+    --green-light: #eaf2ec;
+    --shadow-sm: 0 1px 3px rgba(42,35,24,0.08), 0 1px 2px rgba(42,35,24,0.06);
+    --shadow-md: 0 4px 12px rgba(42,35,24,0.10), 0 2px 4px rgba(42,35,24,0.06);
+    --shadow-lg: 0 8px 24px rgba(42,35,24,0.12), 0 4px 8px rgba(42,35,24,0.06);
+    --radius: 12px;
+    --radius-sm: 7px;
+    --font-display: 'Lora', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .site-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1.5px solid var(--cream-border);
+  }
+  .site-header h1 {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .site-header h1 em {
+    color: var(--rust);
+    font-style: italic;
+  }
+  .site-header p {
+    font-size: 0.875rem;
+    color: var(--ink-light);
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .toolbar-label {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  button {
+    font-family: var(--font-body);
+    cursor: pointer;
+    border: 1.5px solid var(--cream-border);
+    background: white;
+    color: var(--ink);
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    box-shadow: var(--shadow-sm);
+  }
+  button:hover { border-color: var(--ink-light); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  button:active { transform: translateY(0); box-shadow: var(--shadow-sm); }
+  .btn-primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+  .btn-primary:hover { background: #3d3328; }
+  .btn-rust { background: var(--rust); color: white; border-color: var(--rust); }
+  .btn-rust:hover { background: #b05222; }
+  .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+
+  /* Week grid */
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    margin-bottom: 2.5rem;
+  }
+
+  @media (max-width: 700px) {
+    .week-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .day-card {
+    background: white;
+    border: 1.5px solid var(--cream-border);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s;
+    animation: fadeUp 0.3s ease both;
+  }
+  .day-card:hover { box-shadow: var(--shadow-md); }
+  .day-card.locked {
+    background: var(--rust-light);
+    border-color: var(--rust-border);
+  }
+  .day-card.today { border-color: var(--rust); box-shadow: 0 0 0 2px var(--rust-light), var(--shadow-md); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .day-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+  }
+  .day-card.locked .day-label { color: var(--rust); }
+
+  .day-meal {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ink);
+    min-height: 38px;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .day-meal.empty { color: var(--ink-light); font-weight: 300; }
+  .day-meal.locked-meal {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 0.8rem;
+    color: var(--rust);
+  }
+
+  .lock-note {
+    font-size: 0.68rem;
+    color: var(--rust);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.75;
+  }
+
+  .day-select {
+    font-family: var(--font-body);
+    width: 100%;
+    font-size: 0.72rem;
+    border: 1px solid var(--cream-border);
+    border-radius: var(--radius-sm);
+    padding: 5px 8px;
+    background: var(--cream);
+    color: var(--ink);
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a0927e' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+    transition: border-color 0.15s;
+  }
+  .day-select:hover { border-color: var(--ink-light); }
+  .day-select:focus { outline: none; border-color: var(--rust); }
+
+  /* Divider */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 2.5rem 0 1.5rem;
+  }
+  .section-divider::before, .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--cream-border);
+  }
+  .section-divider-label {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  /* Meal database */
+  .db-card {
+    background: white;
+    border: 1.5px solid var(--cream-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .db-header {
+    background: var(--cream-dark);
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--cream-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .db-header-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--ink-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .meal-count {
+    font-size: 0.75rem;
+    color: var(--ink-light);
+    background: var(--cream);
+    border: 1px solid var(--cream-border);
+    border-radius: 99px;
+    padding: 2px 10px;
+  }
+
+  .db-item {
+    display: flex;
+    align-items: center;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--cream-border);
+    gap: 10px;
+    transition: background 0.1s;
+  }
+  .db-item:last-child { border-bottom: none; }
+  .db-item:hover { background: var(--cream); }
+
+  .db-drag-handle {
+    color: var(--ink-light);
+    cursor: grab;
+    opacity: 0.35;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .db-item:hover .db-drag-handle { opacity: 0.7; }
+  .db-drag-handle:active { cursor: grabbing; }
+
+  .db-item.db-dragging { opacity: 0.4; }
+  .db-item.db-drag-over {
+    border-top: 2px solid var(--rust);
+    margin-top: -1px;
+  }
+
+  .meal-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--cream-border);
+    flex-shrink: 0;
+  }
+  .db-item-name {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--ink);
+  }
+  .tag {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 99px;
+    border: 1px solid var(--green-light);
+    background: var(--green-light);
+    color: var(--green);
+    font-weight: 500;
+  }
+  .remove-btn {
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--ink-light);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+  .remove-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .add-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 18px;
+    background: var(--cream);
+    border-top: 1px solid var(--cream-border);
+    align-items: center;
+  }
+  .add-row input {
+    flex: 1;
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    border: 1.5px solid var(--cream-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    background: white;
+    color: var(--ink);
+    transition: border-color 0.15s;
+  }
+  .add-row input::placeholder { color: var(--ink-light); }
+  .add-row input:focus { outline: none; border-color: var(--rust); }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--ink);
+    color: var(--cream);
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s;
+    box-shadow: var(--shadow-lg);
+    white-space: nowrap;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* SVG icon helpers */
+  .icon { display: inline-block; vertical-align: -3px; }
+
+  /* Card top row with drag handle + label + lock toggle */
+  .card-top-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .card-top-row .day-label { flex: 1; }
+
+  .drag-handle {
+    color: var(--ink-light);
+    cursor: grab;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .day-card:hover .drag-handle { opacity: 0.8; }
+  .drag-handle:active { cursor: grabbing; }
+
+  .lock-toggle-btn {
+    all: unset;
+    cursor: pointer;
+    font-size: 0.62rem;
+    color: var(--ink-light);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: none;
+  }
+  .lock-toggle-btn:hover {
+    color: var(--rust);
+    border-color: var(--rust-border);
+    background: var(--rust-light);
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Drag states */
+  .day-card.dragging {
+    opacity: 0.45;
+    transform: scale(0.97);
+  }
+  .day-card.drag-over {
+    border-color: var(--rust);
+    box-shadow: 0 0 0 2px var(--rust-light), var(--shadow-md);
+  }
+  @media print {
+    body { background: white; padding: 0.5rem; }
+    .toolbar, .section-divider, .db-card, .no-print { display: none !important; }
+    .day-select, .drag-handle, .lock-toggle-btn, .lock-note { display: none !important; }
+    .site-header { margin-bottom: 1rem; padding-bottom: 1rem; }
+    .week-grid { grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 0; }
+    .day-card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; padding: 10px 8px; }
+    .day-card.locked { background: #fdf0e8; }
+    .day-meal { font-size: 0.75rem; min-height: unset; }
+    .day-meal.locked-meal { font-size: 0.75rem; }
+    .day-label { font-size: 0.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="site-header">
+    <h1>Family <em>Dinner</em> Planner</h1>
+    <p>Every other week · Reeve's kitchen</p>
+  </header>
+
+  <div class="toolbar">
+    <span class="toolbar-label">This week's menu</span>
+    <div class="btn-group">
+      <button onclick="randomize()">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Randomize
+      </button>
+      <button class="btn-primary" onclick="copyMenu()">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy menu
+      </button>
+      <button class="btn" onclick="window.print()">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+    </div>
+  </div>
+
+  <div class="week-grid" id="weekGrid"></div>
+
+  <div class="section-divider">
+    <span class="section-divider-label">Meal Database</span>
+  </div>
+
+  <div class="db-card">
+    <div class="db-header">
+      <span class="db-header-label">Your meals</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="meal-count" id="mealCount"></span>
+        <button class="btn-sm" onclick="exportDB()" title="Export meal database as JSON">
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+        <button class="btn-sm" onclick="document.getElementById('importFile').click()" title="Import meal database from JSON">
+          <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import
+        </button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importDB(event)" />
+      </div>
+    </div>
+    <div id="dbList"></div>
+    <div class="add-row">
+      <input id="newMealInput" type="text" placeholder="Add a new meal and press Enter…" onkeydown="if(event.key==='Enter')addMeal()" />
+      <button class="btn-rust btn-sm" onclick="addMeal()">
+        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// Day order is fixed — dragging swaps meals between slots, not the days themselves.
+const DAY_DEFAULTS = [
+  { key: 'fri', label: 'Friday',    defaultLocked: true,  lockedMeal: 'Pizza & movie night',         note: '🍕 tradition' },
+  { key: 'sat', label: 'Saturday',  defaultLocked: false },
+  { key: 'sun', label: 'Sunday',    defaultLocked: false },
+  { key: 'mon', label: 'Monday',    defaultLocked: false },
+  { key: 'tue', label: 'Tuesday',   defaultLocked: false },
+  { key: 'wed', label: 'Wednesday', defaultLocked: false },
+  { key: 'thu', label: 'Thursday',  defaultLocked: true,  lockedMeal: 'Quesadilla & smoothie night', note: '🧀 tradition' },
+];
+
+const DEFAULT_MEALS = [
+  { id: 1, name: 'Leftovers',                           tags: [] },
+  { id: 2, name: 'Grilled chicken, potatoes & veg',    tags: ['grill'] },
+  { id: 3, name: 'Vegan chili',                         tags: ['veggie-friendly'] },
+  { id: 4, name: 'Pasta with red sauce',                tags: [] },
+  { id: 5, name: 'Pasta with ground beef & red sauce',  tags: [] },
+  { id: 6, name: 'Salmon, rice & veg',                  tags: [] },
+  { id: 7, name: 'Steak, veg & potato or rice',         tags: [] },
+  { id: 8, name: 'Pulled pork (Instant Pot)',            tags: ['special'] },
+  { id: 9, name: 'Roast (Instant Pot)',                  tags: ['special'] },
+];
+
+let meals = [];
+let nextId = 1;
+let weekPlan = {};
+// lockOverrides: keys that have been manually toggled away from their default
+let lockOverrides = {};
+
+function getDay(key) { return DAY_DEFAULTS.find(d => d.key === key); }
+function isLocked(key) {
+  const d = getDay(key);
+  if (!d) return false;
+  if (key in lockOverrides) return lockOverrides[key];
+  return d.defaultLocked;
+}
+
+// ── Persistence ───────────────────────────────────────────────
+
+// Priority order for meal data:
+//   1. meals.json (hosted alongside index.html in the repo)
+//   2. localStorage (session edits — add/remove/reorder)
+//   3. Hardcoded DEFAULT_MEALS (true last resort)
+//
+// The repo file is the canonical list. localStorage holds any
+// changes made this session. On export, save over meals.json
+// in the repo to make those changes permanent.
+
+async function loadData() {
+  // Always load lock overrides from localStorage
+  try {
+    const savedLocks = localStorage.getItem('dinnerLockOverrides');
+    if (savedLocks) lockOverrides = JSON.parse(savedLocks);
+  } catch(e) {}
+
+  // Try meals.json from the server first
+  let serverMeals = null;
+  try {
+    const res = await fetch('meals.json?_=' + Date.now()); // cache-bust
+    if (res.ok) {
+      const data = await res.json();
+      serverMeals = Array.isArray(data) ? data : (data.meals || null);
+    }
+  } catch(e) { /* fetch failed — offline or running from file://, fall through */ }
+
+  if (serverMeals && serverMeals.length) {
+    // Use server file as base, then merge in any localStorage additions
+    meals = serverMeals;
+    try {
+      const saved = localStorage.getItem('dinnerMeals_v2');
+      if (saved) {
+        const local = JSON.parse(saved);
+        const serverNames = new Set(meals.map(m => m.name.toLowerCase()));
+        // Append any locally-added meals not yet in the server file
+        local.forEach(m => {
+          if (m.name && !serverNames.has(m.name.toLowerCase())) {
+            meals.push(m);
+          }
+        });
+      }
+    } catch(e) {}
+    showToast('Meals loaded from meals.json');
+  } else {
+    // Fall back to localStorage, then defaults
+    try {
+      const saved = localStorage.getItem('dinnerMeals_v2');
+      if (saved) {
+        meals = JSON.parse(saved);
+      } else {
+        meals = DEFAULT_MEALS.map(m => ({...m}));
+      }
+    } catch(e) {
+      meals = DEFAULT_MEALS.map(m => ({...m}));
+    }
+  }
+
+  nextId = Math.max(...meals.map(m => m.id), 0) + 1;
+}
+
+function saveMeals() {
+  try { localStorage.setItem('dinnerMeals_v2', JSON.stringify(meals)); } catch(e) {}
+}
+function saveLocks() {
+  try { localStorage.setItem('dinnerLockOverrides', JSON.stringify(lockOverrides)); } catch(e) {}
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Menu logic ────────────────────────────────────────────────
+function getRandomMeals(count) {
+  const pool = [...meals];
+  const picked = [];
+  while (picked.length < count && pool.length > 0) {
+    const idx = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(idx, 1)[0].name);
+  }
+  while (picked.length < count) picked.push('');
+  return picked;
+}
+
+function randomize() {
+  const freeDays = DAY_DEFAULTS.map(d => d.key).filter(k => !isLocked(k));
+  const picks = getRandomMeals(freeDays.length);
+  freeDays.forEach((key, i) => { weekPlan[key] = picks[i] || ''; });
+  renderWeek();
+  showToast('Menu randomized!');
+}
+
+function setMeal(dayKey, val) {
+  if (!val) return;
+  weekPlan[dayKey] = val;
+  renderWeek();
+}
+
+function toggleLock(key) {
+  const d = getDay(key);
+  if (!d || !d.defaultLocked) return;
+  const currently = isLocked(key);
+  lockOverrides[key] = !currently;
+  saveLocks();
+  if (currently) { weekPlan[key] = getRandomMeals(1)[0] || ''; }
+  renderWeek();
+  showToast(lockOverrides[key] ? `${d.label} locked again.` : `${d.label} unlocked — pick any meal.`);
+}
+
+function copyMenu() {
+  const lines = DAY_DEFAULTS.map(d => {
+    if (isLocked(d.key)) return `${d.label}: ${d.lockedMeal}`;
+    return `${d.label}: ${weekPlan[d.key] || '(not set)'}`;
+  });
+  const text = "This week's dinners:\n" + lines.join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('Copied to clipboard!'))
+    .catch(() => showToast('Could not copy — try selecting manually.'));
+}
+
+// ── Render week ───────────────────────────────────────────────
+let dragSrcKey = null;
+
+function renderWeek() {
+  const grid = document.getElementById('weekGrid');
+  grid.innerHTML = '';
+
+  DAY_DEFAULTS.forEach((d, idx) => {
+    const key = d.key;
+    const locked = isLocked(key);
+    const isTradition = d.defaultLocked;
+
+    const card = document.createElement('div');
+    card.className = 'day-card' + (locked ? ' locked' : '');
+    card.style.animationDelay = (idx * 0.04) + 's';
+    card.draggable = !locked;
+    card.dataset.key = key;
+
+    const dragHint = !locked ? `<div class="drag-handle" title="Drag to move this meal to another day">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>
+    </div>` : `<div style="width:12px;flex-shrink:0;"></div>`;
+
+    const lockBtn = isTradition ? `
+      <button class="lock-toggle-btn" onclick="toggleLock('${key}')" title="${locked ? 'Unlock this night' : 'Re-lock to tradition'}">
+        ${locked
+          ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+          : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`
+        }
+        ${locked ? 'unlock' : 're-lock'}
+      </button>` : '';
+
+    const topRow = `<div class="card-top-row">
+      ${dragHint}
+      <div class="day-label">${esc(d.label)}</div>
+      ${lockBtn}
+    </div>`;
+
+    if (locked) {
+      card.innerHTML = `
+        ${topRow}
+        <div class="day-meal locked-meal">${esc(d.lockedMeal)}</div>
+        <div class="lock-note">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          ${esc(d.note)}
+        </div>
+      `;
+    } else {
+      const current = weekPlan[key] || '';
+      const opts = meals.map(m =>
+        `<option value="${esc(m.name)}"${current === m.name ? ' selected' : ''}>${esc(m.name)}</option>`
+      ).join('');
+      card.innerHTML = `
+        ${topRow}
+        <div class="day-meal${current ? '' : ' empty'}">${current ? esc(current) : 'Not set'}</div>
+        <select class="day-select" onchange="setMeal('${key}', this.value)">
+          <option value="">— change —</option>
+          ${opts}
+        </select>
+      `;
+    }
+
+    // Drag events — swap meals between days, keep day labels fixed
+    if (!locked) {
+      card.addEventListener('dragstart', (e) => {
+        dragSrcKey = key;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        document.querySelectorAll('.day-card').forEach(c => c.classList.remove('drag-over'));
+      });
+    }
+
+    card.addEventListener('dragover', (e) => {
+      if (!dragSrcKey || dragSrcKey === key || isLocked(key)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      card.classList.add('drag-over');
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+    card.addEventListener('drop', (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      if (!dragSrcKey || dragSrcKey === key || isLocked(key)) return;
+      // Swap just the meals between the two days
+      const tmp = weekPlan[dragSrcKey];
+      weekPlan[dragSrcKey] = weekPlan[key] || '';
+      weekPlan[key] = tmp || '';
+      dragSrcKey = null;
+      renderWeek();
+    });
+
+    grid.appendChild(card);
+  });
+}
+
+// ── Meal database ─────────────────────────────────────────────
+let dbDragSrcId = null;
+
+function renderDB() {
+  const list = document.getElementById('dbList');
+  list.innerHTML = '';
+  meals.forEach(meal => {
+    const row = document.createElement('div');
+    row.className = 'db-item';
+    row.dataset.id = meal.id;
+    row.draggable = true;
+    const tags = (meal.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join(' ');
+    row.innerHTML = `
+      <div class="db-drag-handle" title="Drag to reorder">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>
+      </div>
+      <span class="db-item-name">${esc(meal.name)}</span>
+      ${tags}
+      <button class="remove-btn" onclick="removeMeal(${meal.id})" title="Remove meal">✕</button>
+    `;
+
+    row.addEventListener('dragstart', (e) => {
+      dbDragSrcId = meal.id;
+      row.classList.add('db-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('db-dragging');
+      document.querySelectorAll('.db-item').forEach(r => r.classList.remove('db-drag-over'));
+    });
+    row.addEventListener('dragover', (e) => {
+      if (!dbDragSrcId || dbDragSrcId === meal.id) return;
+      e.preventDefault();
+      row.classList.add('db-drag-over');
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('db-drag-over'));
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('db-drag-over');
+      if (!dbDragSrcId || dbDragSrcId === meal.id) return;
+      const fromIdx = meals.findIndex(m => m.id === dbDragSrcId);
+      const toIdx = meals.findIndex(m => m.id === meal.id);
+      const [moved] = meals.splice(fromIdx, 1);
+      meals.splice(toIdx, 0, moved);
+      dbDragSrcId = null;
+      saveMeals();
+      renderDB();
+      renderWeek();
+    });
+
+    list.appendChild(row);
+  });
+  document.getElementById('mealCount').textContent = `${meals.length} meal${meals.length !== 1 ? 's' : ''}`;
+}
+
+function addMeal() {
+  const input = document.getElementById('newMealInput');
+  const name = input.value.trim();
+  if (!name) return;
+  if (meals.find(m => m.name.toLowerCase() === name.toLowerCase())) {
+    showToast('That meal is already in the list.');
+    return;
+  }
+  meals.push({ id: nextId++, name, tags: [] });
+  saveMeals();
+  input.value = '';
+  renderDB();
+  renderWeek();
+  showToast(`"${name}" added!`);
+}
+
+function removeMeal(id) {
+  const meal = meals.find(m => m.id === id);
+  if (!meal) return;
+  const row = document.querySelector(`.db-item[data-id="${id}"]`);
+  if (!row) return;
+  // If already in confirm state, do the removal
+  if (row.dataset.confirming === 'true') {
+    meals = meals.filter(m => m.id !== id);
+    Object.keys(weekPlan).forEach(k => { if (weekPlan[k] === meal.name) weekPlan[k] = ''; });
+    saveMeals();
+    renderDB();
+    renderWeek();
+    showToast('Meal removed.');
+    return;
+  }
+  // First click: show inline confirm
+  row.dataset.confirming = 'true';
+  const btn = row.querySelector('.remove-btn');
+  btn.textContent = 'Remove?';
+  btn.style.color = '#dc2626';
+  btn.style.background = '#fee2e2';
+  btn.style.borderRadius = '4px';
+  btn.style.padding = '2px 6px';
+  // Auto-cancel after 3 seconds
+  setTimeout(() => {
+    if (row.dataset.confirming === 'true') {
+      row.dataset.confirming = 'false';
+      btn.textContent = '✕';
+      btn.style.color = '';
+      btn.style.background = '';
+      btn.style.padding = '';
+    }
+  }, 3000);
+}
+
+// ── Export / Import ───────────────────────────────────────────
+function exportDB() {
+  const data = { version: 1, exported: new Date().toISOString(), meals };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'dinner-meals-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${meals.length} meals.`);
+}
+
+function importDB(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const incoming = Array.isArray(data) ? data : (data.meals || []);
+      if (!incoming.length) { showToast('No meals found in file.'); return; }
+      const existingNames = new Set(meals.map(m => m.name.toLowerCase()));
+      let added = 0;
+      incoming.forEach(m => {
+        if (m.name && !existingNames.has(m.name.toLowerCase())) {
+          meals.push({ id: nextId++, name: m.name, tags: m.tags || [] });
+          existingNames.add(m.name.toLowerCase());
+          added++;
+        }
+      });
+      saveMeals();
+      renderDB();
+      renderWeek();
+      showToast(added > 0 ? `Imported ${added} new meal${added !== 1 ? 's' : ''}.` : 'No new meals to import.');
+    } catch(err) {
+      showToast('Could not read file — is it a valid export?');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// Init
+(async () => {
+  await loadData();
+  randomize();
+  renderDB();
+})();
+</script>
+</body>
+</html>
