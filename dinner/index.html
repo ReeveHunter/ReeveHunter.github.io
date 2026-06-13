@@ -515,19 +515,19 @@ const DAY_DEFAULTS = [
 ];
 
 const DEFAULT_MEALS = [
-  { id: 1, name: 'Leftovers',                           tags: [] },
-  { id: 2, name: 'Grilled chicken, potatoes & veg',    tags: ['grill'] },
-  { id: 3, name: 'Vegan chili',                         tags: ['veggie-friendly'] },
-  { id: 4, name: 'Pasta with red sauce',                tags: [] },
-  { id: 5, name: 'Pasta with ground beef & red sauce',  tags: [] },
-  { id: 6, name: 'Salmon, rice & veg',                  tags: [] },
-  { id: 7, name: 'Steak, veg & potato or rice',         tags: [] },
-  { id: 8, name: 'Pulled pork (Instant Pot)',            tags: ['special'] },
-  { id: 9, name: 'Roast (Instant Pot)',                  tags: ['special'] },
+  'Leftovers',
+  'Grilled chicken, potatoes & veg',
+  'Vegan chili',
+  'Pasta with red sauce',
+  'Pasta with ground beef & red sauce',
+  'Salmon, rice & veg',
+  'Steak, veg & potato or rice',
+  'Pulled pork (Instant Pot)',
+  'Roast (Instant Pot)',
 ];
 
+// meals is just a plain array of name strings
 let meals = [];
-let nextId = 1;
 let weekPlan = {};
 // lockOverrides: keys that have been manually toggled away from their default
 let lockOverrides = {};
@@ -552,54 +552,43 @@ function isLocked(key) {
 // in the repo to make those changes permanent.
 
 async function loadData() {
-  // Always load lock overrides from localStorage
   try {
     const savedLocks = localStorage.getItem('dinnerLockOverrides');
     if (savedLocks) lockOverrides = JSON.parse(savedLocks);
   } catch(e) {}
 
-  // Try meals.json from the server first
+  // Normalize whatever we load into a plain array of name strings
+  function normalize(data) {
+    const arr = Array.isArray(data) ? data : (data.meals || []);
+    return arr.map(m => typeof m === 'string' ? m : m.name).filter(Boolean);
+  }
+
   let serverMeals = null;
   try {
-    const res = await fetch('meals.json?_=' + Date.now()); // cache-bust
-    if (res.ok) {
-      const data = await res.json();
-      serverMeals = Array.isArray(data) ? data : (data.meals || null);
-    }
-  } catch(e) { /* fetch failed — offline or running from file://, fall through */ }
+    const res = await fetch('meals.json?_=' + Date.now());
+    if (res.ok) serverMeals = normalize(await res.json());
+  } catch(e) {}
 
   if (serverMeals && serverMeals.length) {
-    // Use server file as base, then merge in any localStorage additions
     meals = serverMeals;
+    // Merge in any locally-added meals not yet in the server file
     try {
       const saved = localStorage.getItem('dinnerMeals_v2');
       if (saved) {
-        const local = JSON.parse(saved);
-        const serverNames = new Set(meals.map(m => m.name.toLowerCase()));
-        // Append any locally-added meals not yet in the server file
-        local.forEach(m => {
-          if (m.name && !serverNames.has(m.name.toLowerCase())) {
-            meals.push(m);
-          }
-        });
+        const local = normalize(JSON.parse(saved));
+        const serverSet = new Set(meals.map(n => n.toLowerCase()));
+        local.forEach(name => { if (!serverSet.has(name.toLowerCase())) meals.push(name); });
       }
     } catch(e) {}
     showToast('Meals loaded from meals.json');
   } else {
-    // Fall back to localStorage, then defaults
     try {
       const saved = localStorage.getItem('dinnerMeals_v2');
-      if (saved) {
-        meals = JSON.parse(saved);
-      } else {
-        meals = DEFAULT_MEALS.map(m => ({...m}));
-      }
+      meals = saved ? normalize(JSON.parse(saved)) : [...DEFAULT_MEALS];
     } catch(e) {
-      meals = DEFAULT_MEALS.map(m => ({...m}));
+      meals = [...DEFAULT_MEALS];
     }
   }
-
-  nextId = Math.max(...meals.map(m => m.id), 0) + 1;
 }
 
 function saveMeals() {
@@ -629,7 +618,7 @@ function getRandomMeals(count) {
   const picked = [];
   while (picked.length < count && pool.length > 0) {
     const idx = Math.floor(Math.random() * pool.length);
-    picked.push(pool.splice(idx, 1)[0].name);
+    picked.push(pool.splice(idx, 1)[0]);
   }
   while (picked.length < count) picked.push('');
   return picked;
@@ -719,8 +708,8 @@ function renderWeek() {
       `;
     } else {
       const current = weekPlan[key] || '';
-      const opts = meals.map(m =>
-        `<option value="${esc(m.name)}"${current === m.name ? ' selected' : ''}>${esc(m.name)}</option>`
+      const opts = meals.map(name =>
+        `<option value="${esc(name)}"${current === name ? ' selected' : ''}>${esc(name)}</option>`
       ).join('');
       card.innerHTML = `
         ${topRow}
@@ -769,28 +758,26 @@ function renderWeek() {
 }
 
 // ── Meal database ─────────────────────────────────────────────
-let dbDragSrcId = null;
+let dbDragSrcIdx = null;
 
 function renderDB() {
   const list = document.getElementById('dbList');
   list.innerHTML = '';
-  meals.forEach(meal => {
+  meals.forEach((name, idx) => {
     const row = document.createElement('div');
     row.className = 'db-item';
-    row.dataset.id = meal.id;
+    row.dataset.idx = idx;
     row.draggable = true;
-    const tags = (meal.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join(' ');
     row.innerHTML = `
       <div class="db-drag-handle" title="Drag to reorder">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>
       </div>
-      <span class="db-item-name">${esc(meal.name)}</span>
-      ${tags}
-      <button class="remove-btn" onclick="removeMeal(${meal.id})" title="Remove meal">✕</button>
+      <span class="db-item-name">${esc(name)}</span>
+      <button class="remove-btn" onclick="removeMeal(${idx})" title="Remove meal">✕</button>
     `;
 
     row.addEventListener('dragstart', (e) => {
-      dbDragSrcId = meal.id;
+      dbDragSrcIdx = idx;
       row.classList.add('db-dragging');
       e.dataTransfer.effectAllowed = 'move';
     });
@@ -799,7 +786,7 @@ function renderDB() {
       document.querySelectorAll('.db-item').forEach(r => r.classList.remove('db-drag-over'));
     });
     row.addEventListener('dragover', (e) => {
-      if (!dbDragSrcId || dbDragSrcId === meal.id) return;
+      if (dbDragSrcIdx === null || dbDragSrcIdx === idx) return;
       e.preventDefault();
       row.classList.add('db-drag-over');
     });
@@ -807,12 +794,10 @@ function renderDB() {
     row.addEventListener('drop', (e) => {
       e.preventDefault();
       row.classList.remove('db-drag-over');
-      if (!dbDragSrcId || dbDragSrcId === meal.id) return;
-      const fromIdx = meals.findIndex(m => m.id === dbDragSrcId);
-      const toIdx = meals.findIndex(m => m.id === meal.id);
-      const [moved] = meals.splice(fromIdx, 1);
-      meals.splice(toIdx, 0, moved);
-      dbDragSrcId = null;
+      if (dbDragSrcIdx === null || dbDragSrcIdx === idx) return;
+      const [moved] = meals.splice(dbDragSrcIdx, 1);
+      meals.splice(idx, 0, moved);
+      dbDragSrcIdx = null;
       saveMeals();
       renderDB();
       renderWeek();
@@ -827,11 +812,11 @@ function addMeal() {
   const input = document.getElementById('newMealInput');
   const name = input.value.trim();
   if (!name) return;
-  if (meals.find(m => m.name.toLowerCase() === name.toLowerCase())) {
+  if (meals.find(m => m.toLowerCase() === name.toLowerCase())) {
     showToast('That meal is already in the list.');
     return;
   }
-  meals.push({ id: nextId++, name, tags: [] });
+  meals.push(name);
   saveMeals();
   input.value = '';
   renderDB();
@@ -839,22 +824,20 @@ function addMeal() {
   showToast(`"${name}" added!`);
 }
 
-function removeMeal(id) {
-  const meal = meals.find(m => m.id === id);
-  if (!meal) return;
-  const row = document.querySelector(`.db-item[data-id="${id}"]`);
+function removeMeal(idx) {
+  const name = meals[idx];
+  if (name === undefined) return;
+  const row = document.querySelector(`.db-item[data-idx="${idx}"]`);
   if (!row) return;
-  // If already in confirm state, do the removal
   if (row.dataset.confirming === 'true') {
-    meals = meals.filter(m => m.id !== id);
-    Object.keys(weekPlan).forEach(k => { if (weekPlan[k] === meal.name) weekPlan[k] = ''; });
+    meals.splice(idx, 1);
+    Object.keys(weekPlan).forEach(k => { if (weekPlan[k] === name) weekPlan[k] = ''; });
     saveMeals();
     renderDB();
     renderWeek();
     showToast('Meal removed.');
     return;
   }
-  // First click: show inline confirm
   row.dataset.confirming = 'true';
   const btn = row.querySelector('.remove-btn');
   btn.textContent = 'Remove?';
@@ -862,7 +845,6 @@ function removeMeal(id) {
   btn.style.background = '#fee2e2';
   btn.style.borderRadius = '4px';
   btn.style.padding = '2px 6px';
-  // Auto-cancel after 3 seconds
   setTimeout(() => {
     if (row.dataset.confirming === 'true') {
       row.dataset.confirming = 'false';
@@ -876,12 +858,11 @@ function removeMeal(id) {
 
 // ── Export / Import ───────────────────────────────────────────
 function exportDB() {
-  const data = { version: 1, exported: new Date().toISOString(), meals };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(meals, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'dinner-meals-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.download = 'meals.json';
   a.click();
   URL.revokeObjectURL(url);
   showToast(`Exported ${meals.length} meals.`);
@@ -894,14 +875,15 @@ function importDB(event) {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      const incoming = Array.isArray(data) ? data : (data.meals || []);
+      const arr = Array.isArray(data) ? data : (data.meals || []);
+      const incoming = arr.map(m => typeof m === 'string' ? m : m.name).filter(Boolean);
       if (!incoming.length) { showToast('No meals found in file.'); return; }
-      const existingNames = new Set(meals.map(m => m.name.toLowerCase()));
+      const existingNames = new Set(meals.map(n => n.toLowerCase()));
       let added = 0;
-      incoming.forEach(m => {
-        if (m.name && !existingNames.has(m.name.toLowerCase())) {
-          meals.push({ id: nextId++, name: m.name, tags: m.tags || [] });
-          existingNames.add(m.name.toLowerCase());
+      incoming.forEach(name => {
+        if (!existingNames.has(name.toLowerCase())) {
+          meals.push(name);
+          existingNames.add(name.toLowerCase());
           added++;
         }
       });
