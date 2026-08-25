@@ -1,34 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no">
-	<base href="http://www.reevehunter.com/">
-	
-	<link rel="stylesheet" href="../assets/styles.css">
-	
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Raleway&family=Walter+Turncoat&display=swap" rel="stylesheet">
-	
-	<title>Reeve Hunter</title>
-	<link rel="icon" type="image/png" href="../assets/favicon.png">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Math resources and practice problems from Reeve Hunter.">
+  <title>Math — Reeve Hunter</title>
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600&family=Walter+Turncoat&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 2rem 1rem;
+      font-family: 'Raleway', sans-serif;
+      color: DarkSlateGray;
+      background: url("/assets/bg.jpg") center / cover no-repeat;
+    }
+
+    main {
+      width: min(90vw, 32rem);
+      background: rgba(240, 240, 240, 0.92);
+      border-radius: 12px;
+      padding: 1.75rem 2rem;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    h1 {
+      margin: 0 0 1rem;
+      color: DimGray;
+      font-family: 'Walter Turncoat', cursive;
+      font-size: clamp(2rem, 6vw, 2.75rem);
+    }
+
+    p {
+      margin: 0.5rem 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    a:hover {
+      color: DimGray;
+    }
+
+    figure {
+      margin: 0;
+      width: min(90vw, 32rem);
+    }
+
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+  </style>
 </head>
 
 <body>
-<div class="bg">
-	<div class="center">
-		<h1>MATH</h1>
-		<p><a href="ReeveHunter.github.io/CheckItBU/Cal-I">Baylor University - Calculus I Practice Problems</a></p>
-		<p><a href="https://math.artsandsciences.baylor.edu/person/reeve-hunter-phd">Baylor Contact Info
-		</a></p>
-	</div>
-</div>
+  <main>
+    <h1>Math</h1>
+    <p><a href="/CheckItBU/Cal-I/">Baylor University — Calculus I Practice Problems</a></p>
+    <p><a href="https://math.artsandsciences.baylor.edu/person/reeve-hunter-phd">Baylor Contact Info</a></p>
+  </main>
 
-<div class="center">
-	<img src="../assets/mathaddition.jpg" alt="Addition visual aid" style="max-width: 100%; height: auto;">
-</div>
-
+  <figure>
+    <img src="/assets/mathaddition.jpg" alt="Addition visual aid" width="1344" height="1069" loading="lazy">
+  </figure>
 </body>
 </html>
