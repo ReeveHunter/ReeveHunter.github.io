@@ -1,0 +1,1043 @@
+<title>Group Shuffler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --bg: #F2F5EF;
+    --surface: #FFFFFF;
+    --surface-soft: #E9EEE4;
+    --ink: #1B241F;
+    --ink-soft: #5B6A60;
+    --ink-faint: #8B978D;
+    --line: #DAE1D3;
+    --line-strong: #C3CDB9;
+    --accent: #DC9A34;
+    --accent-strong: #B87A1E;
+    --accent-ink: #241A05;
+    --danger: #B5482F;
+    --shadow: 0 1px 2px rgba(27, 36, 31, 0.06), 0 8px 24px -12px rgba(27, 36, 31, 0.18);
+    --radius-lg: 18px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --tag-1: #2F7A6B;
+    --tag-2: #3E7CB1;
+    --tag-3: #B9536F;
+    --tag-4: #7C8C3E;
+    --tag-5: #7A5980;
+    --tag-6: #C6821E;
+    --card-dark: 88%;
+    --on-tint: #F8FBF5;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141D17;
+      --surface: #1E2A21;
+      --surface-soft: #263427;
+      --ink: #ECF2EA;
+      --ink-soft: #A2B2A5;
+      --ink-faint: #6E7C71;
+      --line: #33422F;
+      --line-strong: #435038;
+      --accent: #F0B65B;
+      --accent-strong: #F5C97A;
+      --accent-ink: #241A05;
+      --danger: #E08A6E;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -12px rgba(0, 0, 0, 0.55);
+      --tag-1: #4FA593;
+      --tag-2: #6FA8D8;
+      --tag-3: #E08AA4;
+      --tag-4: #A8BC5E;
+      --tag-5: #A480AC;
+      --tag-6: #E0A24E;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #141D17;
+    --surface: #1E2A21;
+    --surface-soft: #263427;
+    --ink: #ECF2EA;
+    --ink-soft: #A2B2A5;
+    --ink-faint: #6E7C71;
+    --line: #33422F;
+    --line-strong: #435038;
+    --accent: #F0B65B;
+    --accent-strong: #F5C97A;
+    --accent-ink: #241A05;
+    --danger: #E08A6E;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -12px rgba(0, 0, 0, 0.55);
+    --tag-1: #4FA593;
+    --tag-2: #6FA8D8;
+    --tag-3: #E08AA4;
+    --tag-4: #A8BC5E;
+    --tag-5: #A480AC;
+    --tag-6: #E0A24E;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+  }
+
+  header.top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .brand h1 {
+    font-family: "Zilla Slab", ui-serif, Georgia, serif;
+    font-weight: 700;
+    font-size: 1.7rem;
+    margin: 0;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .brand .die {
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  .tagline {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+    max-width: 40ch;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 24px;
+  }
+
+  .setup-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 720px) {
+    .setup-grid { grid-template-columns: 1fr; }
+  }
+
+  .field label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+
+  .field .hint {
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    margin: 6px 0 0;
+  }
+
+  textarea#names {
+    width: 100%;
+    min-height: 200px;
+    resize: vertical;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    font-family: "Work Sans", ui-sans-serif, sans-serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+
+  textarea#names:focus-visible,
+  input:focus-visible,
+  button:focus-visible,
+  .chip:focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: 2px;
+  }
+
+  .side-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    width: fit-content;
+    background: var(--bg);
+  }
+
+  .stepper button {
+    width: 40px;
+    height: 44px;
+    border: none;
+    background: var(--surface-soft);
+    color: var(--ink);
+    font-size: 1.15rem;
+    cursor: pointer;
+    font-family: "Work Sans", sans-serif;
+  }
+
+  .stepper button:hover { background: var(--line); }
+
+  .stepper input {
+    width: 56px;
+    height: 44px;
+    text-align: center;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+  }
+
+  .stepper input::-webkit-outer-spin-button,
+  .stepper input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .status-line {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    min-height: 1.2em;
+  }
+
+  .status-line.warn { color: var(--danger); }
+
+  .btn {
+    appearance: none;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 12px 20px;
+    font-family: "Work Sans", sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.08s ease, background 0.15s ease;
+  }
+
+  .btn:active { transform: translateY(1px); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn-primary:hover { background: var(--accent-strong); }
+
+  .btn-primary:disabled {
+    background: var(--surface-soft);
+    color: var(--ink-faint);
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: var(--surface-soft);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+  }
+
+  .btn-secondary:hover { background: var(--line); }
+
+  .results {
+    margin-top: 36px;
+  }
+
+  .results-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .results-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  body.focus-mode #viewFullscreenBtn {
+    display: none;
+  }
+
+  .results-head h2 {
+    font-family: "Zilla Slab", serif;
+    font-size: 1.25rem;
+    margin: 0 0 4px;
+  }
+
+  .results-meta {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .empty-state {
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-lg);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 0.92rem;
+    margin-top: 36px;
+  }
+
+  .groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+
+  .group-card {
+    --tag-shade: color-mix(in srgb, var(--tag-color, var(--accent)) var(--card-dark, 88%), black);
+    background: var(--tag-color, var(--accent));
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+
+  .group-card.is-drop-target {
+    border-color: var(--tag-color, var(--accent));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tag-color, var(--accent)) 30%, transparent);
+  }
+
+  .group-card .bar {
+    height: 6px;
+    background: var(--tag-shade);
+  }
+
+  .group-card .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 8px;
+  }
+
+  .group-card h3 {
+    font-family: "Zilla Slab", serif;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--on-tint);
+  }
+
+  .group-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 12px 16px;
+    min-height: 64px;
+  }
+
+  .chip {
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-size: 0.88rem;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .chip:hover {
+    border-color: var(--tag-color, var(--line-strong));
+  }
+
+  .chip.is-dragging {
+    opacity: 0.35;
+  }
+
+  .chip.is-target {
+    border-color: var(--tag-color, var(--accent));
+    background: color-mix(in srgb, var(--tag-color, var(--accent)) 16%, var(--surface-soft));
+  }
+
+  .chip-ghost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 999;
+    pointer-events: none;
+    background: var(--surface);
+    border: 1px solid var(--tag-color, var(--accent));
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-size: 0.88rem;
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  footer.hint {
+    margin-top: 22px;
+    color: var(--ink-faint);
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  .icon-btn {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 60;
+    width: 42px;
+    height: 42px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-soft);
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .icon-btn:hover {
+    color: var(--ink);
+    border-color: var(--accent);
+    background: var(--surface-soft);
+  }
+
+  .icon-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  body.focus-mode {
+    overflow: hidden;
+  }
+
+  body.focus-mode .setup-view {
+    display: none;
+  }
+
+  body.focus-mode .icon-btn {
+    display: inline-flex;
+  }
+
+  body.focus-mode .results {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    margin: 0;
+    background: var(--bg);
+    padding: 64px 28px 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.focus-mode .results-head {
+    margin-bottom: 12px;
+    flex: 0 0 auto;
+  }
+
+  body.focus-mode .results-head h2 {
+    font-size: 1.15rem;
+  }
+
+  body.focus-mode .results-meta {
+    font-size: 0.85rem;
+  }
+
+  body.focus-mode footer.hint {
+    display: none;
+  }
+
+  body.focus-mode .groups-grid {
+    gap: 18px;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  body.focus-mode .group-card {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  body.focus-mode .group-card .bar {
+    height: calc(5px * var(--header-scale, 1));
+  }
+
+  body.focus-mode .card-head {
+    padding: calc(12px * var(--header-scale, 1)) calc(16px * var(--header-scale, 1)) calc(6px * var(--header-scale, 1));
+  }
+
+  body.focus-mode .group-card h3 {
+    font-size: calc(1.05rem * var(--header-scale, 1));
+  }
+
+  body.focus-mode .group-body {
+    min-height: 0;
+    gap: calc(9px * var(--card-scale, 1));
+    padding: calc(8px * var(--card-scale, 1)) calc(16px * var(--card-scale, 1)) calc(16px * var(--card-scale, 1));
+    align-items: center;
+    align-content: center;
+    justify-content: center;
+    overflow: auto;
+  }
+
+  body.focus-mode .chip {
+    font-size: calc(1rem * var(--card-scale, 1));
+    padding: calc(7px * var(--card-scale, 1)) calc(14px * var(--card-scale, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn, .group-card, .chip { transition: none; }
+  }
+</style>
+
+<div class="page">
+  <div class="setup-view" id="setupView">
+    <header class="top">
+      <div class="brand">
+        <span class="die">🎲</span>
+        <h1>Group Shuffler</h1>
+      </div>
+      <p class="tagline">Paste your class list, pick a group size, and shuffle. Then drag names between groups to fine-tune.</p>
+    </header>
+
+    <section class="panel">
+      <div class="setup-grid">
+        <div class="field">
+          <label for="names">Student names</label>
+          <textarea id="names" placeholder="Paste names here — one per line, or separated by commas.&#10;&#10;Lily B&#10;Johanna&#10;Andrew&#10;John"></textarea>
+          <p class="hint">One name per line, or a comma-separated list — either works.</p>
+        </div>
+        <div class="side-stack">
+          <div class="field">
+            <label for="groupSize">Students per group</label>
+            <div class="stepper">
+              <button type="button" id="sizeDown" aria-label="Decrease group size">–</button>
+              <input type="number" id="groupSize" value="4" min="2" max="12" inputmode="numeric" />
+              <button type="button" id="sizeUp" aria-label="Increase group size">+</button>
+            </div>
+            <p class="hint">We'll avoid leaving a group of 1 or 2 — a few groups of 3 instead, when needed.</p>
+          </div>
+          <div>
+            <button class="btn btn-primary" id="shuffleBtn" type="button">Shuffle into groups</button>
+            <p class="status-line" id="statusLine"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="empty-state" id="emptyState">
+      Add at least two names above, then click "Shuffle into groups" to get started.
+    </div>
+  </div>
+
+  <section class="results" id="results" hidden>
+    <div class="results-head">
+      <div>
+        <h2>Groups</h2>
+        <p class="results-meta" id="resultsMeta"></p>
+      </div>
+      <div class="results-actions">
+        <button class="btn btn-secondary" id="viewFullscreenBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+          Fullscreen
+        </button>
+        <button class="btn btn-secondary" id="reshuffleBtn" type="button">Shuffle again</button>
+      </div>
+    </div>
+    <div class="groups-grid" id="groupsGrid"></div>
+    <footer class="hint">Drag a name onto another name to swap groups, or drop it into an empty spot to move it there.</footer>
+  </section>
+
+  <button class="icon-btn" id="exitFocusBtn" type="button" title="Back to setup" aria-label="Back to setup">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="4 14 10 14 10 20"></polyline>
+      <polyline points="20 10 14 10 14 4"></polyline>
+      <line x1="14" y1="10" x2="21" y2="3"></line>
+      <line x1="3" y1="21" x2="10" y2="14"></line>
+    </svg>
+  </button>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+
+    var TAG_COLORS = ["var(--tag-1)", "var(--tag-2)", "var(--tag-3)", "var(--tag-4)", "var(--tag-5)", "var(--tag-6)"];
+
+    var namesEl = document.getElementById("names");
+    var groupSizeEl = document.getElementById("groupSize");
+    var sizeDownBtn = document.getElementById("sizeDown");
+    var sizeUpBtn = document.getElementById("sizeUp");
+    var shuffleBtn = document.getElementById("shuffleBtn");
+    var reshuffleBtn = document.getElementById("reshuffleBtn");
+    var statusLine = document.getElementById("statusLine");
+    var resultsSection = document.getElementById("results");
+    var resultsMeta = document.getElementById("resultsMeta");
+    var groupsGrid = document.getElementById("groupsGrid");
+    var emptyState = document.getElementById("emptyState");
+
+    var currentGroups = [];
+
+    function parseNames(raw) {
+      return raw
+        .split(/[\n,]+/)
+        .map(function (s) { return s.trim(); })
+        .filter(Boolean);
+    }
+
+    function shuffle(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = a[i];
+        a[i] = a[j];
+        a[j] = tmp;
+      }
+      return a;
+    }
+
+    function computeGroupSizes(n, target) {
+      if (n <= 0) return [];
+      target = Math.max(1, target);
+      var g = Math.max(1, Math.ceil(n / target));
+      var threshold = Math.min(3, target);
+
+      function sizesFor(groupCount) {
+        var base = Math.floor(n / groupCount);
+        var rem = n % groupCount;
+        var sizes = [];
+        for (var i = 0; i < groupCount; i++) {
+          sizes.push(base + (i < rem ? 1 : 0));
+        }
+        return sizes;
+      }
+
+      var sizes = sizesFor(g);
+      while (g > 1 && Math.min.apply(null, sizes) < threshold) {
+        g -= 1;
+        sizes = sizesFor(g);
+      }
+      return sizes;
+    }
+
+    function updateStatus() {
+      var names = parseNames(namesEl.value);
+      var n = names.length;
+      if (n === 0) {
+        statusLine.textContent = "";
+        statusLine.classList.remove("warn");
+        shuffleBtn.disabled = true;
+      } else if (n === 1) {
+        statusLine.textContent = "Add at least one more name.";
+        statusLine.classList.add("warn");
+        shuffleBtn.disabled = true;
+      } else {
+        statusLine.textContent = n + " name" + (n === 1 ? "" : "s") + " ready.";
+        statusLine.classList.remove("warn");
+        shuffleBtn.disabled = false;
+      }
+      return names;
+    }
+
+    function buildGroups() {
+      var names = parseNames(namesEl.value);
+      if (names.length < 2) return;
+      var target = parseInt(groupSizeEl.value, 10) || 4;
+      var shuffled = shuffle(names);
+      var sizes = computeGroupSizes(shuffled.length, target);
+
+      var groups = [];
+      var cursor = 0;
+      for (var i = 0; i < sizes.length; i++) {
+        groups.push(shuffled.slice(cursor, cursor + sizes[i]));
+        cursor += sizes[i];
+      }
+      currentGroups = groups;
+      render();
+      enterFocus();
+    }
+
+    function render() {
+      if (!currentGroups.length) {
+        resultsSection.hidden = true;
+        emptyState.hidden = false;
+        return;
+      }
+      emptyState.hidden = true;
+      resultsSection.hidden = false;
+
+      var total = currentGroups.reduce(function (sum, g) { return sum + g.length; }, 0);
+      var sizesPresent = Array.from(new Set(currentGroups.map(function (g) { return g.length; }))).sort(function (a, b) { return b - a; });
+      resultsMeta.textContent = total + " students in " + currentGroups.length + " group" + (currentGroups.length === 1 ? "" : "s") +
+        " (size" + (sizesPresent.length > 1 ? "s " : " ") + sizesPresent.join("–") + ")";
+
+      groupsGrid.innerHTML = "";
+      currentGroups.forEach(function (group, gi) {
+        var color = TAG_COLORS[gi % TAG_COLORS.length];
+
+        var card = document.createElement("div");
+        card.className = "group-card";
+        card.style.setProperty("--tag-color", color);
+        card.dataset.groupCard = String(gi);
+
+        var bar = document.createElement("div");
+        bar.className = "bar";
+        card.appendChild(bar);
+
+        var head = document.createElement("div");
+        head.className = "card-head";
+        var h3 = document.createElement("h3");
+        h3.textContent = "Group " + (gi + 1);
+        head.appendChild(h3);
+        card.appendChild(head);
+
+        var body = document.createElement("div");
+        body.className = "group-body";
+        body.dataset.group = String(gi);
+
+        group.forEach(function (name, ii) {
+          var chip = document.createElement("div");
+          chip.className = "chip";
+          chip.textContent = name;
+          chip.tabIndex = 0;
+          chip.dataset.group = String(gi);
+          chip.dataset.index = String(ii);
+          chip.style.setProperty("--tag-color", color);
+          chip.setAttribute("aria-label", name + ", group " + (gi + 1));
+          attachDrag(chip);
+          body.appendChild(chip);
+        });
+
+        card.appendChild(body);
+        groupsGrid.appendChild(card);
+      });
+    }
+
+    // --- Drag & swap (pointer events; works for mouse + touch) ---
+
+    var DRAG_THRESHOLD = 5;
+
+    function attachDrag(chip) {
+      chip.addEventListener("pointerdown", function (e) {
+        if (e.button !== undefined && e.button !== 0) return;
+        var startX = e.clientX;
+        var startY = e.clientY;
+        var pointerId = e.pointerId;
+        var sourceGroup = parseInt(chip.dataset.group, 10);
+        var sourceIndex = parseInt(chip.dataset.index, 10);
+        var dragging = false;
+        var ghost = null;
+        var currentTargetCardEl = null;
+        var currentTargetChipEl = null;
+
+        function clearHighlights() {
+          if (currentTargetCardEl) {
+            currentTargetCardEl.classList.remove("is-drop-target");
+            currentTargetCardEl = null;
+          }
+          if (currentTargetChipEl) {
+            currentTargetChipEl.classList.remove("is-target");
+            currentTargetChipEl = null;
+          }
+        }
+
+        function startDrag() {
+          dragging = true;
+          chip.classList.add("is-dragging");
+          ghost = document.createElement("div");
+          ghost.className = "chip-ghost";
+          ghost.style.setProperty("--tag-color", chip.style.getPropertyValue("--tag-color"));
+          ghost.textContent = chip.textContent;
+          document.body.appendChild(ghost);
+          positionGhost(e.clientX, e.clientY);
+        }
+
+        function positionGhost(x, y) {
+          if (!ghost) return;
+          ghost.style.transform = "translate(" + (x + 12) + "px, " + (y + 12) + "px)";
+        }
+
+        function findDropTarget(x, y) {
+          if (ghost) ghost.style.display = "none";
+          var el = document.elementFromPoint(x, y);
+          if (ghost) ghost.style.display = "";
+          if (!el) return null;
+          var chipEl = el.closest(".chip");
+          if (chipEl && chipEl !== chip) {
+            return { type: "chip", el: chipEl, group: parseInt(chipEl.dataset.group, 10), index: parseInt(chipEl.dataset.index, 10) };
+          }
+          var bodyEl = el.closest(".group-body");
+          if (bodyEl) {
+            return { type: "body", el: bodyEl, group: parseInt(bodyEl.dataset.group, 10) };
+          }
+          return null;
+        }
+
+        function onMove(ev) {
+          if (ev.pointerId !== pointerId) return;
+          if (!dragging) {
+            if (Math.abs(ev.clientX - startX) < DRAG_THRESHOLD && Math.abs(ev.clientY - startY) < DRAG_THRESHOLD) {
+              return;
+            }
+            startDrag();
+          }
+          positionGhost(ev.clientX, ev.clientY);
+
+          var target = findDropTarget(ev.clientX, ev.clientY);
+          clearHighlights();
+          if (target) {
+            var cardEl = document.querySelector('.group-card[data-group-card="' + target.group + '"]');
+            if (cardEl) {
+              cardEl.classList.add("is-drop-target");
+              currentTargetCardEl = cardEl;
+            }
+            if (target.type === "chip") {
+              target.el.classList.add("is-target");
+              currentTargetChipEl = target.el;
+            }
+          }
+        }
+
+        function onUp(ev) {
+          if (ev.pointerId !== pointerId) return;
+          chip.releasePointerCapture(pointerId);
+          chip.removeEventListener("pointermove", onMove);
+          chip.removeEventListener("pointerup", onUp);
+          chip.removeEventListener("pointercancel", onUp);
+
+          if (dragging) {
+            var target = findDropTarget(ev.clientX, ev.clientY);
+            clearHighlights();
+            chip.classList.remove("is-dragging");
+            if (ghost) { ghost.remove(); ghost = null; }
+            applyMove({ group: sourceGroup, index: sourceIndex }, target);
+          }
+        }
+
+        chip.setPointerCapture(pointerId);
+        chip.addEventListener("pointermove", onMove);
+        chip.addEventListener("pointerup", onUp);
+        chip.addEventListener("pointercancel", onUp);
+      });
+    }
+
+    function applyMove(source, target) {
+      if (!target) return;
+      var src = currentGroups[source.group][source.index];
+
+      if (target.type === "chip") {
+        if (target.group === source.group && target.index === source.index) return;
+        var tgt = currentGroups[target.group][target.index];
+        currentGroups[target.group][target.index] = src;
+        currentGroups[source.group][source.index] = tgt;
+        render();
+      } else if (target.type === "body") {
+        if (target.group === source.group) return;
+        currentGroups[source.group].splice(source.index, 1);
+        currentGroups[target.group].push(src);
+        render();
+      }
+    }
+
+    // --- Focus (fullscreen groups) view ---
+
+    var exitFocusBtn = document.getElementById("exitFocusBtn");
+    var viewFullscreenBtn = document.getElementById("viewFullscreenBtn");
+
+    // Pick the rows x columns split that lets every card be as large as
+    // possible (and all the same size) inside the available space.
+    var CARD_BASE_W = 250;
+    var CARD_BASE_H = 190;
+    var MIN_SCALE = 0.3;
+    var MAX_SCALE = 2.6;
+    var HEADER_BASE_W = 190;
+    var HEADER_BASE_H = 110;
+    var MIN_HEADER_SCALE = 0.55;
+    var MAX_HEADER_SCALE = 5.5;
+
+    function layoutFocusGrid() {
+      if (!document.body.classList.contains("focus-mode")) return;
+      var n = groupsGrid.children.length;
+      if (!n) return;
+
+      var w = groupsGrid.clientWidth;
+      var h = groupsGrid.clientHeight;
+      if (!w || !h) return;
+
+      var gap = 18;
+      var best = null;
+      for (var cols = 1; cols <= n; cols++) {
+        var rows = Math.ceil(n / cols);
+        var cellW = (w - gap * (cols - 1)) / cols;
+        var cellH = (h - gap * (rows - 1)) / rows;
+        if (cellW <= 0 || cellH <= 0) continue;
+        var score = Math.min(cellW, cellH);
+        if (!best || score > best.score) {
+          best = { cols: cols, rows: rows, cellW: cellW, cellH: cellH, score: score };
+        }
+      }
+      if (!best) return;
+
+      groupsGrid.style.gridTemplateColumns = "repeat(" + best.cols + ", 1fr)";
+      groupsGrid.style.gridTemplateRows = "repeat(" + best.rows + ", 1fr)";
+
+      var scale = Math.min(best.cellW / CARD_BASE_W, best.cellH / CARD_BASE_H);
+      scale = Math.max(MIN_SCALE, Math.min(scale, MAX_SCALE));
+      groupsGrid.style.setProperty("--card-scale", scale.toFixed(3));
+
+      // Group titles are a single short line, so they can grow more freely
+      // than the wrapping name chips — let them scale with the card size.
+      var headerScale = Math.min(best.cellW / HEADER_BASE_W, best.cellH / HEADER_BASE_H);
+      headerScale = Math.max(MIN_HEADER_SCALE, Math.min(headerScale, MAX_HEADER_SCALE));
+      groupsGrid.style.setProperty("--header-scale", headerScale.toFixed(3));
+
+      // The formula above is a good estimate, but long names or an unlucky
+      // row/column split can still overflow a card. Shrink further, in
+      // small steps, until every card's names actually fit — no scrollbars.
+      requestAnimationFrame(function () {
+        shrinkToFit(scale, headerScale);
+      });
+    }
+
+    function shrinkToFit(scale, headerScale) {
+      var bodies = groupsGrid.querySelectorAll(".group-body");
+      if (!bodies.length) return;
+
+      function overflowing() {
+        for (var i = 0; i < bodies.length; i++) {
+          var b = bodies[i];
+          if (b.scrollHeight - b.clientHeight > 1) return true;
+          if (b.scrollWidth - b.clientWidth > 1) return true;
+        }
+        return false;
+      }
+
+      var tries = 0;
+      while (overflowing() && tries < 45 && (scale > MIN_SCALE || headerScale > MIN_HEADER_SCALE)) {
+        scale = Math.max(MIN_SCALE, scale * 0.94);
+        headerScale = Math.max(MIN_HEADER_SCALE, headerScale * 0.97);
+        groupsGrid.style.setProperty("--card-scale", scale.toFixed(3));
+        groupsGrid.style.setProperty("--header-scale", headerScale.toFixed(3));
+        tries++;
+      }
+    }
+
+    function enterFocus() {
+      document.body.classList.add("focus-mode");
+      requestAnimationFrame(function () {
+        requestAnimationFrame(layoutFocusGrid);
+      });
+    }
+
+    function exitFocus() {
+      document.body.classList.remove("focus-mode");
+      groupsGrid.style.gridTemplateColumns = "";
+      groupsGrid.style.gridTemplateRows = "";
+      groupsGrid.style.removeProperty("--card-scale");
+      groupsGrid.style.removeProperty("--header-scale");
+    }
+
+    exitFocusBtn.addEventListener("click", exitFocus);
+    viewFullscreenBtn.addEventListener("click", enterFocus);
+    window.addEventListener("resize", function () {
+      if (document.body.classList.contains("focus-mode")) {
+        requestAnimationFrame(layoutFocusGrid);
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && document.body.classList.contains("focus-mode")) {
+        exitFocus();
+      }
+    });
+
+    // --- Wiring ---
+
+    namesEl.addEventListener("input", updateStatus);
+
+    sizeDownBtn.addEventListener("click", function () {
+      var v = Math.max(2, (parseInt(groupSizeEl.value, 10) || 4) - 1);
+      groupSizeEl.value = v;
+    });
+    sizeUpBtn.addEventListener("click", function () {
+      var v = Math.min(12, (parseInt(groupSizeEl.value, 10) || 4) + 1);
+      groupSizeEl.value = v;
+    });
+    groupSizeEl.addEventListener("change", function () {
+      var v = parseInt(groupSizeEl.value, 10);
+      if (isNaN(v)) v = 4;
+      v = Math.max(2, Math.min(12, v));
+      groupSizeEl.value = v;
+    });
+
+    shuffleBtn.addEventListener("click", buildGroups);
+    reshuffleBtn.addEventListener("click", buildGroups);
+
+    updateStatus();
+  })();
+</script>
