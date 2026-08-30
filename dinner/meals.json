@@ -1,11 +1,156 @@
 [
-  "Leftovers",
-  "Grilled chicken, potatoes & veg",
-  "Vegan chili",
-  "Pasta with red sauce",
-  "Pasta with ground beef & red sauce",
-  "Salmon, rice & veg",
-  "Steak, veg & potato or rice",
-  "Pulled pork (Instant Pot)",
-  "Roast (Instant Pot)"
+  {
+    "id": "trad-fri-pizza",
+    "name": "Pizza & Movie Night",
+    "notes": "Let everyone build their own personal pizza while a movie plays.",
+    "tradition": "fri",
+    "emoji": "🍕🎬"
+  },
+  {
+    "id": "trad-thu-quesadillas",
+    "name": "Quesadillas & Smoothies",
+    "notes": "Cheese quesadillas with a fruit-and-spinach smoothie — they can't taste the spinach.",
+    "tradition": "thu",
+    "emoji": "🫓🥤"
+  },
+  {
+    "id": "spaghetti-meatballs",
+    "name": "Spaghetti & Hidden-Veggie Meatballs",
+    "notes": "Shredded zucchini and carrot blended right into the meatballs."
+  },
+  {
+    "id": "tacos",
+    "name": "Build-Your-Own Tacos",
+    "notes": "Set out toppings so everyone builds their own plate."
+  },
+  {
+    "id": "sheet-pan-chicken",
+    "name": "Sheet-Pan Chicken & Roasted Veggies",
+    "notes": "A drizzle of honey on the veggies wins over picky eaters."
+  },
+  {
+    "id": "baked-ziti",
+    "name": "Baked Ziti",
+    "notes": "Pureed butternut squash stirred into the sauce — no one notices."
+  },
+  {
+    "id": "teriyaki-chicken",
+    "name": "Teriyaki Chicken & Rice",
+    "notes": "Adventurous-eater favorite. Try adding pineapple chunks."
+  },
+  {
+    "id": "turkey-chili",
+    "name": "Turkey Chili",
+    "notes": "Finely diced bell pepper and carrot cook down until they disappear."
+  },
+  {
+    "id": "mac-cheese-squash",
+    "name": "Creamy Mac & Cheese",
+    "notes": "Butternut squash puree makes the sauce extra creamy (and sneaky)."
+  },
+  {
+    "id": "veggie-meatloaf",
+    "name": "Veggie-Loaded Meatloaf",
+    "notes": "Grated carrot, zucchini, and onion mixed right in."
+  },
+  {
+    "id": "breakfast-for-dinner",
+    "name": "Breakfast for Dinner",
+    "notes": "Pancakes, eggs, and fruit — a fun switch-up night."
+  },
+  {
+    "id": "chicken-stir-fry",
+    "name": "Chicken Stir-Fry",
+    "notes": "Adventurous pick — dice the veggies small for the picky eater."
+  },
+  {
+    "id": "homemade-nuggets",
+    "name": "Homemade Chicken Nuggets & Dip",
+    "notes": "Serve with ranch and a side of veggies for dipping."
+  },
+  {
+    "id": "burgers",
+    "name": "Backyard Burgers",
+    "notes": "Grate zucchini into the patty mix for extra moisture (and veggies)."
+  },
+  {
+    "id": "veggie-fried-rice",
+    "name": "Veggie Fried Rice",
+    "notes": "Finely chopped veggies mixed right into the rice."
+  },
+  {
+    "id": "pasta-primavera",
+    "name": "Kid-Style Pasta Primavera",
+    "notes": "Extra butter and parmesan on the veggies helps close the deal."
+  },
+  {
+    "id": "grilled-cheese-tomato-soup",
+    "name": "Grilled Cheese & Tomato Soup",
+    "notes": "Blend the soup smooth — hidden veggies included."
+  },
+  {
+    "id": "turkey-burgers",
+    "name": "Turkey Burgers",
+    "notes": "A leaner take on burger night."
+  },
+  {
+    "id": "chicken-parmesan",
+    "name": "Chicken Parmesan",
+    "notes": "Serve with a side of roasted broccoli \"fries.\""
+  },
+  {
+    "id": "breakfast-burritos",
+    "name": "Breakfast Burritos",
+    "notes": "Scrambled eggs, cheese, and finely diced peppers."
+  },
+  {
+    "id": "shepherds-pie",
+    "name": "Shepherd's Pie",
+    "notes": "Mashed cauliflower mixed into the potato topping."
+  },
+  {
+    "id": "bbq-chicken",
+    "name": "BBQ Chicken & Corn",
+    "notes": "A reliable crowd-pleaser for both kids."
+  },
+  {
+    "id": "korean-beef-bowls",
+    "name": "Korean Beef Bowls",
+    "notes": "Adventurous pick — mild spice, easy to dial down."
+  },
+  {
+    "id": "sloppy-joes",
+    "name": "Sloppy Joes",
+    "notes": "Grated carrot cooks right into the sauce."
+  },
+  {
+    "id": "sushi-bake",
+    "name": "Sushi Bake",
+    "notes": "A fun adventurous-eater night — deconstructed sushi in a casserole dish."
+  },
+  {
+    "id": "mild-curry",
+    "name": "Mild Chicken Curry & Rice",
+    "notes": "Adventurous pick — coconut milk keeps it mild and creamy."
+  },
+  {
+    "id": "lo-mein",
+    "name": "Veggie Lo Mein",
+    "notes": "Noodles make the veggies an easy sell."
+  },
+  {
+    "id": "pulled-pork-sliders",
+    "name": "Pulled Pork Sliders",
+    "notes": "Serve coleslaw on the side, or blend it into the sauce."
+  },
+  {
+    "id": "orange-chicken",
+    "name": "Orange Chicken & Rice",
+    "notes": "Sweet enough for the picky eater, interesting enough for the adventurous one."
+  },
+  {
+    "id": "fajitas",
+    "name": "Sheet-Pan Chicken Fajitas",
+    "notes": "Let everyone build their own — cut peppers extra small."
+  }
 ]
