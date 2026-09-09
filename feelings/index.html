@@ -317,6 +317,63 @@
     padding-top:0.5rem;
   }
   footer a{ text-decoration:underline; text-underline-offset:2px; }
+
+  /* PRINT — just the wheel and the selected-feelings list, sized to fit
+     one page. vw/vh below resolve against the fixed @page size, not a
+     browser viewport, so they're safe here even though the normal
+     (screen) layout above deliberately avoids vh. */
+  @media print{
+    @page{ margin:0.4in; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body{
+      display:block;
+      min-height:0;
+      padding:0;
+      background:#fff;
+    }
+    .top-nav,
+    .exit-fullscreen-btn,
+    .panel-actions{
+      display:none !important;
+    }
+    header.intro{
+      max-width:100%;
+      margin:0 0 0.15in;
+    }
+    header.intro h1{ font-size:20pt; }
+    .layout{
+      max-width:100%;
+      gap:0.2in;
+    }
+    .wheel-shell{ width:min(94vw, 7.5in); }
+    .panel{
+      max-width:100%;
+      background:#fff;
+      box-shadow:none;
+      backdrop-filter:none;
+      border:1px solid #ddd;
+      padding:0.15in 0.2in;
+      break-inside:avoid;
+    }
+    .panel-head{ margin-bottom:0.1in; }
+    .panel-head h2{ font-size:11pt; }
+    .chips{ gap:0.05in; }
+    .chip{
+      box-shadow:none;
+      border:1px solid #ccc;
+      font-size:6.5pt;
+      line-height:1.1;
+      gap:0.04in;
+      padding:0.025in 0.07in 0.025in 0.06in;
+    }
+    .chip .dot{ width:5px; height:5px; }
+    .chip button{ display:none; }
+    footer{
+      max-width:100%;
+      font-size:8pt;
+      padding-top:0.15in;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1055,6 +1112,7 @@
       url.searchParams.set("sort", chipSort);
     }
     url.searchParams.set("depth", String(currentDepth));
+    url.searchParams.set("lang", currentLang);
     return url.toString();
   }
 
@@ -1075,6 +1133,17 @@
       window.prompt(ui("shareFallback"), url);
     }
   });
+
+  // Runs BEFORE populateLangSelect()/applyStaticText() — currentLang needs
+  // to be right from the very first paint, not switched a moment later,
+  // so this can't wait until applySelectionFromUrl() like the `feel` param.
+  function applyLangFromUrl(){
+    const params = new URLSearchParams(window.location.search);
+    const langParam = params.get("lang");
+    if(langParam && translations[langParam]){
+      currentLang = langParam;
+    }
+  }
 
   // Runs BEFORE the first render() — depth affects which rings (and
   // therefore which wedges) even exist in the DOM, so it has to be known
@@ -1346,6 +1415,7 @@
    * 11. INIT
    * ------------------------------------------------------------------- */
 
+  applyLangFromUrl();
   populateLangSelect();
   applyStaticText();
   applyDepthFromUrl();
