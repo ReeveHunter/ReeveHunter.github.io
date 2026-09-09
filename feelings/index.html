@@ -181,6 +181,19 @@
   .wedge-label.core{ fill:#fdfcfa; }
   .wedge-label.selected{ font-weight:800; }
 
+  /* A hand-drawn-looking ink oval circling a selected word, shown
+     alongside the subtle striped fill. Hidden by default; toggled per
+     wedge in updateInkCircles(). */
+  .ink-circle{
+    fill:none;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .15s ease;
+  }
+  .ink-circle.visible{ opacity:0.88; }
+
   .hub{
     fill:#fdfcfa;
     stroke:#e7e3da;
@@ -732,20 +745,21 @@
   }
   function stripeColorFor(coreId, depth){
     // A shade of the SAME hue as the wedge (not black/white), used for
-    // the diagonal stripes drawn over a selected wedge. The core ring
-    // lightens (it starts saturated/dark, so there's plenty of room
-    // above it). The secondary/tertiary rings are already pale tints,
-    // so lightening them further runs into white almost immediately —
-    // those darken instead, which has much more headroom and keeps the
-    // stripe clearly visible against the lighter base color.
+    // the diagonal stripes drawn over a selected wedge. Selection is
+    // primarily marked by the ink circle around the word now, so this is
+    // deliberately faint — a texture you notice on a second look, not a
+    // loud color change. The core ring lightens (it starts saturated/
+    // dark, so there's room above it); the secondary/tertiary rings are
+    // already pale tints, so they darken slightly instead, which has
+    // more headroom than trying to lighten them further.
     const [h,s,l] = hslFor(coreId, depth);
     let dl, ds;
     if(depth===0){
-      dl = clamp(l+14, 0, 80);
-      ds = clamp(s-4, 0, 100);
+      dl = clamp(l+6, 0, 80);
+      ds = clamp(s-2, 0, 100);
     } else {
-      dl = clamp(l-22, 15, 100);
-      ds = clamp(s+10, 0, 100);
+      dl = clamp(l-8, 15, 100);
+      ds = clamp(s+3, 0, 100);
     }
     return `hsl(${h.toFixed(1)} ${ds.toFixed(0)}% ${dl.toFixed(0)}%)`;
   }
@@ -757,6 +771,7 @@
   const R_HUB = 54, R_CORE = 168, R_SEC = 292, R_TER = 400;
   const CX = 410, CY = 410;
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const INK_COLOR = "#1a1a1a"; // near-black pen color for the circled-word selection mark
 
   function polar(r, angleDeg){
     const rad = (angleDeg - 90) * Math.PI/180;
@@ -820,7 +835,7 @@
           patternTransform:"rotate(45)"
         });
         pattern.appendChild(el("rect", { width:10, height:10, fill:colorFor(coreId, depth) }));
-        pattern.appendChild(el("rect", { x:0, y:0, width:3.5, height:10, fill:stripeColorFor(coreId, depth) }));
+        pattern.appendChild(el("rect", { x:0, y:0, width:2.5, height:10, fill:stripeColorFor(coreId, depth) }));
         defs.appendChild(pattern);
       });
     });
@@ -910,6 +925,49 @@
     fitLabelsToBands();
   }
 
+  // Deterministic per-word "randomness" for the hand-drawn ink circle —
+  // seeded off the word's own id so its wobble looks the same on every
+  // render/reselect instead of jittering into a new shape each time.
+  function seededRandom(seedStr){
+    let h = 1779033703 ^ seedStr.length;
+    for(let i=0;i<seedStr.length;i++){
+      h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822519);
+      h = Math.imul(h ^ (h >>> 13), 3266489917);
+      h ^= h >>> 16;
+      return (h >>> 0) / 4294967296;
+    };
+  }
+
+  // A wobbly, slightly-overshooting oval outline — like a word circled by
+  // hand with a pen — around (cx,cy) with the given radii. `seed` keeps a
+  // given word's oval shape stable across re-renders.
+  function buildInkOvalPath(cx, cy, rx, ry, seed){
+    const rand = seededRandom(seed);
+    const steps = 20;
+    const overshootDeg = 18 + rand()*18; // the pen doesn't quite close the loop
+    const totalDeg = 360 + overshootDeg;
+    const startDeg = -100 + rand()*40;
+    const points = [];
+    for(let i=0;i<=steps;i++){
+      const t = i/steps;
+      const angleDeg = startDeg + t*totalDeg;
+      const angle = angleDeg * Math.PI/180;
+      const wobble = 1 + (rand()-0.5)*0.09 + Math.sin(angle*3 + seed.length)*0.025;
+      points.push([ cx + Math.cos(angle)*rx*wobble, cy + Math.sin(angle)*ry*wobble ]);
+    }
+    let d = `M ${points[0][0].toFixed(2)} ${points[0][1].toFixed(2)} `;
+    for(let i=1;i<points.length-1;i++){
+      const mx = (points[i][0]+points[i+1][0])/2;
+      const my = (points[i][1]+points[i+1][1])/2;
+      d += `Q ${points[i][0].toFixed(2)} ${points[i][1].toFixed(2)} ${mx.toFixed(2)} ${my.toFixed(2)} `;
+    }
+    return d;
+  }
+
   function drawWedge(id, ringName, depth, rInner, rOuter, a0, a1, labelText, coreIdOverride){
     const coreId = coreIdOverride || id;
     const path = el("path", {
@@ -955,7 +1013,19 @@
     });
     textEl.textContent = t(id) || labelText;
 
+    // Sits in the same "flip" group as the label so it inherits the exact
+    // same spin/radial/flip transforms and stays locked around the word —
+    // its `d` is computed later in updateInkCircles() from the label's
+    // actual rendered bounding box.
+    const inkCircle = el("path", {
+      class:"ink-circle",
+      "data-id": id,
+      stroke: INK_COLOR,
+      "stroke-width": clamp(fontSize/15*2, 1.6, 3.4)
+    });
+
     flip.appendChild(textEl);
+    flip.appendChild(inkCircle);
     radial.appendChild(flip);
     spin.appendChild(radial);
     rotor.appendChild(spin);
@@ -980,6 +1050,31 @@
         txt.setAttribute("textLength", band);
         txt.setAttribute("lengthAdjust","spacingAndGlyphs");
       }
+    });
+    // Ink-circle geometry depends on each label's final (possibly
+    // compressed) rendered width, so it's recomputed here every time
+    // label sizing changes — the one place both callers of this function
+    // (render() and applySelectionStyles()) are guaranteed to pass through.
+    updateInkCircles();
+  }
+
+  function updateInkCircles(){
+    if(!svg) return;
+    svg.querySelectorAll(".ink-circle").forEach(inkPath=>{
+      const id = inkPath.getAttribute("data-id");
+      const show = selected.has(id);
+      inkPath.classList.toggle("visible", show);
+      if(!show) return;
+      const textEl = svg.querySelector(`text.wedge-label[data-id="${id}"]`);
+      if(!textEl) return;
+      let bbox;
+      try{ bbox = textEl.getBBox(); } catch(e){ return; }
+      if(!bbox || !bbox.width || !bbox.height) return;
+      const cx = bbox.x + bbox.width/2;
+      const cy = bbox.y + bbox.height/2;
+      const rx = bbox.width/2 + Math.max(6, bbox.height*0.35);
+      const ry = bbox.height/2 + Math.max(5, bbox.height*0.45);
+      inkPath.setAttribute("d", buildInkOvalPath(cx, cy, rx, ry, id));
     });
   }
 
