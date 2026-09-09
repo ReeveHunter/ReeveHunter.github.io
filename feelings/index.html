@@ -864,10 +864,16 @@
     const ringR = ringBoundariesFor(currentDepth); // [r0, r1, ...] — length currentDepth+1
 
     const totalWeight = WHEEL_DATA.reduce((sum,c)=>sum+c.secondary.length,0);
+    // At Depth 1 only the core ring is on screen at all, and with the
+    // secondary/tertiary counts behind each core wedge invisible anyway,
+    // sizing wedges by that hidden weighting just reads as arbitrary —
+    // an even split looks intentional instead. Depth 2/3 keep the
+    // original weighted proportions, matching the wheel's actual structure.
+    const evenCoreSpan = 360/WHEEL_DATA.length;
     let cursor = 0;
 
     WHEEL_DATA.forEach(core=>{
-      const coreSpan = core.secondary.length/totalWeight*360;
+      const coreSpan = currentDepth === 1 ? evenCoreSpan : core.secondary.length/totalWeight*360;
       const coreStart = cursor, coreEnd = cursor+coreSpan;
       drawWedge(core.id, "core", 0, ringR[0], ringR[1], coreStart, coreEnd, core.label);
 
