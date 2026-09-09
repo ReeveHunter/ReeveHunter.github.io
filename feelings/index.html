@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An interactive feelings wheel for naming what you're feeling, from Reeve Hunter.">
+<title>Feelings Wheel — Reeve Hunter</title>
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+
+<style>
+  :root{
+    --bg-top:#f6f5f3;
+    --bg-bottom:#eceae6;
+    --ink:#242320;
+    --ink-soft:#6b6862;
+    --panel:#ffffffcc;
+    --panel-border:#e4e1da;
+    --accent:#242320;
+    --chip-bg:#ffffff;
+    --chip-border:#dedad2;
+    --shadow:0 10px 30px rgba(30,28,24,0.10);
+    --shadow-sm:0 2px 8px rgba(30,28,24,0.08);
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    min-height:100%;
+  }
+
+  body{
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(180deg,var(--bg-top),var(--bg-bottom));
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:1.75rem 1rem 3rem;
+    gap:1.25rem;
+  }
+
+  a{ color:inherit; }
+
+  .top-nav{
+    width:100%;
+    max-width:1100px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:1rem;
+    font-size:0.85rem;
+  }
+  .nav-controls{
+    display:flex;
+    align-items:center;
+    gap:1rem;
+    flex-wrap:wrap;
+  }
+
+  header.intro{
+    text-align:center;
+    max-width:600px;
+  }
+  header.intro h1{
+    margin:0;
+    font-size:clamp(1.6rem,4.5vw,2.25rem);
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+
+  .lang-row, .depth-row{
+    display:flex;
+    align-items:center;
+    gap:0.4rem;
+    font-size:0.8rem;
+    color:var(--ink-soft);
+  }
+  .lang-row select, .depth-row select{
+    font:inherit;
+    padding:0.25rem 0.5rem;
+    border-radius:8px;
+    border:1px solid var(--panel-border);
+    background:#fff;
+    color:var(--ink);
+  }
+  .depth-row select{ padding-right:1.5rem; }
+
+  #fullscreenBtn{
+    font:inherit;
+    font-size:0.8rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    background:none;
+    border:1px solid var(--panel-border);
+    border-radius:999px;
+    padding:0.3rem 0.7rem;
+    cursor:pointer;
+  }
+  #fullscreenBtn:hover{ color:var(--ink); border-color:var(--ink-soft); }
+
+  .layout{
+    width:100%;
+    max-width:1100px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:1.25rem;
+  }
+
+  .wheel-shell{
+    position:relative;
+    width:min(92vw, 1000px);
+    aspect-ratio:1/1;
+    touch-action:none;
+  }
+  .wheel-shell svg{
+    width:100%;
+    height:100%;
+    display:block;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  .wheel-shell.dragging{ cursor:grabbing; }
+  .wheel-shell:not(.dragging){ cursor:grab; }
+
+  /* FULLSCREEN MODE — strips everything but the wheel and one button
+     to leave it. Uses vh alongside vw here (unlike the normal layout
+     above) specifically because the goal in this mode IS to fill
+     whichever dimension is tighter, edge to edge. */
+  body.fullscreen-mode{
+    padding:0;
+    justify-content:center;
+    min-height:100vh;
+  }
+  body.fullscreen-mode .top-nav,
+  body.fullscreen-mode header.intro,
+  body.fullscreen-mode .panel,
+  body.fullscreen-mode footer{
+    display:none;
+  }
+  body.fullscreen-mode .layout{ gap:0; }
+  body.fullscreen-mode .wheel-shell{
+    width:min(96vw, 96vh);
+  }
+  .exit-fullscreen-btn{
+    display:none;
+    position:fixed;
+    top:1rem; right:1rem;
+    z-index:10;
+    font:inherit;
+    font-size:0.85rem;
+    font-weight:600;
+    padding:0.5rem 0.9rem;
+    border-radius:999px;
+    border:1px solid var(--panel-border);
+    background:#fffdfa;
+    color:var(--ink);
+    cursor:pointer;
+    box-shadow:var(--shadow-sm);
+  }
+  .exit-fullscreen-btn:hover{ border-color:var(--ink-soft); }
+  body.fullscreen-mode .exit-fullscreen-btn{ display:inline-block; }
+
+  path.wedge{
+    stroke:#ffffff;
+    stroke-width:1.5;
+    cursor:pointer;
+    outline:none;
+    transition:fill .15s ease, filter .15s ease, stroke .15s ease, stroke-width .15s ease;
+  }
+  path.wedge:hover{ filter:brightness(1.06); }
+  path.wedge:focus-visible{ stroke:#111; stroke-width:3; }
+
+  .wedge-label{
+    pointer-events:none;
+    font-weight:600;
+    fill:#1c1b19;
+  }
+  .wedge-label.core{ fill:#fdfcfa; }
+  .wedge-label.selected{ font-weight:800; }
+
+  .hub{
+    fill:#fdfcfa;
+    stroke:#e7e3da;
+    stroke-width:2;
+    pointer-events:none;
+  }
+  .hub-label{
+    pointer-events:none;
+    fill:var(--ink-soft);
+    font-size:11px;
+    font-weight:600;
+    text-anchor:middle;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+
+  .panel{
+    width:100%;
+    max-width:640px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:1rem 1.1rem;
+    box-shadow:var(--shadow-sm);
+    backdrop-filter:blur(6px);
+  }
+  .panel-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:0.6rem 0.75rem;
+    margin-bottom:0.6rem;
+  }
+  .panel-head h2{
+    margin:0;
+    font-size:0.95rem;
+    font-weight:700;
+  }
+  .panel-actions{
+    display:flex;
+    align-items:center;
+    gap:0.5rem;
+    margin-left:auto;
+  }
+  .sort-row{
+    display:flex;
+    align-items:center;
+    gap:0.35rem;
+  }
+  .sort-row label{
+    font-size:0.78rem;
+    font-weight:600;
+    color:var(--ink-soft);
+  }
+  .sort-row select{
+    font:inherit;
+    font-size:0.78rem;
+    padding:0.22rem 0.4rem;
+    border-radius:8px;
+    border:1px solid var(--panel-border);
+    background:#fff;
+    color:var(--ink);
+  }
+  .panel-head button{
+    font:inherit;
+    font-size:0.78rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0.2rem 0.4rem;
+  }
+  .panel-head button:hover{ color:var(--ink); text-decoration:underline; }
+  .panel-head button:disabled{
+    color:var(--panel-border);
+    cursor:default;
+  }
+  .panel-head button:disabled:hover{ text-decoration:none; }
+  #shareBtn{
+    border:1px solid var(--panel-border);
+    border-radius:999px;
+    padding:0.3rem 0.7rem;
+  }
+  #shareBtn:hover{ text-decoration:none; border-color:var(--ink-soft); }
+  .share-feedback{
+    font-size:0.76rem;
+    color:var(--ink-soft);
+    opacity:0;
+    transition:opacity .2s ease;
+  }
+  .share-feedback.show{ opacity:1; }
+
+  .chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:0.4rem;
+    min-height:1.6rem;
+  }
+  .chip{
+    display:inline-flex;
+    align-items:center;
+    gap:0.4rem;
+    background:var(--chip-bg);
+    border:1px solid var(--chip-border);
+    border-radius:999px;
+    padding:0.3rem 0.55rem 0.3rem 0.5rem;
+    font-size:0.82rem;
+    box-shadow:var(--shadow-sm);
+  }
+  .chip .dot{
+    width:9px;height:9px;border-radius:50%;flex:none;
+  }
+  .chip button{
+    border:none;background:none;cursor:pointer;
+    color:var(--ink-soft);
+    font-size:0.9rem;
+    line-height:1;
+    padding:0;
+  }
+  .chip button:hover{ color:#b91c1c; }
+  .empty-hint{
+    color:var(--ink-soft);
+    font-size:0.85rem;
+  }
+
+  footer{
+    max-width:640px;
+    text-align:center;
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    line-height:1.6;
+    padding-top:0.5rem;
+  }
+  footer a{ text-decoration:underline; text-underline-offset:2px; }
+</style>
+</head>
+<body>
+
+  <nav class="top-nav">
+    <div class="nav-controls">
+      <div class="lang-row">
+        <label for="langSelect" id="langLabel">Language</label>
+        <select id="langSelect"></select>
+      </div>
+      <div class="depth-row">
+        <label for="depthSelect" id="depthLabel">Depth</label>
+        <select id="depthSelect">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+        </select>
+      </div>
+    </div>
+    <button type="button" id="fullscreenBtn"><span id="fullscreenLabel">Fullscreen</span></button>
+  </nav>
+
+  <header class="intro">
+    <h1 id="pageTitle">Feelings Wheel</h1>
+  </header>
+
+  <div class="layout">
+
+    <div class="wheel-shell" id="wheelShell">
+      <svg id="wheelSvg" viewBox="0 0 820 820" role="group" aria-label="Feelings wheel"></svg>
+    </div>
+
+    <button type="button" class="exit-fullscreen-btn" id="exitFullscreenBtn"><span id="exitFullscreenLabel">Exit Fullscreen</span></button>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="selectedHeading">What I'm feeling today</h2>
+        <div class="panel-actions">
+          <div class="sort-row">
+            <label for="sortSelect" id="sortLabel">Sort</label>
+            <select id="sortSelect">
+              <option value="clicked" id="sortOptClicked">Order Selected</option>
+              <option value="az" id="sortOptAZ">Alphabetical</option>
+              <option value="type" id="sortOptType">By Type</option>
+            </select>
+          </div>
+          <span class="share-feedback" id="shareFeedback">Link copied!</span>
+          <button type="button" id="shareBtn"><span id="shareLabel">Share</span></button>
+          <button type="button" id="clearBtn"><span id="clearLabel">Clear all</span></button>
+        </div>
+      </div>
+      <div class="chips" id="chips">
+        <span class="empty-hint" id="emptyHint">Nothing selected yet — click any feeling on the wheel.</span>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <p id="creditLine">Wheel structure adapted from Geoffrey Roberts' Feelings Wheel, in the spirit of
+      <a href="https://www.feelingswheel.com/" target="_blank" rel="noopener">feelingswheel.com</a> — an independent build, not affiliated with that site.</p>
+  </footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------------------------------------------------------------
+   * 1. DATA — every id is a stable slug so future translations can key
+   *    off it. Labels below are the English text.
+   * ------------------------------------------------------------------- */
+
+  const WHEEL_DATA = [
+    { id:"angry", label:"Angry", secondary:[
+      { id:"let-down", label:"Let Down", tertiary:[
+        {id:"betrayed", label:"Betrayed"}, {id:"resentful", label:"Resentful"} ]},
+      { id:"humiliated", label:"Humiliated", tertiary:[
+        {id:"disrespected", label:"Disrespected"}, {id:"ridiculed", label:"Ridiculed"} ]},
+      { id:"bitter", label:"Bitter", tertiary:[
+        {id:"indignant", label:"Indignant"}, {id:"violated", label:"Violated"} ]},
+      { id:"mad", label:"Mad", tertiary:[
+        {id:"furious", label:"Furious"}, {id:"jealous", label:"Jealous"} ]},
+      { id:"aggressive", label:"Aggressive", tertiary:[
+        {id:"provoked", label:"Provoked"}, {id:"hostile", label:"Hostile"} ]},
+      { id:"frustrated", label:"Frustrated", tertiary:[
+        {id:"infuriated", label:"Infuriated"}, {id:"annoyed", label:"Annoyed"} ]},
+      { id:"distant", label:"Distant", tertiary:[
+        {id:"withdrawn", label:"Withdrawn"}, {id:"numb", label:"Numb"} ]},
+      { id:"critical", label:"Critical", tertiary:[
+        {id:"skeptical", label:"Skeptical"}, {id:"dismissive", label:"Dismissive"} ]}
+    ]},
+    { id:"fearful", label:"Fearful", secondary:[
+      { id:"scared", label:"Scared", tertiary:[
+        {id:"helpless", label:"Helpless"}, {id:"frightened", label:"Frightened"} ]},
+      { id:"anxious", label:"Anxious", tertiary:[
+        {id:"overwhelmed-2", label:"Overwhelmed"}, {id:"worried", label:"Worried"} ]},
+      { id:"insecure", label:"Insecure", tertiary:[
+        {id:"inadequate", label:"Inadequate"}, {id:"inferior", label:"Inferior"} ]},
+      { id:"weak", label:"Weak", tertiary:[
+        {id:"worthless", label:"Worthless"}, {id:"insignificant", label:"Insignificant"} ]},
+      { id:"rejected", label:"Rejected", tertiary:[
+        {id:"excluded", label:"Excluded"}, {id:"persecuted", label:"Persecuted"} ]},
+      { id:"threatened", label:"Threatened", tertiary:[
+        {id:"nervous", label:"Nervous"}, {id:"exposed", label:"Exposed"} ]}
+    ]},
+    { id:"bad", label:"Bad", secondary:[
+      { id:"bored", label:"Bored", tertiary:[
+        {id:"indifferent", label:"Indifferent"}, {id:"apathetic", label:"Apathetic"} ]},
+      { id:"busy", label:"Busy", tertiary:[
+        {id:"pressured", label:"Pressured"}, {id:"rushed", label:"Rushed"} ]},
+      { id:"stressed", label:"Stressed", tertiary:[
+        {id:"overwhelmed", label:"Overwhelmed"}, {id:"out-of-control", label:"Out of Control"} ]},
+      { id:"tired", label:"Tired", tertiary:[
+        {id:"sleepy", label:"Sleepy"}, {id:"unfocused", label:"Unfocused"} ]}
+    ]},
+    { id:"happy", label:"Happy", secondary:[
+      { id:"playful", label:"Playful", tertiary:[
+        {id:"aroused", label:"Aroused"}, {id:"cheeky", label:"Cheeky"} ]},
+      { id:"content", label:"Content", tertiary:[
+        {id:"free", label:"Free"}, {id:"joyful", label:"Joyful"} ]},
+      { id:"interested", label:"Interested", tertiary:[
+        {id:"curious", label:"Curious"}, {id:"inquisitive", label:"Inquisitive"} ]},
+      { id:"proud", label:"Proud", tertiary:[
+        {id:"successful", label:"Successful"}, {id:"confident", label:"Confident"} ]},
+      { id:"accepted", label:"Accepted", tertiary:[
+        {id:"respected", label:"Respected"}, {id:"valued", label:"Valued"} ]},
+      { id:"powerful", label:"Powerful", tertiary:[
+        {id:"courageous", label:"Courageous"}, {id:"creative", label:"Creative"} ]},
+      { id:"peaceful", label:"Peaceful", tertiary:[
+        {id:"loving", label:"Loving"}, {id:"thankful", label:"Thankful"} ]},
+      { id:"trusting", label:"Trusting", tertiary:[
+        {id:"sensitive", label:"Sensitive"}, {id:"intimate", label:"Intimate"} ]},
+      { id:"optimistic", label:"Optimistic", tertiary:[
+        {id:"hopeful", label:"Hopeful"}, {id:"inspired", label:"Inspired"} ]}
+    ]},
+    { id:"disgusted", label:"Disgusted", secondary:[
+      { id:"disapproving", label:"Disapproving", tertiary:[
+        {id:"judgmental", label:"Judgmental"}, {id:"embarrassed", label:"Embarrassed"} ]},
+      { id:"disappointed", label:"Disappointed", tertiary:[
+        {id:"appalled", label:"Appalled"}, {id:"revolted", label:"Revolted"} ]},
+      { id:"awful", label:"Awful", tertiary:[
+        {id:"nauseated", label:"Nauseated"}, {id:"detestable", label:"Detestable"} ]},
+      { id:"repelled", label:"Repelled", tertiary:[
+        {id:"horrified", label:"Horrified"}, {id:"hesitant", label:"Hesitant"} ]}
+    ]},
+    { id:"surprised", label:"Surprised", secondary:[
+      { id:"startled", label:"Startled", tertiary:[
+        {id:"shocked", label:"Shocked"}, {id:"dismayed", label:"Dismayed"} ]},
+      { id:"confused", label:"Confused", tertiary:[
+        {id:"disillusioned", label:"Disillusioned"}, {id:"perplexed", label:"Perplexed"} ]},
+      { id:"amazed", label:"Amazed", tertiary:[
+        {id:"astonished", label:"Astonished"}, {id:"awe", label:"Awe"} ]},
+      { id:"excited", label:"Excited", tertiary:[
+        {id:"eager", label:"Eager"}, {id:"energetic", label:"Energetic"} ]}
+    ]},
+    { id:"sad", label:"Sad", secondary:[
+      { id:"lonely", label:"Lonely", tertiary:[
+        {id:"isolated", label:"Isolated"}, {id:"abandoned", label:"Abandoned"} ]},
+      { id:"vulnerable", label:"Vulnerable", tertiary:[
+        {id:"victimized", label:"Victimized"}, {id:"fragile", label:"Fragile"} ]},
+      { id:"despair", label:"Despair", tertiary:[
+        {id:"grief", label:"Grief"}, {id:"powerless", label:"Powerless"} ]},
+      { id:"guilty", label:"Guilty", tertiary:[
+        {id:"ashamed", label:"Ashamed"}, {id:"remorseful", label:"Remorseful"} ]},
+      { id:"depressed", label:"Depressed", tertiary:[
+        {id:"empty", label:"Empty"}, {id:"inferior-2", label:"Inferior"} ]},
+      { id:"hurt", label:"Hurt", tertiary:[
+        {id:"disappointed-2", label:"Disappointed"}, {id:"embarrassed-2", label:"Embarrassed"} ]}
+    ]}
+  ];
+
+  /* ---------------------------------------------------------------------
+   * 2. TRANSLATIONS — dynamic language switching without a page reload.
+   *    Add a new language by adding another key here (e.g. "es") with
+   *    the same shape: a `ui` object and a `words` map of id -> text.
+   *    Any id not found falls back to the English label above.
+   * ------------------------------------------------------------------- */
+
+  function buildEnglishWordMap(){
+    const map = {};
+    WHEEL_DATA.forEach(core=>{
+      map[core.id]=core.label;
+      core.secondary.forEach(sec=>{
+        map[sec.id]=sec.label;
+        sec.tertiary.forEach(t=>{ map[t.id]=t.label; });
+      });
+    });
+    return map;
+  }
+
+  const ES_WORDS = {
+    angry:"Enojado", "let-down":"Defraudado", betrayed:"Traicionado", resentful:"Resentido",
+    humiliated:"Humillado", disrespected:"Menospreciado", ridiculed:"Ridiculizado",
+    bitter:"Amargado", indignant:"Indignado", violated:"Vulnerado",
+    mad:"Enfadado", furious:"Furioso", jealous:"Celoso",
+    aggressive:"Agresivo", provoked:"Provocado", hostile:"Hostil",
+    frustrated:"Frustrado", infuriated:"Enfurecido", annoyed:"Molesto",
+    distant:"Distante", withdrawn:"Retraído", numb:"Insensible",
+    critical:"Crítico", skeptical:"Escéptico", dismissive:"Desdeñoso",
+
+    fearful:"Temeroso", scared:"Asustado", helpless:"Indefenso", frightened:"Atemorizado",
+    anxious:"Ansioso", "overwhelmed-2":"Agobiado", worried:"Preocupado",
+    insecure:"Inseguro", inadequate:"Inadecuado", inferior:"Inferior",
+    weak:"Débil", worthless:"Inútil", insignificant:"Insignificante",
+    rejected:"Rechazado", excluded:"Excluido", persecuted:"Perseguido",
+    threatened:"Amenazado", nervous:"Nervioso", exposed:"Expuesto",
+
+    bad:"Malo", bored:"Aburrido", indifferent:"Indiferente", apathetic:"Apático",
+    busy:"Ocupado", pressured:"Presionado", rushed:"Apresurado",
+    stressed:"Estresado", overwhelmed:"Abrumado", "out-of-control":"Fuera de Control",
+    tired:"Cansado", sleepy:"Somnoliento", unfocused:"Distraído",
+
+    happy:"Feliz", playful:"Juguetón", aroused:"Estimulado", cheeky:"Atrevido",
+    content:"Contento", free:"Libre", joyful:"Alegre",
+    interested:"Interesado", curious:"Curioso", inquisitive:"Inquisitivo",
+    proud:"Orgulloso", successful:"Exitoso", confident:"Seguro",
+    accepted:"Aceptado", respected:"Respetado", valued:"Valorado",
+    powerful:"Poderoso", courageous:"Valiente", creative:"Creativo",
+    peaceful:"Tranquilo", loving:"Cariñoso", thankful:"Agradecido",
+    trusting:"Confiado", sensitive:"Sensible", intimate:"Íntimo",
+    optimistic:"Optimista", hopeful:"Esperanzado", inspired:"Inspirado",
+
+    disgusted:"Disgustado", disapproving:"Desaprobador", judgmental:"Juzgón", embarrassed:"Apenado",
+    disappointed:"Decepcionado", appalled:"Consternado", revolted:"Asqueado",
+    awful:"Horrible", nauseated:"Nauseado", detestable:"Detestable",
+    repelled:"Repelido", horrified:"Horrorizado", hesitant:"Indeciso",
+
+    surprised:"Sorprendido", startled:"Sobresaltado", shocked:"Conmocionado", dismayed:"Desalentado",
+    confused:"Confundido", disillusioned:"Desilusionado", perplexed:"Perplejo",
+    amazed:"Asombrado", astonished:"Atónito", awe:"Maravillado",
+    excited:"Emocionado", eager:"Entusiasmado", energetic:"Enérgico",
+
+    sad:"Triste", lonely:"Solo", isolated:"Aislado", abandoned:"Abandonado",
+    vulnerable:"Vulnerable", victimized:"Victimizado", fragile:"Frágil",
+    despair:"Desesperado", grief:"Afligido", powerless:"Impotente",
+    guilty:"Culpable", ashamed:"Avergonzado", remorseful:"Arrepentido",
+    depressed:"Deprimido", empty:"Vacío", "inferior-2":"Inferior",
+    hurt:"Herido", "disappointed-2":"Decepcionado", "embarrassed-2":"Apenado"
+  };
+
+  const translations = {
+    en:{
+      name:"English",
+      words: buildEnglishWordMap(),
+      ui:{
+        title:"Feelings Wheel",
+        langLabel:"Language",
+        depthLabel:"Depth",
+        fullscreenLabel:"Fullscreen",
+        exitFullscreenLabel:"Exit Fullscreen",
+        selectedHeading:"What I'm feeling today",
+        sortLabel:"Sort",
+        sortClicked:"Order Selected",
+        sortAZ:"Alphabetical",
+        sortType:"By Type",
+        shareLabel:"Share",
+        shareFeedback:"Link copied!",
+        shareFallback:"Copy this link:",
+        clearAll:"Clear all",
+        emptyHint:"Nothing selected yet — click any feeling on the wheel.",
+        credit:'Wheel structure adapted from Geoffrey Roberts’ Feelings Wheel, in the spirit of <a href="https://www.feelingswheel.com/" target="_blank" rel="noopener">feelingswheel.com</a> — an independent build, not affiliated with that site.'
+      }
+    },
+    es:{
+      name:"Español",
+      words: ES_WORDS,
+      ui:{
+        title:"Rueda de las Emociones",
+        langLabel:"Idioma",
+        depthLabel:"Profundidad",
+        fullscreenLabel:"Pantalla Completa",
+        exitFullscreenLabel:"Salir de Pantalla Completa",
+        selectedHeading:"Lo que siento hoy",
+        sortLabel:"Ordenar",
+        sortClicked:"Orden de Selección",
+        sortAZ:"Alfabético",
+        sortType:"Por Tipo",
+        shareLabel:"Compartir",
+        shareFeedback:"¡Enlace copiado!",
+        shareFallback:"Copia este enlace:",
+        clearAll:"Borrar todo",
+        emptyHint:"Nada seleccionado todavía — haz clic en cualquier sentimiento de la rueda.",
+        credit:'Estructura de la rueda adaptada de la Rueda de las Emociones de Geoffrey Roberts, inspirada en <a href="https://www.feelingswheel.com/" target="_blank" rel="noopener">feelingswheel.com</a> — una versión independiente, no afiliada a ese sitio.'
+      }
+    }
+  };
+
+  let currentLang = "en";
+  function t(id){
+    const L = translations[currentLang];
+    return (L && L.words && L.words[id]) || (translations.en.words[id]) || id;
+  }
+  function ui(key){
+    const L = translations[currentLang];
+    return (L && L.ui && L.ui[key]) || translations.en.ui[key] || "";
+  }
+
+  /* ---------------------------------------------------------------------
+   * 3. COLOR PALETTE — one fixed color per core feeling. Secondary and
+   *    tertiary rings are lighter tints of the same hue. Label text is
+   *    a fixed near-black ink everywhere except the core ring, which
+   *    uses white for contrast against its more saturated color (see
+   *    .wedge-label / .wedge-label.core) — regardless of selection
+   *    state, so a printed wheel still reads cleanly.
+   * ------------------------------------------------------------------- */
+
+  const CORE_HEX = {
+    angry:     "#f94144", // Strawberry Red
+    fearful:   "#f3722c", // Pumpkin Spice
+    bad:       "#f8961e", // Carrot Orange
+    happy:     "#f9c74f", // Tuscan Sun
+    disgusted: "#90be6d", // Willow Green
+    surprised: "#43aa8b", // Seaweed
+    sad:       "#577590"  // Blue Slate
+  };
+
+  function hexToRgb(hex){
+    hex = hex.replace("#","");
+    return [ parseInt(hex.substring(0,2),16), parseInt(hex.substring(2,4),16), parseInt(hex.substring(4,6),16) ];
+  }
+  function rgbToHsl(r,g,b){
+    r/=255; g/=255; b/=255;
+    const max=Math.max(r,g,b), min=Math.min(r,g,b);
+    let h,s; const l=(max+min)/2;
+    if(max===min){ h=s=0; }
+    else{
+      const d=max-min;
+      s = l>0.5 ? d/(2-max-min) : d/(max+min);
+      switch(max){
+        case r: h=(g-b)/d+(g<b?6:0); break;
+        case g: h=(b-r)/d+2; break;
+        default: h=(r-g)/d+4;
+      }
+      h/=6;
+    }
+    return [h*360, s*100, l*100];
+  }
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+  const CORE_HSL = {};
+  Object.keys(CORE_HEX).forEach(k=>{
+    const [r,g,b] = hexToRgb(CORE_HEX[k]);
+    CORE_HSL[k] = rgbToHsl(r,g,b);
+  });
+
+  function hslFor(coreId, depth){
+    // depth: 0 = core ring (the color as given), 1 = secondary, 2 = tertiary
+    const [h,s,l] = CORE_HSL[coreId];
+    if(depth===0) return [h, s, l];
+    if(depth===1) return [h, clamp(s-3,0,100), clamp(l+13,0,90)];
+    return [h, clamp(s-7,0,100), clamp(l+25,0,94)];
+  }
+  function colorFor(coreId, depth){
+    const [h,s,l] = hslFor(coreId, depth);
+    return `hsl(${h.toFixed(1)} ${s.toFixed(0)}% ${l.toFixed(0)}%)`;
+  }
+  function stripeColorFor(coreId, depth){
+    // A shade of the SAME hue as the wedge (not black/white), used for
+    // the diagonal stripes drawn over a selected wedge. The core ring
+    // lightens (it starts saturated/dark, so there's plenty of room
+    // above it). The secondary/tertiary rings are already pale tints,
+    // so lightening them further runs into white almost immediately —
+    // those darken instead, which has much more headroom and keeps the
+    // stripe clearly visible against the lighter base color.
+    const [h,s,l] = hslFor(coreId, depth);
+    let dl, ds;
+    if(depth===0){
+      dl = clamp(l+14, 0, 80);
+      ds = clamp(s-4, 0, 100);
+    } else {
+      dl = clamp(l-22, 15, 100);
+      ds = clamp(s+10, 0, 100);
+    }
+    return `hsl(${h.toFixed(1)} ${ds.toFixed(0)}% ${dl.toFixed(0)}%)`;
+  }
+
+  /* ---------------------------------------------------------------------
+   * 4. GEOMETRY
+   * ------------------------------------------------------------------- */
+
+  const R_HUB = 54, R_CORE = 168, R_SEC = 292, R_TER = 400;
+  const CX = 410, CY = 410;
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  function polar(r, angleDeg){
+    const rad = (angleDeg - 90) * Math.PI/180;
+    return [ r*Math.cos(rad), r*Math.sin(rad) ];
+  }
+  function wedgePath(rInner, rOuter, a0, a1){
+    const large = (a1-a0) > 180 ? 1 : 0;
+    const [x1,y1] = polar(rOuter, a1);
+    const [x2,y2] = polar(rOuter, a0);
+    const [x3,y3] = polar(rInner, a0);
+    const [x4,y4] = polar(rInner, a1);
+    return `M ${x1} ${y1} A ${rOuter} ${rOuter} 0 ${large} 0 ${x2} ${y2} `+
+           `L ${x3} ${y3} A ${rInner} ${rInner} 0 ${large} 1 ${x4} ${y4} Z`;
+  }
+  function el(tag, attrs){
+    const e = document.createElementNS(SVG_NS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // DEPTH — how many of the 3 rings (core / secondary / tertiary) are
+  // currently drawn. When fewer than 3 are shown, the visible ring(s)
+  // are rescaled to span the full hub-to-edge radius (rather than
+  // leaving the outer wheel blank), so a "Depth: 1" wheel is just the 7
+  // core wedges blown up to fill the whole circle. At the default
+  // Depth: 3 this returns the exact original hand-tuned radii, so the
+  // full wheel's look is unchanged from before Depth existed.
+  function ringBoundariesFor(depth){
+    if(depth === 3) return [R_HUB, R_CORE, R_SEC, R_TER];
+    const arr = [R_HUB];
+    for(let i=1;i<=depth;i++) arr.push(R_HUB + i*(R_TER-R_HUB)/depth);
+    return arr;
+  }
+
+  // Original band width / font size per ring, at the default full wheel —
+  // used below to scale a ring's font up proportionally when Depth makes
+  // its band wider than this baseline (never smaller, since fewer shown
+  // rings only ever makes the remaining ones bigger).
+  const BASE_BAND = [98, 108, 92];
+  const BASE_FONT = [15, 12.5, 11.5];
+
+  /* ---------------------------------------------------------------------
+   * 4b. SELECTION PATTERN — a subtle diagonal-stripe fill (a lighter
+   *     shade of the wedge's own hue, over the wedge's normal color —
+   *     selecting a wedge does not change its base color) marks a
+   *     selected wedge, instead of an outline. One <pattern> per
+   *     core/depth combination covers every wedge in the wheel, built
+   *     once per render().
+   * ------------------------------------------------------------------- */
+
+  function patternIdFor(coreId, depth){ return `stripe-${coreId}-${depth}`; }
+
+  function buildStripeDefs(){
+    const defs = el("defs", {});
+    Object.keys(CORE_HEX).forEach(coreId=>{
+      [0,1,2].forEach(depth=>{
+        const pattern = el("pattern", {
+          id: patternIdFor(coreId, depth),
+          patternUnits:"userSpaceOnUse",
+          width:10, height:10,
+          patternTransform:"rotate(45)"
+        });
+        pattern.appendChild(el("rect", { width:10, height:10, fill:colorFor(coreId, depth) }));
+        pattern.appendChild(el("rect", { x:0, y:0, width:3.5, height:10, fill:stripeColorFor(coreId, depth) }));
+        defs.appendChild(pattern);
+      });
+    });
+    return defs;
+  }
+
+  /* ---------------------------------------------------------------------
+   * 5. STATE
+   * ------------------------------------------------------------------- */
+
+  const selected = new Map(); // id -> {label, coreId, depth} — Map insertion order IS click order
+  let wheelRotation = 0;
+  let chipSort = "clicked"; // "clicked" | "az" | "type" — how the chip list below is displayed
+  let currentDepth = 3; // 1, 2, or 3 rings shown (core / +secondary / +tertiary)
+  const flipGroups = []; // {group, angle} — text always flips upright past 90/270deg
+
+  // Position of each core in the wheel (angry, fearful, bad, ...), used to
+  // group chips by feeling "type" (i.e. by which core/color they belong to)
+  // without disturbing the click-order Map itself.
+  const CORE_ORDER = {};
+  WHEEL_DATA.forEach((core, i)=>{ CORE_ORDER[core.id] = i; });
+
+  /* ---------------------------------------------------------------------
+   * 6. RENDER
+   * ------------------------------------------------------------------- */
+
+  const svg = document.getElementById("wheelSvg");
+  let rotor = null;
+
+  function render(){
+    svg.innerHTML = "";
+    flipGroups.length = 0;
+
+    svg.appendChild(buildStripeDefs());
+
+    const centerFrame = el("g", { transform:`translate(${CX} ${CY})` });
+    rotor = el("g", { transform:`rotate(${wheelRotation})` });
+    centerFrame.appendChild(rotor);
+    svg.appendChild(centerFrame);
+
+    const ringR = ringBoundariesFor(currentDepth); // [r0, r1, ...] — length currentDepth+1
+
+    const totalWeight = WHEEL_DATA.reduce((sum,c)=>sum+c.secondary.length,0);
+    let cursor = 0;
+
+    WHEEL_DATA.forEach(core=>{
+      const coreSpan = core.secondary.length/totalWeight*360;
+      const coreStart = cursor, coreEnd = cursor+coreSpan;
+      drawWedge(core.id, "core", 0, ringR[0], ringR[1], coreStart, coreEnd, core.label);
+
+      if(currentDepth >= 2){
+        let secCursor = coreStart;
+        const secSpan = coreSpan/core.secondary.length;
+        core.secondary.forEach(sec=>{
+          const secStart = secCursor, secEnd = secCursor+secSpan;
+          drawWedge(sec.id, "secondary", 1, ringR[1], ringR[2], secStart, secEnd, sec.label, core.id);
+
+          if(currentDepth >= 3){
+            let terCursor = secStart;
+            const terSpan = secSpan/sec.tertiary.length;
+            sec.tertiary.forEach(ter=>{
+              const terStart = terCursor, terEnd = terCursor+terSpan;
+              drawWedge(ter.id, "tertiary", 2, ringR[2], ringR[3], terStart, terEnd, ter.label, core.id);
+              terCursor = terEnd;
+            });
+          }
+          secCursor = secEnd;
+        });
+      }
+      cursor = coreEnd;
+    });
+
+    // hub
+    rotor.appendChild(el("circle",{ cx:0, cy:0, r:R_HUB, class:"hub" }));
+    const hubLabel = el("text",{ class:"hub-label", x:0, y:4 });
+    hubLabel.textContent = "";
+    rotor.appendChild(hubLabel);
+
+    applySelectionStyles();
+    updateAllLabelFlips();
+    fitLabelsToBands();
+  }
+
+  function drawWedge(id, ringName, depth, rInner, rOuter, a0, a1, labelText, coreIdOverride){
+    const coreId = coreIdOverride || id;
+    const path = el("path", {
+      class:"wedge",
+      d: wedgePath(rInner, rOuter, a0, a1),
+      fill: colorFor(coreId, depth),
+      "data-id": id,
+      "data-core": coreId,
+      "data-depth": depth,
+      "data-label": t(id) || labelText,
+      tabindex:"0",
+      role:"button",
+      "aria-pressed":"false"
+    });
+    rotor.appendChild(path);
+
+    const mid = (a0+a1)/2;
+    const rMid = (rInner+rOuter)/2;
+    const band = (rOuter-rInner) - 16;
+    // When Depth hides rings, the remaining ones get a wider band than
+    // their original design — scale the font up to match (capped so it
+    // never gets cartoonishly large), rather than leaving small type
+    // floating in a lot of empty space.
+    const fontScale = clamp(band / BASE_BAND[depth], 1, 2.2);
+    const fontSize = BASE_FONT[depth] * fontScale;
+
+    // Nesting is spin > radial > flip > text. `flip`'s 180deg correction
+    // pivots around the label's own on-screen position (rMid,0) — the
+    // same point the text is anchored/centered on — so flipping a label
+    // rotates it in place instead of jumping across the wedge.
+    const spin = el("g", { transform:`rotate(${mid})` });
+    const radial = el("g", { transform:"rotate(-90)" });
+    const flip = el("g", { "data-angle": mid, "data-pivot-x": rMid, "data-pivot-y": 0 });
+
+    const textEl = el("text", {
+      class: depth===0 ? "wedge-label core" : "wedge-label",
+      x: rMid, y: 0,
+      "text-anchor": "middle",
+      "dominant-baseline": "central",
+      "font-size": fontSize,
+      "data-band": band,
+      "data-id": id
+    });
+    textEl.textContent = t(id) || labelText;
+
+    flip.appendChild(textEl);
+    radial.appendChild(flip);
+    spin.appendChild(radial);
+    rotor.appendChild(spin);
+
+    flipGroups.push({ group:flip, angle:mid, pivotX:rMid, pivotY:0 });
+  }
+
+  function fitLabelsToBands(){
+    // Shrink text (never stretch) so long words fit within their ring band.
+    // Re-run whenever weight can change (selecting bolds a label, which
+    // widens it) — always clear any earlier compression before
+    // remeasuring, or getComputedTextLength() would report the already-
+    // compressed width instead of the label's natural width.
+    const texts = svg.querySelectorAll("text.wedge-label");
+    texts.forEach(txt=>{
+      txt.removeAttribute("textLength");
+      txt.removeAttribute("lengthAdjust");
+      const band = parseFloat(txt.getAttribute("data-band"));
+      let len;
+      try{ len = txt.getComputedTextLength(); } catch(e){ return; }
+      if(len > band && band > 0){
+        txt.setAttribute("textLength", band);
+        txt.setAttribute("lengthAdjust","spacingAndGlyphs");
+      }
+    });
+  }
+
+  function applyRotorTransform(){
+    if(rotor) rotor.setAttribute("transform", `rotate(${wheelRotation})`);
+  }
+
+  function updateAllLabelFlips(){
+    // The label's actual on-screen rotation is (wheelRotation + mid - 90):
+    // the "-90" comes from the extra rotate(-90) every label gets so its
+    // text reads radially (see drawWedge). Flip is judged against that
+    // true rendered angle, not the raw wedge midpoint.
+    flipGroups.forEach(fg=>{
+      let apparent = (wheelRotation + fg.angle - 90) % 360;
+      if(apparent < 0) apparent += 360;
+      const needsFlip = apparent > 90 && apparent < 270;
+      fg.group.setAttribute("transform", needsFlip ? `rotate(180 ${fg.pivotX} ${fg.pivotY})` : "");
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+   * 7. SELECTION ("what I'm feeling now")
+   * ------------------------------------------------------------------- */
+
+  function toggleSelect(id, label, coreId, depth){
+    if(selected.has(id)) selected.delete(id);
+    else selected.set(id, { label, coreId, depth });
+    applySelectionStyles();
+    renderChips();
+  }
+
+  function applySelectionStyles(){
+    svg.querySelectorAll("path.wedge").forEach(p=>{
+      const id = p.getAttribute("data-id");
+      const coreId = p.getAttribute("data-core");
+      const depth = parseInt(p.getAttribute("data-depth"), 10);
+      const isSel = selected.has(id);
+      p.setAttribute("fill", isSel ? `url(#${patternIdFor(coreId, depth)})` : colorFor(coreId, depth));
+      p.classList.toggle("selected", isSel);
+      p.setAttribute("aria-pressed", isSel ? "true":"false");
+      const label = svg.querySelector(`text.wedge-label[data-id="${id}"]`);
+      if(label) label.classList.toggle("selected", isSel);
+    });
+    // selected labels go bold, which can widen them — refit against their bands.
+    fitLabelsToBands();
+  }
+
+  function renderChips(){
+    const chips = document.getElementById("chips");
+    chips.innerHTML = "";
+
+    // Selections outside the current Depth stay in the `selected` Map
+    // (so they're remembered) but are left out of the visible list —
+    // and automatically reappear here the moment Depth reveals their
+    // ring again, with no special-casing needed beyond this filter.
+    const entries = Array.from(selected.entries()).filter(([, info]) => info.depth < currentDepth);
+
+    if(entries.length===0){
+      const hint = document.createElement("span");
+      hint.className = "empty-hint";
+      hint.id = "emptyHint";
+      hint.textContent = ui("emptyHint");
+      chips.appendChild(hint);
+      shareBtn.disabled = selected.size===0;
+      return;
+    }
+    // The Map itself always stays in click order — sorting only changes
+    // how this one render lays the chips out, so switching back to
+    // "clicked" (or clicking a new feeling) always reflects true order.
+    if(chipSort === "az"){
+      entries.sort((a,b)=> (t(a[0])||a[1].label).localeCompare(t(b[0])||b[1].label));
+    } else if(chipSort === "type"){
+      entries.sort((a,b)=> (CORE_ORDER[a[1].coreId]||0) - (CORE_ORDER[b[1].coreId]||0));
+    }
+
+    entries.forEach(([id, info])=>{
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = colorFor(info.coreId, 1);
+      const label = document.createElement("span");
+      label.textContent = t(id) || info.label;
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.setAttribute("aria-label","Remove "+(t(id)||info.label));
+      removeBtn.textContent = "×";
+      removeBtn.addEventListener("click", ()=>{ selected.delete(id); applySelectionStyles(); renderChips(); });
+      chip.appendChild(dot); chip.appendChild(label); chip.appendChild(removeBtn);
+      chips.appendChild(chip);
+    });
+
+    shareBtn.disabled = selected.size===0;
+  }
+
+  const sortSelect = document.getElementById("sortSelect");
+  sortSelect.addEventListener("change", ()=>{
+    chipSort = sortSelect.value;
+    renderChips();
+  });
+
+  const depthSelect = document.getElementById("depthSelect");
+  depthSelect.addEventListener("change", ()=>{
+    currentDepth = parseInt(depthSelect.value, 10) || 3;
+    render();
+    applySelectionStyles();
+    renderChips();
+  });
+
+  document.getElementById("clearBtn").addEventListener("click", ()=>{
+    selected.clear();
+    applySelectionStyles();
+    renderChips();
+  });
+
+  /* ---------------------------------------------------------------------
+   * 7b. SHARE LINK — the selected ids are packed into a "feel" query
+   *     param (id slugs are stable across languages), so pasting the
+   *     link into any browser reopens this page with those same
+   *     feelings pre-selected. No server involved — it's decoded
+   *     entirely by this page's own script on load.
+   * ------------------------------------------------------------------- */
+
+  const shareBtn = document.getElementById("shareBtn");
+  const shareFeedback = document.getElementById("shareFeedback");
+  let shareFeedbackTimer = null;
+
+  const SORT_MODES = ["clicked", "az", "type"];
+
+  function buildShareUrl(){
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
+    if(selected.size){
+      url.searchParams.set("feel", Array.from(selected.keys()).join(","));
+      url.searchParams.set("sort", chipSort);
+    }
+    url.searchParams.set("depth", String(currentDepth));
+    return url.toString();
+  }
+
+  function flashShareFeedback(text){
+    shareFeedback.textContent = text;
+    shareFeedback.classList.add("show");
+    clearTimeout(shareFeedbackTimer);
+    shareFeedbackTimer = setTimeout(()=>{ shareFeedback.classList.remove("show"); }, 2400);
+  }
+
+  shareBtn.addEventListener("click", async ()=>{
+    if(selected.size===0) return;
+    const url = buildShareUrl();
+    try{
+      await navigator.clipboard.writeText(url);
+      flashShareFeedback(ui("shareFeedback"));
+    } catch(err){
+      window.prompt(ui("shareFallback"), url);
+    }
+  });
+
+  // Runs BEFORE the first render() — depth affects which rings (and
+  // therefore which wedges) even exist in the DOM, so it has to be known
+  // ahead of time rather than folded into applySelectionFromUrl() below.
+  function applyDepthFromUrl(){
+    const params = new URLSearchParams(window.location.search);
+    const depthParam = parseInt(params.get("depth"), 10);
+    if(depthParam === 1 || depthParam === 2 || depthParam === 3){
+      currentDepth = depthParam;
+      depthSelect.value = String(currentDepth);
+    }
+  }
+
+  // Looks a feeling id up straight from WHEEL_DATA rather than the DOM —
+  // needed because a shared link's `feel` list can name a feeling in a
+  // ring deeper than the current Depth, whose wedge was never drawn.
+  function lookupWordMeta(id){
+    for(const core of WHEEL_DATA){
+      if(core.id === id) return { label: t(id) || core.label, coreId: core.id, depth: 0 };
+      for(const sec of core.secondary){
+        if(sec.id === id) return { label: t(id) || sec.label, coreId: core.id, depth: 1 };
+        for(const ter of sec.tertiary){
+          if(ter.id === id) return { label: t(id) || ter.label, coreId: core.id, depth: 2 };
+        }
+      }
+    }
+    return null;
+  }
+
+  function applySelectionFromUrl(){
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("feel");
+    if(raw){
+      raw.split(",").map(s=>s.trim()).filter(Boolean).forEach(id=>{
+        if(selected.has(id)) return;
+        const meta = lookupWordMeta(id);
+        if(meta) selected.set(id, meta);
+      });
+    }
+    const sortParam = params.get("sort");
+    if(sortParam && SORT_MODES.includes(sortParam)){
+      chipSort = sortParam;
+      sortSelect.value = chipSort;
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * 7c. FULLSCREEN MODE — hides everything but the wheel itself and one
+   *     button to leave. The CSS side of this (hiding nav/header/panel/
+   *     footer, growing the wheel) always applies. On top of that we ALSO
+   *     ask the browser for real Fullscreen (hiding its own chrome too)
+   *     when the API is available — but that request can be refused,
+   *     unsupported (iOS Safari mainly), or exited by the user through
+   *     means we don't control (Esc, the browser's own "exit fullscreen"
+   *     control, F11), so the CSS mode is the source of truth and the
+   *     browser API is just layered on top of it, kept in sync via the
+   *     fullscreenchange event rather than assumed to succeed.
+   * ------------------------------------------------------------------- */
+
+  const fullscreenBtn = document.getElementById("fullscreenBtn");
+  const exitFullscreenBtn = document.getElementById("exitFullscreenBtn");
+
+  function currentFullscreenElement(){
+    return document.fullscreenElement || document.webkitFullscreenElement ||
+           document.mozFullScreenElement || document.msFullscreenElement || null;
+  }
+  function requestBrowserFullscreen(){
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen ||
+                el.mozRequestFullScreen || el.msRequestFullscreen;
+    if(!req) return;
+    try{
+      const result = req.call(el);
+      if(result && result.catch) result.catch(()=>{}); // refused — CSS mode still stands
+    } catch(e){ /* refused or unsupported — CSS mode still stands */ }
+  }
+  function exitBrowserFullscreen(){
+    const exit = document.exitFullscreen || document.webkitExitFullscreen ||
+                 document.mozCancelFullScreen || document.msExitFullscreen;
+    if(exit && currentFullscreenElement()){
+      try{ exit.call(document); } catch(e){ /* already exiting/exited */ }
+    }
+  }
+
+  function enterFullscreen(){
+    document.body.classList.add("fullscreen-mode");
+    requestBrowserFullscreen();
+  }
+  function exitFullscreenMode(){
+    document.body.classList.remove("fullscreen-mode");
+    exitBrowserFullscreen();
+  }
+
+  fullscreenBtn.addEventListener("click", enterFullscreen);
+  exitFullscreenBtn.addEventListener("click", exitFullscreenMode);
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && document.body.classList.contains("fullscreen-mode")){
+      exitFullscreenMode();
+    }
+  });
+  // If the browser's real fullscreen is exited some other way (Esc, its
+  // own on-screen control, F11), drop our CSS mode too so the two never
+  // fall out of sync with each other.
+  ["fullscreenchange","webkitfullscreenchange","mozfullscreenchange","MSFullscreenChange"].forEach(evt=>{
+    document.addEventListener(evt, ()=>{
+      if(!currentFullscreenElement()){
+        document.body.classList.remove("fullscreen-mode");
+      }
+    });
+  });
+
+  /* ---------------------------------------------------------------------
+   * 8. POINTER HANDLING — drag to rotate, tap/click to select
+   * ------------------------------------------------------------------- */
+
+  const shell = document.getElementById("wheelShell");
+  let dragging = false, moved = false, lastAngle = 0, downTarget = null;
+
+  // Momentum: while dragging we track angular velocity (deg/ms, lightly
+  // smoothed so one jittery final sample doesn't dominate). On release,
+  // if the flick was fast enough, a short requestAnimationFrame loop
+  // keeps spinning the wheel and decays that velocity quickly to a stop
+  // — a small flourish, not a long freewheel.
+  let angularVelocity = 0, lastMoveTime = 0, momentumFrame = null;
+  const MOMENTUM_START_THRESHOLD = 0.05; // deg/ms below which a release doesn't glide
+  const MOMENTUM_STOP_THRESHOLD = 0.003; // deg/ms below which the glide is considered stopped
+
+  function svgPoint(evt){
+    const pt = svg.createSVGPoint();
+    pt.x = evt.clientX; pt.y = evt.clientY;
+    const ctm = svg.getScreenCTM();
+    if(!ctm) return {x:0,y:0};
+    const loc = pt.matrixTransform(ctm.inverse());
+    return { x: loc.x-CX, y: loc.y-CY };
+  }
+  function angleAt(evt){
+    const p = svgPoint(evt);
+    let a = Math.atan2(p.x, -p.y) * 180/Math.PI;
+    if(a<0) a += 360;
+    return a;
+  }
+
+  function stopMomentum(){
+    if(momentumFrame){ cancelAnimationFrame(momentumFrame); momentumFrame = null; }
+    angularVelocity = 0;
+  }
+
+  function runMomentum(){
+    let lastT = performance.now();
+    function step(now){
+      const dt = Math.min(now - lastT, 48); // guard against a big gap (tab backgrounded, etc.)
+      lastT = now;
+      // Exponential decay tuned so a fast flick coasts for well under a
+      // second — a "teeny bit" of momentum, not a spinning-wheel toy.
+      const decay = Math.pow(0.003, dt/1000);
+      angularVelocity *= decay;
+      wheelRotation += angularVelocity*dt;
+      applyRotorTransform();
+      updateAllLabelFlips();
+      if(Math.abs(angularVelocity) > MOMENTUM_STOP_THRESHOLD){
+        momentumFrame = requestAnimationFrame(step);
+      } else {
+        angularVelocity = 0;
+        momentumFrame = null;
+      }
+    }
+    momentumFrame = requestAnimationFrame(step);
+  }
+
+  shell.addEventListener("pointerdown", (e)=>{
+    stopMomentum();
+    dragging = true; moved = false;
+    lastAngle = angleAt(e);
+    lastMoveTime = performance.now();
+    downTarget = e.target;
+    shell.classList.add("dragging");
+    shell.setPointerCapture(e.pointerId);
+  });
+
+  shell.addEventListener("pointermove", (e)=>{
+    if(!dragging) return;
+    const a = angleAt(e);
+    let delta = a - lastAngle;
+    if(delta > 180) delta -= 360;
+    if(delta < -180) delta += 360;
+    if(Math.abs(delta) > 0.4) moved = true;
+    const now = performance.now();
+    const dt = Math.max(now - lastMoveTime, 1);
+    if(moved){
+      wheelRotation += delta;
+      // Smooth the instantaneous velocity so the release doesn't inherit
+      // one noisy last sample.
+      angularVelocity = angularVelocity*0.7 + (delta/dt)*0.3;
+      lastAngle = a;
+      applyRotorTransform();
+      updateAllLabelFlips();
+    }
+    lastMoveTime = now;
+  });
+
+  function endDrag(e){
+    if(!dragging) return;
+    dragging = false;
+    shell.classList.remove("dragging");
+    if(!moved && downTarget){
+      const wedge = downTarget.closest ? downTarget.closest("path.wedge") : null;
+      if(wedge){
+        toggleSelect(wedge.getAttribute("data-id"), wedge.getAttribute("data-label"), wedge.getAttribute("data-core"), parseInt(wedge.getAttribute("data-depth"), 10));
+      }
+    } else if(moved && Math.abs(angularVelocity) > MOMENTUM_START_THRESHOLD){
+      runMomentum();
+    }
+    downTarget = null;
+  }
+  shell.addEventListener("pointerup", endDrag);
+  shell.addEventListener("pointercancel", endDrag);
+
+  // keyboard support
+  svg.addEventListener("keydown", (e)=>{
+    if(e.key==="Enter" || e.key===" "){
+      const wedge = e.target.closest ? e.target.closest("path.wedge") : null;
+      if(wedge){
+        e.preventDefault();
+        toggleSelect(wedge.getAttribute("data-id"), wedge.getAttribute("data-label"), wedge.getAttribute("data-core"), parseInt(wedge.getAttribute("data-depth"), 10));
+      }
+    }
+  });
+
+  /* ---------------------------------------------------------------------
+   * 9. LANGUAGE SWITCHER (dynamic — no page reload)
+   * ------------------------------------------------------------------- */
+
+  const langSelect = document.getElementById("langSelect");
+  function populateLangSelect(){
+    langSelect.innerHTML = "";
+    Object.keys(translations).forEach(code=>{
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = translations[code].name;
+      langSelect.appendChild(opt);
+    });
+    langSelect.value = currentLang;
+  }
+  langSelect.addEventListener("change", ()=>{
+    currentLang = langSelect.value;
+    applyStaticText();
+    render();
+    renderChips();
+  });
+
+  function applyStaticText(){
+    document.getElementById("pageTitle").textContent = ui("title");
+    document.getElementById("langLabel").textContent = ui("langLabel");
+    document.getElementById("depthLabel").textContent = ui("depthLabel");
+    document.getElementById("fullscreenLabel").textContent = ui("fullscreenLabel");
+    document.getElementById("exitFullscreenLabel").textContent = ui("exitFullscreenLabel");
+    document.getElementById("selectedHeading").textContent = ui("selectedHeading");
+    document.getElementById("sortLabel").textContent = ui("sortLabel");
+    document.getElementById("sortOptClicked").textContent = ui("sortClicked");
+    document.getElementById("sortOptAZ").textContent = ui("sortAZ");
+    document.getElementById("sortOptType").textContent = ui("sortType");
+    document.getElementById("shareLabel").textContent = ui("shareLabel");
+    document.getElementById("clearLabel").textContent = ui("clearAll");
+    document.getElementById("creditLine").innerHTML = ui("credit");
+    document.title = ui("title") + " — Reeve Hunter";
+  }
+
+  /* ---------------------------------------------------------------------
+   * 11. INIT
+   * ------------------------------------------------------------------- */
+
+  populateLangSelect();
+  applyStaticText();
+  applyDepthFromUrl();
+  render();
+  applySelectionFromUrl();
+  applySelectionStyles();
+  renderChips();
+
+})();
+</script>
+</body>
+</html>
