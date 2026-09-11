@@ -56,13 +56,6 @@
     letter-spacing: 0.3px;
   }
 
-  .app-header .subtitle{
-    margin: 8px auto 0;
-    max-width: 560px;
-    color: var(--ink-soft);
-    font-size: 0.98rem;
-  }
-
   main{
     max-width: 1180px;
     margin: 0 auto;
@@ -219,12 +212,6 @@
     margin: 0 0 4px;
     color: var(--terracotta-deep);
     font-size: 1.35rem;
-  }
-
-  .db-hint{
-    margin: 0 0 18px;
-    color: var(--ink-soft);
-    font-size: 0.88rem;
   }
 
   .db-toolbar{
@@ -400,7 +387,7 @@
   /* ---------- Print ---------- */
   @media print{
     body{ background: white; padding: 0; }
-    .app-header .subtitle, .menu-toolbar, .db-section, .toast, footer,
+    .menu-toolbar, .db-section, .toast, footer,
     .lock-toggle, .meal-select, .locked-hint, .meal-notes { display: none !important; }
     .app-header{ padding: 10px 0; }
     .app-header h1::after{ content: " — Weekly Menu"; }
@@ -424,7 +411,6 @@
 
 <header class="app-header">
   <h1>🍽️ Family Dinner Planner</h1>
-  <p class="subtitle">Friday is always pizza &amp; a movie, Thursday is always quesadillas &amp; smoothies — everything else is up for grabs.</p>
 </header>
 
 <main>
@@ -439,7 +425,6 @@
 
   <section id="dbSection" class="db-section">
     <h2>Meal Database</h2>
-    <p class="db-hint">Drag rows to reorder. This order fills the dropdowns above. Export updates <code>meals.json</code> for GitHub Pages.</p>
     <div class="db-toolbar">
       <input type="text" id="newMealName" placeholder="New meal name">
       <input type="text" id="newMealNotes" placeholder="Notes (optional — e.g. hidden veggie trick)">
@@ -464,7 +449,7 @@
   const DAYS = ['fri','sat','sun','mon','tue','wed','thu'];
   const DAY_LABELS = { mon:'Monday', tue:'Tuesday', wed:'Wednesday', thu:'Thursday', fri:'Friday', sat:'Saturday', sun:'Sunday' };
   const REGULAR_DAYS = ['mon','tue','wed','sat','sun'];
-  const LOCKABLE_DAYS = ['thu','fri'];
+  const TRADITION_DAYS = ['thu','fri'];
   const FLEX = '__flex__';
 
   const LS_MEALS = 'dinnerPlanner.meals';
@@ -566,7 +551,7 @@
     });
     return changed;
   }
-  function isLockedDay(day){ return LOCKABLE_DAYS.includes(day) && !!state.locks[day]; }
+  function isLockedDay(day){ return !!state.locks[day]; }
   function shuffle(arr){
     const a = arr.slice();
     for(let i = a.length - 1; i > 0; i--){
@@ -578,22 +563,38 @@
 
   // ---------- core actions ----------
   function randomize(){
-    const pool = state.meals.filter(m => !m.tradition);
-    const flexDay = REGULAR_DAYS[Math.floor(Math.random() * REGULAR_DAYS.length)];
-    const cookDays = REGULAR_DAYS.filter(d => d !== flexDay);
-    const shuffledPool = shuffle(pool);
-
-    cookDays.forEach((day, i) => {
-      state.menu[day] = shuffledPool.length ? shuffledPool[i % shuffledPool.length].id : FLEX;
+    // Anything sitting on a locked day is "already on the menu" and must not
+    // be handed to another day — this includes Flexible Night itself.
+    const reserved = new Set();
+    DAYS.forEach(day => {
+      if(state.locks[day]) reserved.add(state.menu[day]);
     });
-    state.menu[flexDay] = FLEX;
+    const hasLockedFlex = reserved.has(FLEX);
 
-    LOCKABLE_DAYS.forEach(day => {
+    const availablePool = shuffle(state.meals.filter(m => !m.tradition && !reserved.has(m.id)));
+
+    const unlockedRegular = REGULAR_DAYS.filter(d => !state.locks[d]);
+    // Only introduce a new Flexible Night if one isn't already locked in somewhere.
+    const flexDay = (!hasLockedFlex && unlockedRegular.length)
+      ? unlockedRegular[Math.floor(Math.random() * unlockedRegular.length)]
+      : null;
+
+    // Every day that needs a freshly randomized real meal this round, drawn
+    // from one shared shuffled pool so none of them double up on each other.
+    const daysNeedingMeal = [
+      ...unlockedRegular.filter(d => d !== flexDay),
+      ...TRADITION_DAYS.filter(d => !state.locks[d])
+    ];
+    daysNeedingMeal.forEach((day, i) => {
+      state.menu[day] = availablePool.length ? availablePool[i % availablePool.length].id : FLEX;
+    });
+
+    if(flexDay) state.menu[flexDay] = FLEX;
+
+    TRADITION_DAYS.forEach(day => {
       if(state.locks[day]){
         const t = traditionMealFor(day);
         state.menu[day] = t ? t.id : FLEX;
-      } else {
-        state.menu[day] = pool.length ? pool[Math.floor(Math.random() * pool.length)].id : FLEX;
       }
     });
 
@@ -604,7 +605,7 @@
 
   function toggleLock(day){
     state.locks[day] = !state.locks[day];
-    if(state.locks[day]){
+    if(state.locks[day] && TRADITION_DAYS.includes(day)){
       const t = traditionMealFor(day);
       state.menu[day] = t ? t.id : FLEX;
     }
@@ -622,11 +623,17 @@
 
   function swapDays(dayA, dayB){
     if(!dayA || dayA === dayB) return;
-    if(isLockedDay(dayA) || isLockedDay(dayB)) return;
-    const tmp = state.menu[dayA];
+    const tmpMeal = state.menu[dayA];
     state.menu[dayA] = state.menu[dayB];
-    state.menu[dayB] = tmp;
+    state.menu[dayB] = tmpMeal;
+
+    // The lock follows the meal, not the calendar day it lands on.
+    const tmpLock = state.locks[dayA];
+    state.locks[dayA] = state.locks[dayB];
+    state.locks[dayB] = tmpLock;
+
     persistMenu();
+    persistLocks();
     renderMenu();
   }
 
@@ -797,15 +804,13 @@
       label.textContent = DAY_LABELS[day];
       header.appendChild(label);
 
-      if(LOCKABLE_DAYS.includes(day)){
-        const lockBtn = document.createElement('button');
-        lockBtn.type = 'button';
-        lockBtn.className = 'lock-toggle';
-        lockBtn.title = locked ? 'Unlock this night' : 'Lock to tradition';
-        lockBtn.textContent = locked ? '🔒' : '🔓';
-        lockBtn.addEventListener('click', () => toggleLock(day));
-        header.appendChild(lockBtn);
-      }
+      const lockBtn = document.createElement('button');
+      lockBtn.type = 'button';
+      lockBtn.className = 'lock-toggle';
+      lockBtn.title = locked ? 'Unlock this night' : (TRADITION_DAYS.includes(day) ? 'Lock to tradition' : 'Lock this night');
+      lockBtn.textContent = locked ? '🔒' : '🔓';
+      lockBtn.addEventListener('click', () => toggleLock(day));
+      header.appendChild(lockBtn);
       card.appendChild(header);
 
       const mealId = state.menu[day];
@@ -813,14 +818,12 @@
 
       const chip = document.createElement('div');
       chip.className = 'meal-chip' + (mealId === FLEX ? ' flex' : '');
-      chip.draggable = !locked;
-      if(!locked){
-        chip.addEventListener('dragstart', (e) => {
-          e.dataTransfer.setData('text/plain', day);
-          card.classList.add('dragging');
-        });
-        chip.addEventListener('dragend', () => card.classList.remove('dragging'));
-      }
+      chip.draggable = true;
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', day);
+        card.classList.add('dragging');
+      });
+      chip.addEventListener('dragend', () => card.classList.remove('dragging'));
 
       const nameEl = document.createElement('div');
       nameEl.className = 'meal-name';
@@ -853,7 +856,7 @@
       if(locked){
         const hint = document.createElement('div');
         hint.className = 'locked-hint';
-        hint.textContent = 'Locked to tradition — unlock to change';
+        hint.textContent = TRADITION_DAYS.includes(day) ? 'Locked to tradition — unlock to change' : 'Locked — unlock to change';
         card.appendChild(hint);
       } else {
         const select = document.createElement('select');
@@ -871,16 +874,18 @@
         select.value = mealId;
         select.addEventListener('change', (e) => setDayMeal(day, e.target.value));
         card.appendChild(select);
-
-        card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
-        card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
-        card.addEventListener('drop', (e) => {
-          e.preventDefault();
-          card.classList.remove('drag-over');
-          const fromDay = e.dataTransfer.getData('text/plain');
-          swapDays(fromDay, day);
-        });
       }
+
+      // Drag-and-drop swapping works regardless of lock state — locking only
+      // protects a day from the dropdown and from Randomize Week.
+      card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
+      card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const fromDay = e.dataTransfer.getData('text/plain');
+        swapDays(fromDay, day);
+      });
 
       grid.appendChild(card);
     });
@@ -1078,12 +1083,13 @@
     syncTraditionEmoji();
     persistMeals();
 
+    const defaultLocks = { fri:true, sat:false, sun:false, mon:false, tue:false, wed:false, thu:true };
     const { menu, locks } = loadMenuAndLocks();
     if(menu && locks && DAYS.every(d => d in menu)){
       state.menu = menu;
-      state.locks = Object.assign({ thu:true, fri:true }, locks);
+      state.locks = Object.assign({}, defaultLocks, locks);
     } else {
-      state.locks = { thu:true, fri:true };
+      state.locks = Object.assign({}, defaultLocks);
       state.menu = {};
       DAYS.forEach(d => { state.menu[d] = ''; });
       const tFri = traditionMealFor('fri');
