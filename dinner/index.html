@@ -417,6 +417,7 @@
   <section id="menuSection">
     <div class="menu-toolbar">
       <button id="randomizeBtn" class="btn-primary" type="button">🎲 Randomize Week</button>
+      <button id="unlockAllBtn" class="btn-secondary" type="button">🔓 Unlock All</button>
       <button id="copyBtn" class="btn-secondary" type="button">📋 Copy Menu</button>
       <button id="printBtn" class="btn-secondary" type="button">🖨️ Print Menu</button>
     </div>
@@ -612,6 +613,13 @@
     persistLocks();
     persistMenu();
     renderMenu();
+  }
+
+  function unlockAll(){
+    REGULAR_DAYS.forEach(day => { state.locks[day] = false; });
+    persistLocks();
+    renderMenu();
+    showToast('Unlocked every night except Thursday & Friday.');
   }
 
   function setDayMeal(day, value){
@@ -1039,6 +1047,7 @@
   // ---------- global controls ----------
   function bindGlobalControls(){
     document.getElementById('randomizeBtn').addEventListener('click', randomize);
+    document.getElementById('unlockAllBtn').addEventListener('click', unlockAll);
     document.getElementById('copyBtn').addEventListener('click', copyMenu);
     document.getElementById('printBtn').addEventListener('click', () => window.print());
 
