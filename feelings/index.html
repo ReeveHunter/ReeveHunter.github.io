@@ -20,6 +20,8 @@
     --chip-border:#dedad2;
     --shadow:0 10px 30px rgba(30,28,24,0.10);
     --shadow-sm:0 2px 8px rgba(30,28,24,0.08);
+    --star-color:#c9950f;
+    --note-only-color:#b6b0a2;
   }
 
   *{box-sizing:border-box;}
@@ -100,6 +102,17 @@
   }
   #fullscreenBtn:hover{ color:var(--ink); border-color:var(--ink-soft); }
 
+  /* VIEW SWITCH — the page swaps between the Wheel and the Log (calendar)
+     without navigating anywhere. The only way in is the "View Log" button
+     near Save; the only way back is "Back to Wheel" in the log's toolbar —
+     both views live in this one file so they share all the color/
+     translation/word data already loaded, per the same "one self-contained
+     page" approach as the rest of the site. The language/depth controls
+     stay visible in both views; only fullscreen (wheel-only) hides on the log. */
+  body.log-view .layout{ display:none; }
+  body.log-view footer{ display:none; }
+  body.log-view #fullscreenBtn{ display:none; }
+
   .layout{
     width:100%;
     max-width:1100px;
@@ -137,6 +150,7 @@
   body.fullscreen-mode .top-nav,
   body.fullscreen-mode header.intro,
   body.fullscreen-mode .panel,
+  body.fullscreen-mode .journal-view,
   body.fullscreen-mode footer{
     display:none;
   }
@@ -274,12 +288,12 @@
     cursor:default;
   }
   .panel-head button:disabled:hover{ text-decoration:none; }
-  #shareBtn{
+  #shareBtn, #clearBtn{
     border:1px solid var(--panel-border);
     border-radius:999px;
     padding:0.3rem 0.7rem;
   }
-  #shareBtn:hover{ text-decoration:none; border-color:var(--ink-soft); }
+  #shareBtn:hover, #clearBtn:hover{ text-decoration:none; border-color:var(--ink-soft); }
   .share-feedback{
     font-size:0.76rem;
     color:var(--ink-soft);
@@ -321,6 +335,319 @@
     font-size:0.85rem;
   }
 
+  /* Editing banner + note/save row — live inside .panel, right under the
+     chip list, so saving a day reuses the exact same wheel/chip UI
+     someone already knows, whether they're logging today or editing a
+     past day clicked from the calendar. */
+  .editing-banner{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:0.6rem;
+    background:#fff7e6;
+    border:1px solid #f0d9a8;
+    border-radius:10px;
+    padding:0.5rem 0.7rem;
+    font-size:0.8rem;
+    margin:0.8rem 0 0;
+  }
+  .editing-banner[hidden]{ display:none; } /* an explicit display rule above would otherwise beat the browser's own [hidden] default */
+  .editing-banner button{
+    font:inherit;
+    font-size:0.78rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:underline;
+    white-space:nowrap;
+  }
+  .editing-banner button:hover{ color:var(--ink); }
+
+  .journal-save-row{
+    margin-top:0.8rem;
+    padding-top:0.8rem;
+    border-top:1px solid var(--panel-border);
+  }
+  .journal-note-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:0.5rem;
+    margin-bottom:0.3rem;
+  }
+  .journal-save-row label{
+    font-size:0.78rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    margin:0;
+  }
+  .day-nav{ display:flex; gap:0.3rem; flex:none; }
+  .day-nav-btn{
+    font:inherit;
+    font-size:0.9rem;
+    line-height:1;
+    color:var(--ink-soft);
+    background:#fff;
+    border:1px solid var(--panel-border);
+    border-radius:999px;
+    width:1.7rem;
+    height:1.7rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+  .day-nav-btn:hover:not(:disabled){ color:var(--ink); border-color:var(--ink-soft); }
+  .day-nav-btn:disabled{ opacity:0.35; cursor:default; }
+  #journalNote{
+    width:100%;
+    font:inherit;
+    font-size:0.85rem;
+    padding:0.5rem 0.6rem;
+    border-radius:10px;
+    border:1px solid var(--panel-border);
+    background:#fff;
+    color:var(--ink);
+    resize:vertical;
+    min-height:2.4rem;
+  }
+  .print-note-text{ display:none; } /* screen: hidden — print-only mirror of #journalNote, see @media print */
+  .print-note-label{ display:none; } /* screen: hidden — print-only "Note" heading, see @media print */
+  .journal-save-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:0.6rem;
+    margin-top:0.5rem;
+  }
+  .journal-feedback{
+    font-size:0.76rem;
+    color:var(--ink-soft);
+    opacity:0;
+    transition:opacity .2s ease;
+  }
+  .journal-feedback.show{ opacity:1; }
+  #journalSaveBtn{
+    font:inherit;
+    font-size:0.8rem;
+    font-weight:600;
+    color:#fffdfa;
+    background:var(--ink);
+    border:none;
+    border-radius:999px;
+    padding:0.4rem 0.9rem;
+    cursor:pointer;
+  }
+  #journalSaveBtn:hover{ opacity:0.85; }
+  #viewLogBtn{
+    font:inherit;
+    font-size:0.8rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    background:#fff;
+    border:1px solid var(--panel-border);
+    border-radius:999px;
+    padding:0.4rem 0.9rem;
+    cursor:pointer;
+  }
+  #viewLogBtn:hover{ color:var(--ink); border-color:var(--ink-soft); }
+
+  /* JOURNAL (LOG) VIEW — a GitHub-contribution-style calendar. Each day
+     is a small square; a day with a saved entry is split into vertical
+     bands, one per core feeling color, sized by how many of that day's
+     feelings belong to that core (see buildDayGradient()). */
+  .journal-view{
+    display:none;
+    width:100%;
+    max-width:1100px;
+    flex-direction:column;
+    gap:1rem;
+    align-items:stretch;
+  }
+  body.log-view .journal-view{ display:flex; }
+
+  .journal-toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:0.6rem;
+  }
+  .journal-toolbar h2{ margin:0; font-size:1.1rem; font-weight:700; }
+  .journal-toolbar-actions{ display:flex; gap:0.5rem; }
+  .journal-toolbar-actions button{
+    font:inherit;
+    font-size:0.8rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    background:#fff;
+    border:1px solid var(--panel-border);
+    border-radius:999px;
+    padding:0.35rem 0.8rem;
+    cursor:pointer;
+  }
+  .journal-toolbar-actions button:hover{ color:var(--ink); border-color:var(--ink-soft); }
+  #deleteLogBtn:hover{ color:#b91c1c; border-color:#b91c1c; }
+
+  .journal-panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:1rem 1.1rem;
+    box-shadow:var(--shadow-sm);
+    backdrop-filter:blur(6px);
+  }
+  .journal-scroll{
+    overflow-x:auto;
+    padding-bottom:0.3rem;
+  }
+  .journal-months{
+    display:flex;
+    gap:3px;
+    margin-bottom:3px;
+    padding-left:1px;
+  }
+  .journal-months span{
+    width:12px;
+    flex:none;
+    font-size:0.65rem;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .journal-grid{
+    display:flex;
+    gap:3px;
+  }
+  .journal-week{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .journal-day{
+    width:12px;
+    height:12px;
+    border-radius:3px;
+    background:var(--panel-border);
+    cursor:pointer;
+    transition:transform .1s ease;
+  }
+  .journal-day:hover{ transform:scale(1.3); }
+  .journal-day.focused{ box-shadow:0 0 0 2px var(--ink); }
+  .journal-day.starred{ outline:2px solid var(--star-color); outline-offset:1px; }
+  .journal-day.future{ visibility:hidden; cursor:default; }
+
+  /* NOTES FEED — a scrollable, scroll-snapped list of day-cards under the
+     calendar, one per day in the same date range as the grid. The center
+     card is fully visible; cards further from center fade out (see
+     updateNotesFeedVisuals()), giving a "slot machine" feel that stays in
+     sync with the calendar's single moving highlight (see setFocusedDay()). */
+  .journal-notes-wrap{ width:100%; }
+  .journal-notes-feed{
+    height:13rem;
+    overflow-y:auto;
+    scroll-snap-type:y mandatory;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:0 1.1rem;
+    box-shadow:var(--shadow-sm);
+    backdrop-filter:blur(6px);
+  }
+
+  /* FOCUSED-DAY FEELINGS — a third box, kept in sync with whichever day is
+     centered in the notes feed above (see setFocusedDay()), so the chips
+     already used on the wheel panel show up again here without a second
+     rendering system. */
+  .journal-feelings-box{
+    width:100%;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:0.9rem 1.1rem;
+    box-shadow:var(--shadow-sm);
+    backdrop-filter:blur(6px);
+  }
+  .journal-feelings-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:0.4rem 0.75rem;
+    margin-bottom:0.5rem;
+  }
+  .journal-feelings-box h3{
+    margin:0;
+    font-size:0.85rem;
+    font-weight:700;
+    color:var(--ink-soft);
+  }
+  .journal-star-btn{
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    margin-left:0.35rem;
+    font-size:1rem;
+    line-height:1;
+    color:var(--ink-soft);
+    vertical-align:middle;
+  }
+  .journal-star-btn:hover{ color:var(--star-color); }
+  .journal-star-btn.starred{ color:var(--star-color); }
+  .journal-note-card{
+    scroll-snap-align:center;
+    padding:1rem 0;
+    border-bottom:1px solid var(--panel-border);
+    opacity:0.3;
+    transition:opacity .15s ease;
+  }
+  .journal-note-card:last-child{ border-bottom:none; }
+  .journal-note-card-date{
+    margin:0 0 0.3rem;
+    font-size:0.88rem;
+    font-weight:700;
+  }
+  .journal-note-card-body{
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    margin:0 0 0.5rem;
+    margin-left:-0.4rem;
+    padding:0.3rem 0.4rem;
+    border:1px solid transparent;
+    border-radius:8px;
+    background:none;
+    font:inherit;
+    font-size:0.85rem;
+    color:var(--ink);
+    white-space:pre-wrap;
+    resize:none;
+    overflow:hidden;
+    cursor:text;
+  }
+  .journal-note-card-body::placeholder{ color:var(--ink-soft); font-style:italic; opacity:1; }
+  .journal-note-card-body:hover{ background:var(--chip-bg); border-color:var(--panel-border); }
+  .journal-note-card-body:focus{
+    background:#fff;
+    border-color:var(--panel-border);
+    outline:none;
+    box-shadow:var(--shadow-sm);
+  }
+  .journal-edit-btn{
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    margin-left:0.35rem;
+    font-size:1rem;
+    line-height:1;
+    color:var(--ink-soft);
+    vertical-align:middle;
+  }
+  .journal-edit-btn:hover{ color:var(--ink); }
+
   footer{
     max-width:640px;
     text-align:center;
@@ -354,7 +681,19 @@
       margin:0 0 0.15in;
     }
     header.intro h1{ font-size:20pt; }
+    footer{
+      max-width:100%;
+      font-size:8pt;
+      padding-top:0.15in;
+    }
+
+    /* WHEEL VIEW PRINT (default) — the wheel, the selected-chips list, and
+       the day's note as read-only text (not the live textarea — a long
+       note could get clipped inside a fixed-size printed form control).
+       The log view is not printed at all in this mode. */
+    .journal-view{ display:none !important; }
     .layout{
+      display:flex !important;
       max-width:100%;
       gap:0.2in;
     }
@@ -381,11 +720,96 @@
     }
     .chip .dot{ width:5px; height:5px; }
     .chip button{ display:none; }
-    footer{
-      max-width:100%;
+    .editing-banner, .day-nav, #journalNote, .journal-save-actions, #journalNoteLabel{ display:none !important; }
+    .print-note-label{
+      display:block !important;
       font-size:8pt;
-      padding-top:0.15in;
+      font-weight:700;
+      color:#666;
+      margin-bottom:0.03in;
     }
+    .print-note-text{
+      display:block !important;
+      font-size:9pt;
+      white-space:pre-wrap;
+      border:1px solid #ddd;
+      border-radius:6px;
+      padding:0.1in 0.15in;
+      min-height:0.3in;
+    }
+
+    /* Leave off the note box and/or the feelings box entirely when there's
+       nothing in them, rather than printing an empty frame — see the
+       beforeprint listener that sets these body classes. */
+    body.print-no-note .journal-save-row{ display:none !important; }
+    body.print-no-feelings .panel-head,
+    body.print-no-feelings .chips{ display:none !important; }
+    body.print-no-feelings .journal-save-row{ border-top:none; margin-top:0; padding-top:0; }
+    body.print-no-note.print-no-feelings .panel{ display:none !important; }
+
+    /* FULLSCREEN PRINT — printing while the wheel is in fullscreen mode
+       shows nothing but the wheel graphic itself: no title, no note or
+       feelings panel, no footer credit. */
+    body.fullscreen-mode header.intro,
+    body.fullscreen-mode .panel,
+    body.fullscreen-mode footer{
+      display:none !important;
+    }
+    body.fullscreen-mode .layout{ justify-content:center; }
+    body.fullscreen-mode .wheel-shell{ width:min(96vw, 7.5in); margin:0 auto; }
+
+    /* LOG VIEW PRINT — swaps entirely: hide the wheel, print the calendar
+       grid plus only the note card + feelings box for whichever day is
+       currently focused (the feed's scroll/fade styling has no printed
+       equivalent, so every other card is left out). */
+    body.log-view .layout{ display:none !important; }
+    body.log-view .journal-view{ display:flex !important; gap:0.2in; }
+    body.log-view .journal-toolbar-actions{ display:none !important; }
+    body.log-view .journal-panel{
+      background:#fff;
+      box-shadow:none;
+      backdrop-filter:none;
+      border:1px solid #ddd;
+      padding:0.15in 0.2in;
+      break-inside:avoid;
+    }
+    body.log-view .journal-scroll{ overflow-x:visible; padding-bottom:0; }
+    body.log-view .journal-months span,
+    body.log-view .journal-day{ width:9px; height:9px; }
+    body.log-view .journal-grid,
+    body.log-view .journal-week,
+    body.log-view .journal-months{ gap:2px; }
+    body.log-view .journal-notes-wrap,
+    body.log-view .journal-feelings-box{
+      background:#fff;
+      box-shadow:none;
+      backdrop-filter:none;
+      border:1px solid #ddd;
+      padding:0.15in 0.2in;
+      break-inside:avoid;
+    }
+    body.log-view .journal-notes-feed{
+      height:auto !important;
+      overflow:visible !important;
+      padding:0 !important;
+      border:none !important;
+      box-shadow:none !important;
+      background:none !important;
+    }
+    body.log-view .journal-note-card{ display:none !important; }
+    body.log-view .journal-note-card.focused{
+      display:block !important;
+      opacity:1 !important;
+      padding:0 !important;
+      border:none !important;
+    }
+    body.log-view .journal-note-card-body{
+      border-color:#ddd !important;
+      background:none !important;
+    }
+    body.log-view .journal-edit-btn,
+    body.log-view .journal-star-btn,
+    body.log-view .journal-feelings-box .sort-row{ display:none !important; }
   }
 </style>
 </head>
@@ -434,15 +858,79 @@
             </select>
           </div>
           <span class="share-feedback" id="shareFeedback">Link copied!</span>
-          <button type="button" id="shareBtn"><span id="shareLabel">Share</span></button>
-          <button type="button" id="clearBtn"><span id="clearLabel">Clear all</span></button>
+          <button type="button" id="shareBtn"><span id="shareLabel">Share Feelings</span></button>
+          <button type="button" id="clearBtn"><span id="clearLabel">Clear</span></button>
         </div>
       </div>
       <div class="chips" id="chips">
         <span class="empty-hint" id="emptyHint">Nothing selected yet — click any feeling on the wheel.</span>
       </div>
+
+      <div class="editing-banner" id="editingBanner" hidden>
+        <span id="editingBannerText">Editing a past day</span>
+        <button type="button" id="cancelEditBtn"><span id="cancelEditLabel">Cancel</span></button>
+      </div>
+
+      <div class="journal-save-row">
+        <div class="journal-note-head">
+          <label for="journalNote" id="journalNoteLabel">Note (optional)</label>
+          <div class="day-nav">
+            <button type="button" class="day-nav-btn" id="prevDayBtn" aria-label="Previous day">‹</button>
+            <button type="button" class="day-nav-btn" id="nextDayBtn" aria-label="Next day">›</button>
+            <button type="button" class="day-nav-btn" id="todayDayBtn" aria-label="Jump to today">»</button>
+          </div>
+        </div>
+        <textarea id="journalNote" maxlength="300" placeholder="Add a note for today…"></textarea>
+        <span class="print-note-label" id="printNoteLabel">Note</span>
+        <p class="print-note-text" id="printNoteText"></p>
+        <div class="journal-save-actions">
+          <span class="journal-feedback" id="journalFeedback">Saved!</span>
+          <button type="button" id="viewLogBtn"><span id="viewLogLabel">View Log</span></button>
+          <button type="button" id="journalSaveBtn"><span id="journalSaveLabel">Save Today's Entry</span></button>
+        </div>
+      </div>
     </div>
 
+  </div>
+
+  <div class="journal-view" id="journalView">
+    <div class="journal-toolbar">
+      <h2 id="journalHeading">Your Feelings Log</h2>
+      <div class="journal-toolbar-actions">
+        <button type="button" id="backToWheelBtn"><span id="backToWheelLabel">Back to Wheel</span></button>
+        <button type="button" id="exportBtn"><span id="exportLabel">Export</span></button>
+        <button type="button" id="importBtn"><span id="importLabel">Import</span></button>
+        <input type="file" id="importFile" accept="application/json" hidden>
+        <button type="button" id="deleteLogBtn"><span id="deleteLogLabel">Delete Log</span></button>
+      </div>
+    </div>
+    <div class="journal-panel">
+      <div class="journal-scroll">
+        <div class="journal-months" id="journalMonths"></div>
+        <div class="journal-grid" id="journalGrid"></div>
+      </div>
+    </div>
+    <div class="journal-notes-wrap">
+      <div class="journal-notes-feed" id="journalNotesFeed"></div>
+    </div>
+    <div class="journal-feelings-box">
+      <div class="journal-feelings-head">
+        <h3>
+          <span id="journalFeelingsFor">Feelings for</span> <span id="journalFeelingsDate"></span>
+          <button type="button" class="journal-edit-btn" id="journalFeelingsEditBtn"><span aria-hidden="true">✎</span></button>
+          <button type="button" class="journal-star-btn" id="journalStarBtn" aria-pressed="false"><span id="journalStarIcon" aria-hidden="true">☆</span></button>
+        </h3>
+        <div class="sort-row">
+          <label for="journalSortSelect" id="journalSortLabel">Sort</label>
+          <select id="journalSortSelect">
+            <option value="clicked" id="journalSortOptClicked">Order Selected</option>
+            <option value="az" id="journalSortOptAZ">Alphabetical</option>
+            <option value="type" id="journalSortOptType">By Type</option>
+          </select>
+        </div>
+      </div>
+      <div class="chips" id="journalFeelingsChips"></div>
+    </div>
   </div>
 
   <footer>
@@ -633,6 +1121,7 @@
       words: buildEnglishWordMap(),
       ui:{
         title:"Feelings Wheel",
+        logPageTitle:"Feelings Log",
         langLabel:"Language",
         depthLabel:"Depth",
         fullscreenLabel:"Fullscreen",
@@ -642,12 +1131,41 @@
         sortClicked:"Order Selected",
         sortAZ:"Alphabetical",
         sortType:"By Type",
-        shareLabel:"Share",
+        shareLabel:"Share Feelings",
         shareFeedback:"Link copied!",
         shareFallback:"Copy this link:",
-        clearAll:"Clear all",
+        clearAll:"Clear",
         emptyHint:"Nothing selected yet — click any feeling on the wheel.",
-        credit:'Adapted from Geoffrey Roberts’ Feelings Wheel and <a href="https://www.feelingswheel.com/" target="_blank" rel="noopener">feelingswheel.com</a>.'
+        credit:'Adapted from Geoffrey Roberts’ Feelings Wheel and <a href="https://www.feelingswheel.com/" target="_blank" rel="noopener">feelingswheel.com</a>.',
+        viewLogLabel:"View Log",
+        backToWheelLabel:"Back to Wheel",
+        journalNoteLabel:"Note (optional)",
+        printNoteLabel:"Note",
+        journalNotePlaceholder:"Add a note for today…",
+        journalSaveToday:"Save Today's Entry",
+        journalSaveEntry:"Save Entry",
+        journalSaved:"Saved!",
+        journalCleared:"Entry cleared",
+        editingEntryFor:"Editing entry for",
+        cancelEdit:"Cancel",
+        journalHeading:"Your Feelings Log",
+        journalNoNotes:"No notes for this day.",
+        journalEditFeelings:"Edit",
+        journalFeelingsFor:"Feelings for",
+        journalNoFeelings:"No feelings logged for this day.",
+        journalStarOn:"Starred — click to remove",
+        journalStarOff:"Star this day",
+        prevDayLabel:"Previous day",
+        nextDayLabel:"Next day",
+        todayDayLabel:"Jump to today",
+        exportLabel:"Export",
+        importLabel:"Import",
+        importConfirm:"Import {n} day(s) from this file? Existing entries on the same dates will be overwritten.",
+        importError:"Couldn't read that file — make sure it's a journal export.",
+        importSuccess:"Journal imported!",
+        deleteLogLabel:"Delete Log",
+        deleteLogConfirm:"Delete all feelings and notes from your log? This can't be undone.",
+        unsavedChangesWarning:"You have unsaved changes to this entry. Leave without saving?"
       }
     },
     es:{
@@ -655,6 +1173,7 @@
       words: ES_WORDS,
       ui:{
         title:"Rueda de las Emociones",
+        logPageTitle:"Registro de Sentimientos",
         langLabel:"Idioma",
         depthLabel:"Profundidad",
         fullscreenLabel:"Pantalla Completa",
@@ -664,12 +1183,41 @@
         sortClicked:"Orden de Selección",
         sortAZ:"Alfabético",
         sortType:"Por Tipo",
-        shareLabel:"Compartir",
+        shareLabel:"Compartir Sentimientos",
         shareFeedback:"¡Enlace copiado!",
         shareFallback:"Copia este enlace:",
-        clearAll:"Borrar todo",
+        clearAll:"Borrar",
         emptyHint:"Nada seleccionado todavía — haz clic en cualquier sentimiento de la rueda.",
-        credit:'Adaptado de la Rueda de las Emociones de Geoffrey Roberts y <a href="https://www.feelingswheel.com/" target="_blank" rel="noopener">feelingswheel.com</a>.'
+        credit:'Adaptado de la Rueda de las Emociones de Geoffrey Roberts y <a href="https://www.feelingswheel.com/" target="_blank" rel="noopener">feelingswheel.com</a>.',
+        viewLogLabel:"Ver Registro",
+        backToWheelLabel:"Volver a la Rueda",
+        journalNoteLabel:"Nota (opcional)",
+        printNoteLabel:"Nota",
+        journalNotePlaceholder:"Añade una nota para hoy…",
+        journalSaveToday:"Guardar Entrada de Hoy",
+        journalSaveEntry:"Guardar Entrada",
+        journalSaved:"¡Guardado!",
+        journalCleared:"Entrada eliminada",
+        editingEntryFor:"Editando la entrada del",
+        cancelEdit:"Cancelar",
+        journalHeading:"Tu Registro de Sentimientos",
+        journalNoNotes:"No hay notas para este día.",
+        journalEditFeelings:"Editar",
+        journalFeelingsFor:"Sentimientos del",
+        journalNoFeelings:"No hay sentimientos registrados para este día.",
+        journalStarOn:"Marcado con estrella — clic para quitar",
+        journalStarOff:"Marcar este día con estrella",
+        prevDayLabel:"Día anterior",
+        nextDayLabel:"Día siguiente",
+        todayDayLabel:"Ir a hoy",
+        exportLabel:"Exportar",
+        importLabel:"Importar",
+        importConfirm:"¿Importar {n} día(s) de este archivo? Las entradas existentes en las mismas fechas se sobrescribirán.",
+        importError:"No se pudo leer el archivo — asegúrate de que sea una exportación del registro.",
+        importSuccess:"¡Registro importado!",
+        deleteLogLabel:"Eliminar Registro",
+        deleteLogConfirm:"¿Eliminar todos los sentimientos y notas de tu registro? Esto no se puede deshacer.",
+        unsavedChangesWarning:"Tienes cambios sin guardar en esta entrada. ¿Salir sin guardar?"
       }
     }
   };
@@ -850,6 +1398,26 @@
   let wheelRotation = 0;
   let chipSort = "clicked"; // "clicked" | "az" | "type" — how the chip list below is displayed
   let currentDepth = 3; // 1, 2, or 3 rings shown (core / +secondary / +tertiary)
+
+  // Remembers language and sort order in THIS browser only, so they stick
+  // between visits instead of resetting to the defaults every reload.
+  // Deliberately separate from the URL's ?lang=/?sort= params used by the
+  // Share link: a link someone sends you should show what they intended
+  // without permanently changing your own remembered preference.
+  const LANG_PREF_KEY = "feelings-lang-v1";
+  const SORT_PREF_KEY = "feelings-sort-v1";
+  function loadLangPref(){
+    try{ return localStorage.getItem(LANG_PREF_KEY); } catch(e){ return null; }
+  }
+  function saveLangPref(lang){
+    try{ localStorage.setItem(LANG_PREF_KEY, lang); } catch(e){ /* storage full or unavailable */ }
+  }
+  function loadSortPref(){
+    try{ return localStorage.getItem(SORT_PREF_KEY); } catch(e){ return null; }
+  }
+  function saveSortPref(sort){
+    try{ localStorage.setItem(SORT_PREF_KEY, sort); } catch(e){ /* storage full or unavailable */ }
+  }
   const flipGroups = []; // {group, angle} — text always flips upright past 90/270deg
 
   // Position of each core in the wheel (angry, fearful, bad, ...), used to
@@ -1171,10 +1739,19 @@
   }
 
   const sortSelect = document.getElementById("sortSelect");
-  sortSelect.addEventListener("change", ()=>{
-    chipSort = sortSelect.value;
+  const journalSortSelect = document.getElementById("journalSortSelect");
+  // One shared `chipSort` setting drives both dropdowns (wheel panel and
+  // log feelings box) so the chosen order survives switching views.
+  function setChipSort(value){
+    chipSort = value;
+    sortSelect.value = chipSort;
+    journalSortSelect.value = chipSort;
+    saveSortPref(chipSort);
     renderChips();
-  });
+    if(focusedDayKey) updateFocusedFeelingsBox(focusedDayKey);
+  }
+  sortSelect.addEventListener("change", ()=> setChipSort(sortSelect.value));
+  journalSortSelect.addEventListener("change", ()=> setChipSort(journalSortSelect.value));
 
   const depthSelect = document.getElementById("depthSelect");
   depthSelect.addEventListener("change", ()=>{
@@ -1243,6 +1820,9 @@
     const langParam = params.get("lang");
     if(langParam && translations[langParam]){
       currentLang = langParam;
+    } else {
+      const storedLang = loadLangPref();
+      if(storedLang && translations[storedLang]) currentLang = storedLang;
     }
   }
 
@@ -1288,6 +1868,14 @@
     if(sortParam && SORT_MODES.includes(sortParam)){
       chipSort = sortParam;
       sortSelect.value = chipSort;
+      journalSortSelect.value = chipSort;
+    } else {
+      const storedSort = loadSortPref();
+      if(storedSort && SORT_MODES.includes(storedSort)){
+        chipSort = storedSort;
+        sortSelect.value = chipSort;
+        journalSortSelect.value = chipSort;
+      }
     }
   }
 
@@ -1490,13 +2078,16 @@
   }
   langSelect.addEventListener("change", ()=>{
     currentLang = langSelect.value;
+    saveLangPref(currentLang);
     applyStaticText();
     render();
     renderChips();
+    if(document.body.classList.contains("log-view")) refreshLogView(true);
   });
 
   function applyStaticText(){
-    document.getElementById("pageTitle").textContent = ui("title");
+    const isLog = document.body.classList.contains("log-view");
+    document.getElementById("pageTitle").textContent = isLog ? ui("logPageTitle") : ui("title");
     document.getElementById("langLabel").textContent = ui("langLabel");
     document.getElementById("depthLabel").textContent = ui("depthLabel");
     document.getElementById("fullscreenLabel").textContent = ui("fullscreenLabel");
@@ -1506,11 +2097,637 @@
     document.getElementById("sortOptClicked").textContent = ui("sortClicked");
     document.getElementById("sortOptAZ").textContent = ui("sortAZ");
     document.getElementById("sortOptType").textContent = ui("sortType");
+    document.getElementById("journalSortLabel").textContent = ui("sortLabel");
+    document.getElementById("journalSortOptClicked").textContent = ui("sortClicked");
+    document.getElementById("journalSortOptAZ").textContent = ui("sortAZ");
+    document.getElementById("journalSortOptType").textContent = ui("sortType");
     document.getElementById("shareLabel").textContent = ui("shareLabel");
     document.getElementById("clearLabel").textContent = ui("clearAll");
     document.getElementById("creditLine").innerHTML = ui("credit");
+    document.getElementById("viewLogLabel").textContent = ui("viewLogLabel");
+    document.getElementById("backToWheelLabel").textContent = ui("backToWheelLabel");
+    document.getElementById("journalNoteLabel").textContent = ui("journalNoteLabel");
+    document.getElementById("printNoteLabel").textContent = ui("printNoteLabel");
+    document.getElementById("journalNote").placeholder = ui("journalNotePlaceholder");
+    document.getElementById("cancelEditLabel").textContent = ui("cancelEdit");
+    document.getElementById("journalHeading").textContent = ui("journalHeading");
+    document.getElementById("journalFeelingsFor").textContent = ui("journalFeelingsFor");
+    document.getElementById("journalFeelingsEditBtn").setAttribute("aria-label", ui("journalEditFeelings"));
+    document.getElementById("prevDayBtn").setAttribute("aria-label", ui("prevDayLabel"));
+    document.getElementById("nextDayBtn").setAttribute("aria-label", ui("nextDayLabel"));
+    document.getElementById("todayDayBtn").setAttribute("aria-label", ui("todayDayLabel"));
+    document.getElementById("exportLabel").textContent = ui("exportLabel");
+    document.getElementById("importLabel").textContent = ui("importLabel");
+    document.getElementById("deleteLogLabel").textContent = ui("deleteLogLabel");
+    updateEditingBanner();
     document.title = ui("title") + " — Reeve Hunter";
   }
+
+  /* ---------------------------------------------------------------------
+   * 10. JOURNAL (LOG) — a daily record of selected feelings + an optional
+   *     note, kept entirely in this browser's localStorage (nothing is
+   *     sent anywhere). One entry per calendar date, keyed "YYYY-MM-DD".
+   *     Saving/editing any day — today or a past one clicked from the
+   *     calendar — reuses the exact same wheel + chip-list UI rather than
+   *     building a second picker: clicking a day just loads that day's
+   *     saved feelings into the normal `selected` Map and switches to the
+   *     Wheel view, with `editingDateKey` tracking which date Save
+   *     currently targets.
+   * ------------------------------------------------------------------- */
+
+  const JOURNAL_KEY = "feelings-journal-v1";
+
+  function loadJournal(){
+    try{
+      const raw = localStorage.getItem(JOURNAL_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed==="object") ? parsed : {};
+    } catch(e){ return {}; } // private-browsing / storage disabled — journal just won't persist
+  }
+  function saveJournalToStorage(){
+    try{ localStorage.setItem(JOURNAL_KEY, JSON.stringify(journal)); }
+    catch(e){ /* storage full or unavailable — keep working in-memory for this visit */ }
+  }
+
+  let journal = loadJournal(); // { "YYYY-MM-DD": { feelings:[id,...], note:"" } }
+
+  // STARRED DAYS — independent of whether a day has a journal entry at all;
+  // just a plain set of date keys, shown as a static outline on the
+  // calendar square (see .journal-day.starred) so it survives regardless
+  // of which day happens to be scrolled into focus.
+  const STAR_KEY = "feelings-journal-starred-v1";
+  function loadStarred(){
+    try{
+      const raw = localStorage.getItem(STAR_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch(e){ return new Set(); }
+  }
+  function saveStarredToStorage(){
+    try{ localStorage.setItem(STAR_KEY, JSON.stringify(Array.from(starred))); }
+    catch(e){ /* storage full or unavailable — keep working in-memory for this visit */ }
+  }
+  let starred = loadStarred();
+
+  function toggleStarred(key){
+    if(starred.has(key)) starred.delete(key); else starred.add(key);
+    saveStarredToStorage();
+    const square = document.querySelector(`.journal-day[data-date="${key}"]`);
+    if(square) square.classList.toggle("starred", starred.has(key));
+    updateStarButton(key);
+  }
+
+  function updateStarButton(key){
+    const btn = document.getElementById("journalStarBtn");
+    const icon = document.getElementById("journalStarIcon");
+    const isOn = starred.has(key);
+    btn.classList.toggle("starred", isOn);
+    btn.setAttribute("aria-pressed", String(isOn));
+    btn.setAttribute("aria-label", isOn ? ui("journalStarOn") : ui("journalStarOff"));
+    icon.textContent = isOn ? "★" : "☆";
+  }
+
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function keyForDate(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+  function todayKey(){ return keyForDate(new Date()); }
+  function dateFromKey(key){
+    const [y,m,d] = key.split("-").map(Number);
+    return new Date(y, m-1, d); // local time, not UTC — avoids off-by-one-day drift
+  }
+  function formatDateLong(key){
+    const locale = currentLang==="es" ? "es-ES" : "en-US";
+    return dateFromKey(key).toLocaleDateString(locale, { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+  }
+  function shiftKey(key, delta){
+    const d = dateFromKey(key);
+    d.setDate(d.getDate() + delta);
+    return keyForDate(d);
+  }
+
+  let editingDateKey = todayKey();
+
+  const journalNoteEl = document.getElementById("journalNote");
+  const editingBanner = document.getElementById("editingBanner");
+  const editingBannerText = document.getElementById("editingBannerText");
+  const journalSaveLabel = document.getElementById("journalSaveLabel");
+  const journalFeedback = document.getElementById("journalFeedback");
+  const prevDayBtn = document.getElementById("prevDayBtn");
+  const nextDayBtn = document.getElementById("nextDayBtn");
+  const todayDayBtn = document.getElementById("todayDayBtn");
+  let journalFeedbackTimer = null;
+
+  // Printing the wheel view shows the note as plain text (see
+  // .print-note-text in @media print) rather than the live textarea, so
+  // it can't get clipped inside a fixed-size printed form control — keep
+  // that mirror in sync right before the print dialog opens. Also flag
+  // whether the note and/or the feelings list are empty so the print CSS
+  // can leave those boxes off entirely rather than printing an empty one
+  // (checked against live DOM chips, not `selected.size`, since a Depth
+  // filter can hide selected entries without deselecting them).
+  window.addEventListener("beforeprint", ()=>{
+    const noteText = journalNoteEl.value.trim();
+    document.getElementById("printNoteText").textContent = noteText;
+    document.body.classList.toggle("print-no-note", noteText === "");
+    const hasChips = document.querySelectorAll("#chips .chip").length > 0;
+    document.body.classList.toggle("print-no-feelings", !hasChips);
+  });
+
+  function updateEditingBanner(){
+    const isToday = editingDateKey === todayKey();
+    editingBanner.hidden = isToday;
+    if(!isToday) editingBannerText.textContent = `${ui("editingEntryFor")} ${formatDateLong(editingDateKey)}`;
+    journalSaveLabel.textContent = isToday ? ui("journalSaveToday") : ui("journalSaveEntry");
+    nextDayBtn.disabled = isToday; // can't step past today — future days aren't editable
+    todayDayBtn.disabled = isToday;
+  }
+
+  prevDayBtn.addEventListener("click", ()=>{ loadDateIntoWheel(shiftKey(editingDateKey, -1)); });
+  nextDayBtn.addEventListener("click", ()=>{
+    if(editingDateKey === todayKey()) return;
+    loadDateIntoWheel(shiftKey(editingDateKey, 1));
+  });
+  todayDayBtn.addEventListener("click", ()=>{
+    if(editingDateKey === todayKey()) return;
+    loadDateIntoWheel(todayKey());
+  });
+
+  function loadDateIntoWheel(dateKey){
+    editingDateKey = dateKey;
+    const entry = journal[dateKey] || { feelings:[], note:"" };
+    selected.clear();
+    entry.feelings.forEach(id=>{
+      const meta = lookupWordMeta(id);
+      if(meta) selected.set(id, meta);
+    });
+    journalNoteEl.value = entry.note || "";
+    applySelectionStyles();
+    renderChips();
+    updateEditingBanner();
+  }
+
+  function flashJournalFeedback(text){
+    journalFeedback.textContent = text;
+    journalFeedback.classList.add("show");
+    clearTimeout(journalFeedbackTimer);
+    journalFeedbackTimer = setTimeout(()=>{ journalFeedback.classList.remove("show"); }, 2400);
+  }
+
+  document.getElementById("journalSaveBtn").addEventListener("click", ()=>{
+    const ids = Array.from(selected.keys());
+    const note = journalNoteEl.value.trim();
+    if(ids.length===0 && !note){
+      if(journal[editingDateKey]){
+        delete journal[editingDateKey];
+        saveJournalToStorage();
+        flashJournalFeedback(ui("journalCleared"));
+      }
+      return;
+    }
+    journal[editingDateKey] = { feelings: ids, note };
+    saveJournalToStorage();
+    flashJournalFeedback(ui("journalSaved"));
+  });
+
+  document.getElementById("cancelEditBtn").addEventListener("click", ()=>{
+    loadDateIntoWheel(todayKey());
+  });
+
+  // Pure, saturated core hue — the same lightness the innermost ring
+  // uses — regardless of which ring a saved word actually came from.
+  // The softer outer-ring tints the wheel itself uses would wash out
+  // completely at calendar-square size.
+  function buildDayGradient(ids){
+    const counts = {};
+    let total = 0;
+    ids.forEach(id=>{
+      const meta = lookupWordMeta(id);
+      if(!meta) return;
+      counts[meta.coreId] = (counts[meta.coreId]||0) + 1;
+      total++;
+    });
+    if(total===0) return "";
+    const stops = [];
+    let acc = 0;
+    WHEEL_DATA.forEach(core=>{
+      const c = counts[core.id];
+      if(!c) return;
+      const startPct = acc/total*100;
+      acc += c;
+      const endPct = acc/total*100;
+      stops.push(`${CORE_HEX[core.id]} ${startPct.toFixed(2)}%`, `${CORE_HEX[core.id]} ${endPct.toFixed(2)}%`);
+    });
+    if(stops.length===2) return stops[0].split(" ")[0]; // one core only — a flat color reads cleaner than a 0–100% gradient
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }
+
+  const JOURNAL_WEEKS = 53; // a little over a year, like GitHub's contribution graph
+
+  // Shared day range for both the grid and the notes feed below it, so a
+  // click on any square — including a blank future one — always has a
+  // matching card, and the two never drift out of sync with each other.
+  function buildDayList(){
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    // Anchor the END of the range to the Saturday of today's own week (not
+    // today itself), THEN count back — anchoring on `today` and rolling
+    // the start back to a Sunday can shift the whole window earlier,
+    // pushing today out of the range entirely.
+    const end = new Date(today);
+    end.setDate(end.getDate() + (6 - end.getDay()));
+    const start = new Date(end);
+    start.setDate(start.getDate() - (JOURNAL_WEEKS*7 - 1));
+    start.setDate(start.getDate() - start.getDay()); // safety: should already land on Sunday
+
+    const days = [];
+    const cursor = new Date(start);
+    for(let i=0; i<JOURNAL_WEEKS*7; i++){
+      const dayDate = new Date(cursor);
+      const future = dayDate.getTime() > today.getTime();
+      days.push({ date: dayDate, key: future ? null : keyForDate(dayDate), future });
+      cursor.setDate(cursor.getDate()+1);
+    }
+    return days;
+  }
+
+  // Shared by the initial grid build and by a live refresh after an inline
+  // note edit (see saveInlineNote()), so both stay in sync without a full
+  // re-render.
+  function applyDaySquareVisuals(dayEl, key){
+    const entry = journal[key];
+    if(entry && entry.feelings && entry.feelings.length){
+      dayEl.style.background = buildDayGradient(entry.feelings);
+      dayEl.title = `${formatDateLong(key)} — ${entry.feelings.map(id=>t(id)).join(", ")}`;
+    } else if(entry && entry.note){
+      // A note with no feelings attached still gets a visual mark — a
+      // plain darker gray, since there's no core color to draw from.
+      dayEl.style.background = "var(--note-only-color)";
+      dayEl.title = formatDateLong(key);
+    } else {
+      dayEl.style.background = ""; // fall back to the default CSS background
+      dayEl.title = formatDateLong(key);
+    }
+  }
+
+  function renderJournalCalendar(days){
+    const grid = document.getElementById("journalGrid");
+    const monthsRow = document.getElementById("journalMonths");
+    grid.innerHTML = "";
+    monthsRow.innerHTML = "";
+
+    const locale = currentLang==="es" ? "es-ES" : "en-US";
+    let lastMonth = -1;
+
+    for(let w=0; w<JOURNAL_WEEKS; w++){
+      const weekEl = document.createElement("div");
+      weekEl.className = "journal-week";
+
+      const weekStart = days[w*7].date;
+      const monthLabel = document.createElement("span");
+      if(weekStart.getMonth() !== lastMonth){
+        monthLabel.textContent = weekStart.toLocaleDateString(locale, { month:"short" });
+        lastMonth = weekStart.getMonth();
+      }
+      monthsRow.appendChild(monthLabel);
+
+      for(let d=0; d<7; d++){
+        const day = days[w*7 + d];
+        const dayEl = document.createElement("div");
+        dayEl.className = "journal-day";
+        if(day.future){
+          dayEl.classList.add("future");
+        } else {
+          const key = day.key;
+          dayEl.setAttribute("data-date", key);
+          applyDaySquareVisuals(dayEl, key);
+          if(starred.has(key)) dayEl.classList.add("starred");
+          dayEl.tabIndex = 0;
+          dayEl.setAttribute("role","button");
+          dayEl.addEventListener("click", ()=>{ scrollNotesFeedToDay(key); });
+          dayEl.addEventListener("keydown", (e)=>{
+            if(e.key==="Enter" || e.key===" "){ e.preventDefault(); scrollNotesFeedToDay(key); }
+          });
+        }
+        weekEl.appendChild(dayEl);
+      }
+      grid.appendChild(weekEl);
+    }
+
+    const scrollWrap = grid.closest(".journal-scroll");
+    if(scrollWrap) scrollWrap.scrollLeft = scrollWrap.scrollWidth;
+  }
+
+  // NOTES FEED — a scrollable "slot machine" of day-cards, one per day in
+  // the same range as the grid, oldest at top / newest at bottom. Scrolling
+  // it (by hand, or by clicking a calendar square) fades cards in and out
+  // by distance from center and moves the grid's single highlight — see
+  // updateNotesFeedVisuals() and setFocusedDay().
+  let focusedDayKey = null;
+  let notesFeedRaf = null;
+
+  function debounce(fn, wait){
+    let timer = null;
+    const debounced = (...args)=>{
+      clearTimeout(timer);
+      timer = setTimeout(()=>fn(...args), wait);
+    };
+    debounced.flush = (...args)=>{ clearTimeout(timer); fn(...args); };
+    return debounced;
+  }
+
+  function autoResizeNote(el){
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
+
+  // Click-to-edit in the log itself: a day with no entry yet gets one the
+  // moment its note becomes non-empty; clearing the note back out removes
+  // the entry entirely unless feelings are still logged for that day —
+  // same "clear" rule the wheel's own Save button uses.
+  function saveInlineNote(key, text){
+    const trimmed = text.trim();
+    const entry = journal[key];
+    if(!trimmed){
+      if(entry){
+        entry.note = "";
+        if(!entry.feelings || entry.feelings.length===0) delete journal[key];
+        saveJournalToStorage();
+      }
+    } else {
+      if(entry) entry.note = trimmed;
+      else journal[key] = { feelings: [], note: trimmed };
+      saveJournalToStorage();
+    }
+    const square = document.querySelector(`.journal-day[data-date="${key}"]`);
+    if(square) applyDaySquareVisuals(square, key);
+  }
+
+  function renderNotesFeed(days){
+    const feed = document.getElementById("journalNotesFeed");
+    feed.innerHTML = "";
+
+    days.filter(day=>!day.future).forEach(day=>{
+      const card = document.createElement("div");
+      card.className = "journal-note-card";
+      card.setAttribute("data-date", day.key);
+
+      const dateEl = document.createElement("p");
+      dateEl.className = "journal-note-card-date";
+      dateEl.textContent = formatDateLong(day.key);
+      card.appendChild(dateEl);
+
+      const entry = journal[day.key];
+      const bodyEl = document.createElement("textarea");
+      bodyEl.className = "journal-note-card-body";
+      bodyEl.rows = 1;
+      bodyEl.maxLength = 300;
+      bodyEl.placeholder = ui("journalNoNotes");
+      bodyEl.value = (entry && entry.note) || "";
+      const debouncedSave = debounce((text)=>saveInlineNote(day.key, text), 600);
+      bodyEl.addEventListener("input", ()=>{ autoResizeNote(bodyEl); debouncedSave(bodyEl.value); });
+      bodyEl.addEventListener("blur", ()=>{ debouncedSave.flush(bodyEl.value); });
+      card.appendChild(bodyEl);
+
+      feed.appendChild(card);
+      autoResizeNote(bodyEl);
+    });
+
+    // Generous top/bottom padding so the first and last cards can still
+    // scroll all the way to true visual center.
+    const half = (feed.clientHeight/2) + "px";
+    feed.style.paddingTop = half;
+    feed.style.paddingBottom = half;
+
+    feed.removeEventListener("scroll", onNotesFeedScroll);
+    feed.addEventListener("scroll", onNotesFeedScroll, { passive:true });
+  }
+
+  function onNotesFeedScroll(){
+    if(notesFeedRaf) return;
+    notesFeedRaf = requestAnimationFrame(()=>{
+      notesFeedRaf = null;
+      updateNotesFeedVisuals();
+    });
+  }
+
+  function updateNotesFeedVisuals(){
+    const feed = document.getElementById("journalNotesFeed");
+    const feedRect = feed.getBoundingClientRect();
+    const centerY = feedRect.top + feedRect.height/2;
+    // A steeper-than-linear falloff (exponent < 1) fades the immediately
+    // adjacent cards more aggressively than a straight ramp would, so the
+    // centered day pops out rather than blending into its neighbors.
+    const falloff = feedRect.height * 0.7;
+    let nearestKey = null;
+    let nearestDist = Infinity;
+    feed.querySelectorAll(".journal-note-card").forEach(card=>{
+      const r = card.getBoundingClientRect();
+      const dist = Math.abs((r.top + r.height/2) - centerY);
+      const opacity = 1 - Math.pow(Math.min(dist/falloff, 1), 0.6);
+      card.style.opacity = Math.max(0.12, opacity).toFixed(2);
+      if(dist < nearestDist){ nearestDist = dist; nearestKey = card.getAttribute("data-date"); }
+    });
+    if(nearestKey) setFocusedDay(nearestKey);
+  }
+
+  function setFocusedDay(key){
+    if(key === focusedDayKey) return;
+    if(focusedDayKey){
+      const prevSquare = document.querySelector(`.journal-day[data-date="${focusedDayKey}"]`);
+      if(prevSquare) prevSquare.classList.remove("focused");
+      const prevCard = document.querySelector(`.journal-note-card[data-date="${focusedDayKey}"]`);
+      if(prevCard) prevCard.classList.remove("focused");
+    }
+    const nextSquare = document.querySelector(`.journal-day[data-date="${key}"]`);
+    if(nextSquare) nextSquare.classList.add("focused");
+    // Also marks which single note card prints when the log view is
+    // printed (see @media print) — everything else is display:none there.
+    const nextCard = document.querySelector(`.journal-note-card[data-date="${key}"]`);
+    if(nextCard) nextCard.classList.add("focused");
+    focusedDayKey = key;
+    updateFocusedFeelingsBox(key);
+  }
+
+  // Third box, under the notes feed — the chip list for whichever day is
+  // currently focused there, reusing the same .chip styling (minus the
+  // remove button) that the wheel panel's own selection list uses.
+  function updateFocusedFeelingsBox(key){
+    document.getElementById("journalFeelingsDate").textContent = formatDateLong(key);
+
+    const editBtn = document.getElementById("journalFeelingsEditBtn");
+    editBtn.onclick = () => { loadDateIntoWheel(key); switchView("wheel"); };
+
+    const starBtn = document.getElementById("journalStarBtn");
+    starBtn.onclick = () => toggleStarred(key);
+    updateStarButton(key);
+
+    const box = document.getElementById("journalFeelingsChips");
+    box.innerHTML = "";
+    const entry = journal[key];
+    let ids = (entry && entry.feelings) || [];
+    if(ids.length === 0){
+      const hint = document.createElement("span");
+      hint.className = "empty-hint";
+      hint.textContent = ui("journalNoFeelings");
+      box.appendChild(hint);
+      return;
+    }
+    // Stored order is always the original click order — "clicked" needs no
+    // sort, same logic as renderChips() uses for the wheel panel's chips.
+    if(chipSort === "az"){
+      ids = ids.slice().sort((a,b)=>{
+        const ma = lookupWordMeta(a), mb = lookupWordMeta(b);
+        const la = t(a) || (ma && ma.label) || a;
+        const lb = t(b) || (mb && mb.label) || b;
+        return la.localeCompare(lb);
+      });
+    } else if(chipSort === "type"){
+      ids = ids.slice().sort((a,b)=>{
+        const ma = lookupWordMeta(a), mb = lookupWordMeta(b);
+        return (CORE_ORDER[ma && ma.coreId]||0) - (CORE_ORDER[mb && mb.coreId]||0);
+      });
+    }
+    ids.forEach(id=>{
+      const meta = lookupWordMeta(id);
+      if(!meta) return;
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = colorFor(meta.coreId, 1);
+      const label = document.createElement("span");
+      label.textContent = t(id) || meta.label;
+      chip.appendChild(dot); chip.appendChild(label);
+      box.appendChild(chip);
+    });
+  }
+
+  function scrollNotesFeedToDay(key, instant){
+    const card = document.querySelector(`.journal-note-card[data-date="${key}"]`);
+    if(!card) return;
+    card.scrollIntoView({ block:"center", behavior: instant ? "auto" : "smooth" });
+    setFocusedDay(key);
+    requestAnimationFrame(updateNotesFeedVisuals);
+  }
+
+  // Full rebuild of the grid + notes feed — used whenever the underlying
+  // data changed out from under the log view (language switch, import,
+  // delete) or when entering it fresh. preserveFocus keeps whichever day
+  // was centered before the rebuild; otherwise it lands back on today.
+  function refreshLogView(preserveFocus){
+    const keepKey = (preserveFocus && focusedDayKey) || todayKey();
+    focusedDayKey = null;
+    const days = buildDayList();
+    renderJournalCalendar(days);
+    renderNotesFeed(days);
+    scrollNotesFeedToDay(keepKey, true);
+  }
+
+  // True when the wheel's current selection/note differ from what's
+  // actually saved for editingDateKey — used to warn before leaving a
+  // past-day edit unsaved (today's entry is left unguarded; see the
+  // viewLogBtn handler below).
+  function hasUnsavedChanges(){
+    const entry = journal[editingDateKey] || { feelings: [], note: "" };
+    const currentIds = Array.from(selected.keys());
+    const currentNote = journalNoteEl.value.trim();
+    const savedIds = entry.feelings || [];
+    const savedNote = (entry.note || "").trim();
+    if(currentIds.length !== savedIds.length) return true;
+    const savedSet = new Set(savedIds);
+    if(currentIds.some(id => !savedSet.has(id))) return true;
+    return currentNote !== savedNote;
+  }
+
+  function switchView(view){
+    const isLog = view === "log";
+    document.body.classList.toggle("log-view", isLog);
+    document.getElementById("pageTitle").textContent = isLog ? ui("logPageTitle") : ui("title");
+    if(isLog) refreshLogView(false); // entering the log fresh always starts at today
+  }
+  document.getElementById("viewLogBtn").addEventListener("click", ()=>{
+    if(editingDateKey !== todayKey() && hasUnsavedChanges()){
+      if(!window.confirm(ui("unsavedChangesWarning"))) return;
+    }
+    switchView("log");
+  });
+  document.getElementById("backToWheelBtn").addEventListener("click", ()=>switchView("wheel"));
+
+  // EXPORT / IMPORT — the only backup/portability story for a
+  // localStorage-only journal: a plain JSON file the user keeps
+  // themselves and can reload here (same browser, a different one, or
+  // after clearing site data).
+  document.getElementById("exportBtn").addEventListener("click", ()=>{
+    const payload = { journal, starred: Array.from(starred) };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `feelings-journal-${todayKey()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  });
+
+  const importFileInput = document.getElementById("importFile");
+  document.getElementById("importBtn").addEventListener("click", ()=> importFileInput.click());
+  importFileInput.addEventListener("change", (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || typeof parsed !== "object") throw new Error("bad shape");
+
+        // Newer exports wrap entries as { journal, starred }; older exports
+        // (from before starred days existed) are just the flat date-keyed
+        // journal object — support importing both shapes.
+        const hasWrapper = (parsed.journal && typeof parsed.journal === "object") || Array.isArray(parsed.starred);
+        const incomingJournal = hasWrapper ? (parsed.journal || {}) : parsed;
+        const incomingStarred = hasWrapper && Array.isArray(parsed.starred) ? parsed.starred : [];
+
+        const validKeys = Object.keys(incomingJournal).filter(key=>
+          /^\d{4}-\d{2}-\d{2}$/.test(key) && incomingJournal[key] && Array.isArray(incomingJournal[key].feelings)
+        );
+        const validStarred = incomingStarred.filter(key=> typeof key === "string" && /^\d{4}-\d{2}-\d{2}$/.test(key));
+        if(validKeys.length===0 && validStarred.length===0) throw new Error("no valid entries");
+
+        const affectedDates = new Set([...validKeys, ...validStarred]);
+        const proceed = window.confirm(ui("importConfirm").replace("{n}", affectedDates.size));
+        if(!proceed) return;
+        validKeys.forEach(key=>{
+          journal[key] = {
+            feelings: incomingJournal[key].feelings.filter(x=>typeof x==="string"),
+            note: typeof incomingJournal[key].note==="string" ? incomingJournal[key].note : ""
+          };
+        });
+        validStarred.forEach(key=> starred.add(key));
+        saveJournalToStorage();
+        saveStarredToStorage();
+        refreshLogView();
+        window.alert(ui("importSuccess"));
+      } catch(err){
+        window.alert(ui("importError"));
+      } finally {
+        importFileInput.value = "";
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("deleteLogBtn").addEventListener("click", ()=>{
+    if(Object.keys(journal).length===0 && starred.size===0) return;
+    const proceed = window.confirm(ui("deleteLogConfirm"));
+    if(!proceed) return;
+    journal = {};
+    starred = new Set();
+    saveJournalToStorage();
+    saveStarredToStorage();
+    refreshLogView();
+    loadDateIntoWheel(todayKey()); // clear out whatever the wheel view was showing too
+  });
 
   /* ---------------------------------------------------------------------
    * 11. INIT
@@ -1522,6 +2739,20 @@
   applyDepthFromUrl();
   render();
   applySelectionFromUrl();
+  // If the URL isn't pointing at a specific shared selection, default the
+  // wheel to whatever was already logged for today (if anything) rather
+  // than always starting blank — Save then naturally updates that entry.
+  if(!new URLSearchParams(window.location.search).get("feel")){
+    const todaysEntry = journal[todayKey()];
+    if(todaysEntry){
+      todaysEntry.feelings.forEach(id=>{
+        if(selected.has(id)) return;
+        const meta = lookupWordMeta(id);
+        if(meta) selected.set(id, meta);
+      });
+      journalNoteEl.value = todaysEntry.note || "";
+    }
+  }
   applySelectionStyles();
   renderChips();
 
