@@ -10,33 +10,34 @@
   {
     "id": "trad-thu-quesadillas",
     "name": "Quesadillas & Smoothies",
-    "notes": "Cheese quesadillas with a fruit-and-spinach smoothie — they can't taste the spinach.",
+    "notes": "Cheese quesadillas with a fruit-smoothie.",
     "tradition": "thu",
     "emoji": "🫓🥤",
-    "ingredients": ["Flour tortillas", "Shredded cheese", "Frozen mixed berries", "Fresh spinach", "Milk or yogurt", "Banana"]
+    "ingredients": ["Flour tortillas", "Shredded cheese", "Salsa", "Frozen fruit", "Fresh spinach", "Milk or yogurt"]
   },
   {
     "id": "vegan-chili",
     "name": "Vegan Chili",
     "notes": "Very tasty with lots of vegetables. Good for filthy vegans.",
-    "ingredients": ["Kidney beans", "Black beans", "Diced tomatoes", "Bell pepper", "Onion", "Corn", "Chili powder", "Cumin"]
+    "ingredients": ["Kidney beans", "Black beans", "Diced tomatoes", "Bell pepper", "Onion", "Chili powder", "Cumin"]
   },
   {
     "id": "tacos",
     "name": "Build-Your-Own Tacos",
     "notes": "Set out toppings so everyone builds their own plate.",
-    "ingredients": ["Taco shells or tortillas", "Ground beef or chicken", "Shredded cheese", "Lettuce", "Diced tomato", "Sour cream", "Salsa"]
+    "emoji": "🌮",
+    "ingredients": ["Ground beef", "Taco seasoning", "Tortillas", "Shredded cheese", "Avocado", "Sour cream", "Lettuce", "Diced tomato", "Salsa"]
   },
   {
-    "id": "spaghetti-meatballs",
-    "name": "Spaghetti & Hidden-Veggie Meatballs",
-    "notes": "Shredded zucchini and carrot blended right into the meatballs.",
+    "id": "spaghetti-with-meat",
+    "name": "Spaghetti",
+    "notes": "Shredded zucchini and carrot blended right into the sauce or meatballs.",
     "ingredients": ["Spaghetti", "Ground beef", "Zucchini (shredded)", "Carrot (shredded)", "Breadcrumbs", "Egg", "Marinara sauce", "Parmesan"]
   },
   {
     "id": "chicken-and-veggies",
     "name": "Chicken & Roasted Veggies",
-    "notes": "A drizzle of honey on the veggies wins over picky eaters.",
+    "notes": "Roast broccoli and carrots with olive oil and a drizzle of honey.",
     "ingredients": ["Chicken breast or thighs", "Broccoli", "Carrots", "Olive oil", "Honey", "Garlic powder", "Salt & pepper"]
   },
   {
@@ -52,24 +53,6 @@
     "ingredients": ["Ground beef or lamb", "Cauliflower", "Potatoes", "Frozen peas & carrots", "Butter", "Milk", "Beef broth"]
   },
   {
-    "id": "baked-ziti",
-    "name": "Baked Ziti",
-    "notes": "Pureed butternut squash stirred into the sauce — no one notices.",
-    "ingredients": ["Ziti pasta", "Butternut squash puree", "Marinara sauce", "Ricotta cheese", "Mozzarella", "Parmesan"]
-  },
-  {
-    "id": "mac-cheese-squash",
-    "name": "Creamy Mac & Cheese",
-    "notes": "Butternut squash puree makes the sauce extra creamy (and sneaky).",
-    "ingredients": ["Elbow macaroni", "Butternut squash puree", "Cheddar cheese", "Milk", "Butter", "Flour"]
-  },
-  {
-    "id": "veggie-meatloaf",
-    "name": "Veggie-Loaded Meatloaf",
-    "notes": "Grated carrot, zucchini, and onion mixed right in.",
-    "ingredients": ["Ground beef", "Carrot (grated)", "Zucchini (grated)", "Onion", "Breadcrumbs", "Egg", "Ketchup"]
-  },
-  {
     "id": "breakfast-for-dinner",
     "name": "Breakfast for Dinner",
     "notes": "Pancakes, eggs, and fruit — a fun switch-up night.",
@@ -78,7 +61,7 @@
   {
     "id": "chicken-stir-fry",
     "name": "Chicken Stir-Fry",
-    "notes": "Adventurous pick — dice the veggies small for the picky eater.",
+    "notes": "Dice chicken and vegetables small for quick, even cooking.",
     "ingredients": ["Chicken breast", "Broccoli", "Carrots", "Bell pepper (diced small)", "Soy sauce", "Garlic", "Rice"]
   },
   {
@@ -94,57 +77,21 @@
     "ingredients": ["Cooked rice (day-old)", "Egg", "Carrot (finely chopped)", "Peas", "Green onion", "Soy sauce", "Sesame oil"]
   },
   {
-    "id": "grilled-cheese-tomato-soup",
-    "name": "Grilled Cheese & Tomato Soup",
-    "notes": "Blend the soup smooth — hidden veggies included.",
-    "ingredients": ["Bread", "Cheddar cheese", "Butter", "Canned tomatoes", "Cream", "Onion", "Basil"]
-  },
-  {
-    "id": "turkey-burgers",
-    "name": "Turkey Burgers",
-    "notes": "A leaner take on burger night.",
-    "ingredients": ["Ground turkey", "Burger buns", "Cheese slices", "Lettuce", "Tomato", "Condiments"]
-  },
-  {
-    "id": "chicken-parmesan",
-    "name": "Chicken Parmesan",
-    "notes": "Serve with a side of roasted broccoli \"fries.\"",
-    "ingredients": ["Chicken breast", "Breadcrumbs", "Marinara sauce", "Mozzarella", "Parmesan", "Broccoli", "Spaghetti (optional side)"]
-  },
-  {
     "id": "breakfast-burritos",
     "name": "Breakfast Burritos",
     "notes": "Scrambled eggs, cheese, and finely diced peppers.",
     "ingredients": ["Eggs", "Shredded cheese", "Bell pepper (diced)", "Flour tortillas", "Breakfast sausage", "Salsa"]
   },
   {
-    "id": "bbq-chicken",
-    "name": "BBQ Chicken & Corn",
-    "notes": "A reliable crowd-pleaser for both kids.",
-    "ingredients": ["Chicken thighs or breasts", "BBQ sauce", "Corn on the cob", "Butter"]
-  },
-  {
-    "id": "korean-beef-bowls",
-    "name": "Korean Beef Bowls",
-    "notes": "Adventurous pick — mild spice, easy to dial down.",
-    "ingredients": ["Ground beef", "Soy sauce", "Brown sugar", "Garlic", "Ginger", "Sesame oil", "Rice", "Green onion"]
-  },
-  {
-    "id": "mild-curry",
-    "name": "Mild Chicken Curry & Rice",
-    "notes": "Adventurous pick — coconut milk keeps it mild and creamy.",
-    "ingredients": ["Chicken breast", "Coconut milk", "Mild curry powder", "Onion", "Garlic", "Rice"]
+    "id": "rice-bowls",
+    "name": "Rice Bowls",
+    "notes": "Choose your own ingredients rice bowl",
+    "ingredients": []
   },
   {
     "id": "pulled-pork-sliders",
     "name": "Pulled Pork Sliders",
-    "notes": "Serve coleslaw on the side, or blend it into the sauce.",
+    "notes": "Requires dry rub, sear, and time in the instant pot.",
     "ingredients": ["Pork shoulder", "BBQ sauce", "Slider buns", "Coleslaw mix", "Coleslaw dressing"]
-  },
-  {
-    "id": "fajitas",
-    "name": "Sheet-Pan Chicken Fajitas",
-    "notes": "Let everyone build their own — cut peppers extra small.",
-    "ingredients": ["Chicken breast", "Bell peppers", "Onion", "Fajita seasoning", "Flour tortillas", "Sour cream", "Shredded cheese"]
   }
 ]

@@ -200,6 +200,76 @@
   .print-only-name{ display: none; }
   .print-only-ingredients{ display: none; }
 
+  /* ---------- Ingredient list ---------- */
+  .ingredient-list-section{
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 44px;
+  }
+  .ingredient-list-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .ingredient-list-section h3{
+    margin: 0;
+    color: var(--terracotta-deep);
+    font-family: 'Fredoka', sans-serif;
+    font-size: 1.15rem;
+  }
+  .ing-view-toggle{
+    background: transparent;
+    color: var(--terracotta-deep);
+    border: 2px solid var(--border);
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+  .ing-view-toggle:hover{ border-color: var(--terracotta); background: var(--cream); }
+  .ingredient-list{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    columns: 2;
+    column-gap: 24px;
+  }
+  .ingredient-list > li{
+    font-size: 0.92rem;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--border);
+    break-inside: avoid;
+  }
+  @media (min-width: 700px){
+    .ingredient-list:not(.grouped){ columns: 3; }
+  }
+  .ingredient-list.grouped{ columns: 1; }
+  .ingredient-list.grouped > li{ border-bottom: none; padding: 0; margin-bottom: 12px; }
+  .ingredient-group-heading{
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+  .ingredient-sublist{
+    list-style: disc;
+    margin: 0;
+    padding-left: 20px;
+  }
+  .ingredient-sublist li{
+    font-size: 0.88rem;
+    padding: 2px 0;
+  }
+  .ingredient-list-empty{
+    columns: 1;
+    color: var(--ink-soft);
+    font-style: italic;
+    border-bottom: none !important;
+  }
+
   /* ---------- Meal database ---------- */
   .db-section{
     background: var(--card);
@@ -231,6 +301,7 @@
     flex: 1 1 160px;
   }
   .db-toolbar input[type="text"]:focus{ outline: none; border-color: var(--terracotta); }
+  .db-toolbar input.emoji-input{ flex: 0 1 70px; text-align: center; }
 
   .import-label{
     background: var(--card);
@@ -300,6 +371,10 @@
     color: var(--ink);
   }
   .edit-input:focus{ outline: none; border-color: var(--terracotta); }
+
+  .edit-row{ display: flex; gap: 6px; }
+  .edit-row .edit-name{ flex: 1; min-width: 0; }
+  .edit-emoji{ flex: 0 0 60px; text-align: center; }
 
   .meal-actions{
     display: flex;
@@ -387,23 +462,55 @@
   /* ---------- Print ---------- */
   @media print{
     body{ background: white; padding: 0; }
-    .menu-toolbar, .db-section, .toast, footer,
-    .lock-toggle, .meal-select, .locked-hint, .meal-notes { display: none !important; }
-    .app-header{ padding: 10px 0; }
-    .app-header h1::after{ content: " — Weekly Menu"; }
+    .menu-toolbar, .db-section, .toast, footer, .app-header,
+    .lock-toggle, .meal-select, .locked-hint, .meal-notes, .ing-view-toggle { display: none !important; }
     main{ max-width: 100%; padding: 0; }
-    .menu-grid{ grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .day-card{ box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
-    .print-only-name{ display: block; font-weight: 700; font-family: 'Fredoka', sans-serif; }
+    .menu-grid{
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-bottom: 0;
+    }
+    .day-card{
+      box-shadow: none;
+      border: 1px solid #ccc;
+      break-inside: avoid;
+      min-height: 0;
+      padding: 6px 5px;
+      gap: 3px;
+    }
+    .day-label{ font-size: 0.72rem; }
+    .print-only-name{
+      display: block;
+      font-weight: 700;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 0.68rem;
+      line-height: 1.15;
+    }
     .print-only-ingredients{
       display: block;
-      margin: 4px 0 0;
-      padding-left: 16px;
-      font-size: 0.75rem;
+      margin: 3px 0 0;
+      padding-left: 12px;
+      font-size: 0.58rem;
+      line-height: 1.25;
       color: #333;
     }
-    .print-only-ingredients li{ margin-bottom: 1px; }
+    .print-only-ingredients li{ margin-bottom: 0; }
     .meal-chip{ display: none; }
+    .ingredient-list-section{
+      box-shadow: none;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin: 8px 0 0;
+    }
+    .ingredient-list-header{ margin-bottom: 6px; }
+    .ingredient-list-section h3{ font-size: 0.85rem; }
+    .ingredient-list:not(.grouped){ columns: 3; column-gap: 14px; }
+    .ingredient-list > li{ font-size: 0.72rem; padding: 2px 0; border-bottom: none; }
+    .ingredient-list.grouped{ columns: 2; column-gap: 14px; }
+    .ingredient-list.grouped > li{ margin-bottom: 6px; }
+    .ingredient-group-heading{ font-size: 0.72rem; }
+    .ingredient-sublist li{ font-size: 0.66rem; padding: 1px 0; }
   }
 </style>
 </head>
@@ -416,17 +523,26 @@
 <main>
   <section id="menuSection">
     <div class="menu-toolbar">
-      <button id="randomizeBtn" class="btn-primary" type="button">🎲 Randomize Week</button>
+      <button id="randomizeBtn" class="btn-primary" type="button">🎲 Randomize</button>
       <button id="unlockAllBtn" class="btn-secondary" type="button">🔓 Unlock All</button>
       <button id="copyBtn" class="btn-secondary" type="button">📋 Copy Menu</button>
       <button id="printBtn" class="btn-secondary" type="button">🖨️ Print Menu</button>
+      <button id="toggleIngredientListBtn" class="btn-secondary" type="button">🛒 Show Ingredient List</button>
     </div>
     <div id="menuGrid" class="menu-grid"></div>
+    <div id="ingredientListSection" class="ingredient-list-section" hidden>
+      <div class="ingredient-list-header">
+        <h3>🛒 Ingredient List</h3>
+        <button id="ingredientViewToggle" class="ing-view-toggle" type="button">Group by meal</button>
+      </div>
+      <ul id="ingredientList" class="ingredient-list"></ul>
+    </div>
   </section>
 
   <section id="dbSection" class="db-section">
     <h2>Meal Database</h2>
     <div class="db-toolbar">
+      <input type="text" id="newMealEmoji" class="emoji-input" placeholder="Emoji">
       <input type="text" id="newMealName" placeholder="New meal name">
       <input type="text" id="newMealNotes" placeholder="Notes (optional — e.g. hidden veggie trick)">
       <input type="text" id="newMealIngredients" placeholder="Ingredients, comma-separated (optional)">
@@ -456,41 +572,43 @@
   const LS_MEALS = 'dinnerPlanner.meals';
   const LS_MENU = 'dinnerPlanner.menu';
   const LS_LOCKS = 'dinnerPlanner.locks';
+  const LS_SHOW_INGREDIENTS = 'dinnerPlanner.showIngredientList';
+  const LS_INGREDIENT_VIEW = 'dinnerPlanner.ingredientView';
 
   const DEFAULT_MEALS = [
     { id:'trad-fri-pizza', name:'Pizza & Movie Night', notes:"Let everyone build their own personal pizza while a movie plays.", tradition:'fri', emoji:'🍕🎬', ingredients:['Pizza (homemade or takeout)', 'Napkins', 'Drinks'] },
-    { id:'trad-thu-quesadillas', name:'Quesadillas & Smoothies', notes:"Cheese quesadillas with a fruit-and-spinach smoothie — they can't taste the spinach.", tradition:'thu', emoji:'🫓🥤', ingredients:['Flour tortillas', 'Shredded cheese', 'Frozen mixed berries', 'Fresh spinach', 'Milk or yogurt', 'Banana'] },
+    { id:'trad-thu-quesadillas', name:'Quesadillas & Smoothies', notes:"Cheese quesadillas with a fruit-and-spinach smoothie.", tradition:'thu', emoji:'🫓🥤', ingredients:['Flour tortillas', 'Shredded cheese', 'Frozen mixed berries', 'Fresh spinach', 'Milk or yogurt', 'Banana'] },
     { id:'spaghetti-meatballs', name:'Spaghetti & Hidden-Veggie Meatballs', notes:'Shredded zucchini and carrot blended right into the meatballs.', ingredients:['Spaghetti', 'Ground beef', 'Zucchini (shredded)', 'Carrot (shredded)', 'Breadcrumbs', 'Egg', 'Marinara sauce', 'Parmesan'] },
     { id:'tacos', name:'Build-Your-Own Tacos', notes:'Set out toppings so everyone builds their own plate.', ingredients:['Taco shells or tortillas', 'Ground beef or chicken', 'Shredded cheese', 'Lettuce', 'Diced tomato', 'Sour cream', 'Salsa'] },
-    { id:'sheet-pan-chicken', name:'Sheet-Pan Chicken & Roasted Veggies', notes:'A drizzle of honey on the veggies wins over picky eaters.', ingredients:['Chicken breast or thighs', 'Broccoli', 'Carrots', 'Olive oil', 'Honey', 'Garlic powder', 'Salt & pepper'] },
-    { id:'baked-ziti', name:'Baked Ziti', notes:'Pureed butternut squash stirred into the sauce — no one notices.', ingredients:['Ziti pasta', 'Butternut squash puree', 'Marinara sauce', 'Ricotta cheese', 'Mozzarella', 'Parmesan'] },
-    { id:'teriyaki-chicken', name:'Teriyaki Chicken & Rice', notes:'Adventurous-eater favorite. Try adding pineapple chunks.', ingredients:['Chicken thighs', 'Teriyaki sauce', 'Pineapple chunks', 'Rice', 'Broccoli', 'Sesame seeds'] },
-    { id:'turkey-chili', name:'Turkey Chili', notes:'Finely diced bell pepper and carrot cook down until they disappear.', ingredients:['Ground turkey', 'Kidney beans', 'Diced tomatoes', 'Bell pepper', 'Carrot', 'Onion', 'Chili powder'] },
-    { id:'mac-cheese-squash', name:'Creamy Mac & Cheese', notes:'Butternut squash puree makes the sauce extra creamy (and sneaky).', ingredients:['Elbow macaroni', 'Butternut squash puree', 'Cheddar cheese', 'Milk', 'Butter', 'Flour'] },
+    { id:'sheet-pan-chicken', name:'Sheet-Pan Chicken & Roasted Veggies', notes:'Roast the broccoli and carrots with olive oil and a drizzle of honey.', ingredients:['Chicken breast or thighs', 'Broccoli', 'Carrots', 'Olive oil', 'Honey', 'Garlic powder', 'Salt & pepper'] },
+    { id:'baked-ziti', name:'Baked Ziti', notes:'Butternut squash puree stirred into the sauce for extra creaminess.', ingredients:['Ziti pasta', 'Butternut squash puree', 'Marinara sauce', 'Ricotta cheese', 'Mozzarella', 'Parmesan'] },
+    { id:'teriyaki-chicken', name:'Teriyaki Chicken & Rice', notes:'Try adding pineapple chunks for extra sweetness.', ingredients:['Chicken thighs', 'Teriyaki sauce', 'Pineapple chunks', 'Rice', 'Broccoli', 'Sesame seeds'] },
+    { id:'turkey-chili', name:'Turkey Chili', notes:'Dice the bell pepper and carrot finely so they cook down soft.', ingredients:['Ground turkey', 'Kidney beans', 'Diced tomatoes', 'Bell pepper', 'Carrot', 'Onion', 'Chili powder'] },
+    { id:'mac-cheese-squash', name:'Creamy Mac & Cheese', notes:'Butternut squash puree makes the sauce extra creamy.', ingredients:['Elbow macaroni', 'Butternut squash puree', 'Cheddar cheese', 'Milk', 'Butter', 'Flour'] },
     { id:'veggie-meatloaf', name:'Veggie-Loaded Meatloaf', notes:'Grated carrot, zucchini, and onion mixed right in.', ingredients:['Ground beef', 'Carrot (grated)', 'Zucchini (grated)', 'Onion', 'Breadcrumbs', 'Egg', 'Ketchup'] },
     { id:'breakfast-for-dinner', name:'Breakfast for Dinner', notes:'Pancakes, eggs, and fruit — a fun switch-up night.', ingredients:['Pancake mix', 'Eggs', 'Bacon or sausage', 'Maple syrup', 'Fresh fruit'] },
-    { id:'chicken-stir-fry', name:'Chicken Stir-Fry', notes:'Adventurous pick — dice the veggies small for the picky eater.', ingredients:['Chicken breast', 'Broccoli', 'Carrots', 'Bell pepper (diced small)', 'Soy sauce', 'Garlic', 'Rice'] },
+    { id:'chicken-stir-fry', name:'Chicken Stir-Fry', notes:'Dice the chicken and vegetables small for quick, even cooking.', ingredients:['Chicken breast', 'Broccoli', 'Carrots', 'Bell pepper (diced small)', 'Soy sauce', 'Garlic', 'Rice'] },
     { id:'homemade-nuggets', name:'Homemade Chicken Nuggets & Dip', notes:'Serve with ranch and a side of veggies for dipping.', ingredients:['Chicken breast', 'Breadcrumbs', 'Egg', 'Flour', 'Ranch dressing', 'Veggies for dipping'] },
     { id:'burgers', name:'Backyard Burgers', notes:'Grate zucchini into the patty mix for extra moisture (and veggies).', ingredients:['Ground beef', 'Zucchini (grated)', 'Burger buns', 'Cheese slices', 'Lettuce', 'Tomato', 'Condiments'] },
     { id:'veggie-fried-rice', name:'Veggie Fried Rice', notes:'Finely chopped veggies mixed right into the rice.', ingredients:['Cooked rice (day-old)', 'Egg', 'Carrot (finely chopped)', 'Peas', 'Green onion', 'Soy sauce', 'Sesame oil'] },
-    { id:'pasta-primavera', name:'Kid-Style Pasta Primavera', notes:'Extra butter and parmesan on the veggies helps close the deal.', ingredients:['Penne pasta', 'Zucchini', 'Cherry tomatoes', 'Bell pepper', 'Butter', 'Parmesan'] },
-    { id:'grilled-cheese-tomato-soup', name:'Grilled Cheese & Tomato Soup', notes:'Blend the soup smooth — hidden veggies included.', ingredients:['Bread', 'Cheddar cheese', 'Butter', 'Canned tomatoes', 'Cream', 'Onion', 'Basil'] },
+    { id:'pasta-primavera', name:'Kid-Style Pasta Primavera', notes:'Toss the vegetables with extra butter and parmesan.', ingredients:['Penne pasta', 'Zucchini', 'Cherry tomatoes', 'Bell pepper', 'Butter', 'Parmesan'] },
+    { id:'grilled-cheese-tomato-soup', name:'Grilled Cheese & Tomato Soup', notes:'Blend the tomato soup until smooth.', ingredients:['Bread', 'Cheddar cheese', 'Butter', 'Canned tomatoes', 'Cream', 'Onion', 'Basil'] },
     { id:'turkey-burgers', name:'Turkey Burgers', notes:'A leaner take on burger night.', ingredients:['Ground turkey', 'Burger buns', 'Cheese slices', 'Lettuce', 'Tomato', 'Condiments'] },
-    { id:'chicken-parmesan', name:'Chicken Parmesan', notes:'Serve with a side of roasted broccoli "fries."', ingredients:['Chicken breast', 'Breadcrumbs', 'Marinara sauce', 'Mozzarella', 'Parmesan', 'Broccoli', 'Spaghetti (optional side)'] },
+    { id:'chicken-parmesan', name:'Chicken Parmesan', notes:'Serve with a side of roasted broccoli.', ingredients:['Chicken breast', 'Breadcrumbs', 'Marinara sauce', 'Mozzarella', 'Parmesan', 'Broccoli', 'Spaghetti (optional side)'] },
     { id:'breakfast-burritos', name:'Breakfast Burritos', notes:'Scrambled eggs, cheese, and finely diced peppers.', ingredients:['Eggs', 'Shredded cheese', 'Bell pepper (diced)', 'Flour tortillas', 'Breakfast sausage', 'Salsa'] },
     { id:'shepherds-pie', name:"Shepherd's Pie", notes:'Mashed cauliflower mixed into the potato topping.', ingredients:['Ground beef or lamb', 'Cauliflower', 'Potatoes', 'Frozen peas & carrots', 'Butter', 'Milk', 'Beef broth'] },
     { id:'bbq-chicken', name:'BBQ Chicken & Corn', notes:'A reliable crowd-pleaser for both kids.', ingredients:['Chicken thighs or breasts', 'BBQ sauce', 'Corn on the cob', 'Butter'] },
-    { id:'korean-beef-bowls', name:'Korean Beef Bowls', notes:'Adventurous pick — mild spice, easy to dial down.', ingredients:['Ground beef', 'Soy sauce', 'Brown sugar', 'Garlic', 'Ginger', 'Sesame oil', 'Rice', 'Green onion'] },
+    { id:'korean-beef-bowls', name:'Korean Beef Bowls', notes:'Mild spice — easy to dial down or up.', ingredients:['Ground beef', 'Soy sauce', 'Brown sugar', 'Garlic', 'Ginger', 'Sesame oil', 'Rice', 'Green onion'] },
     { id:'sloppy-joes', name:'Sloppy Joes', notes:'Grated carrot cooks right into the sauce.', ingredients:['Ground beef', 'Carrot (grated)', 'Onion', 'Ketchup', 'Worcestershire sauce', 'Brown sugar', 'Hamburger buns'] },
-    { id:'sushi-bake', name:'Sushi Bake', notes:'A fun adventurous-eater night — deconstructed sushi in a casserole dish.', ingredients:['Sushi rice', 'Imitation crab', 'Cream cheese', 'Mayonnaise', 'Sriracha', 'Nori sheets', 'Cucumber'] },
-    { id:'mild-curry', name:'Mild Chicken Curry & Rice', notes:'Adventurous pick — coconut milk keeps it mild and creamy.', ingredients:['Chicken breast', 'Coconut milk', 'Mild curry powder', 'Onion', 'Garlic', 'Rice'] },
-    { id:'lo-mein', name:'Veggie Lo Mein', notes:'Noodles make the veggies an easy sell.', ingredients:['Lo mein noodles', 'Carrot', 'Cabbage', 'Bell pepper', 'Soy sauce', 'Garlic', 'Sesame oil'] },
+    { id:'sushi-bake', name:'Sushi Bake', notes:'Deconstructed sushi baked in a casserole dish.', ingredients:['Sushi rice', 'Imitation crab', 'Cream cheese', 'Mayonnaise', 'Sriracha', 'Nori sheets', 'Cucumber'] },
+    { id:'mild-curry', name:'Mild Chicken Curry & Rice', notes:'Coconut milk keeps the curry mild and creamy.', ingredients:['Chicken breast', 'Coconut milk', 'Mild curry powder', 'Onion', 'Garlic', 'Rice'] },
+    { id:'lo-mein', name:'Veggie Lo Mein', notes:'Stir-fried noodles with carrot, cabbage, and bell pepper.', ingredients:['Lo mein noodles', 'Carrot', 'Cabbage', 'Bell pepper', 'Soy sauce', 'Garlic', 'Sesame oil'] },
     { id:'pulled-pork-sliders', name:'Pulled Pork Sliders', notes:'Serve coleslaw on the side, or blend it into the sauce.', ingredients:['Pork shoulder', 'BBQ sauce', 'Slider buns', 'Coleslaw mix', 'Coleslaw dressing'] },
-    { id:'orange-chicken', name:'Orange Chicken & Rice', notes:'Sweet enough for the picky eater, interesting enough for the adventurous one.', ingredients:['Chicken breast', 'Cornstarch', 'Orange juice', 'Soy sauce', 'Brown sugar', 'Garlic', 'Rice'] },
+    { id:'orange-chicken', name:'Orange Chicken & Rice', notes:'Sweet orange sauce over crispy chicken.', ingredients:['Chicken breast', 'Cornstarch', 'Orange juice', 'Soy sauce', 'Brown sugar', 'Garlic', 'Rice'] },
     { id:'fajitas', name:'Sheet-Pan Chicken Fajitas', notes:'Let everyone build their own — cut peppers extra small.', ingredients:['Chicken breast', 'Bell peppers', 'Onion', 'Fajita seasoning', 'Flour tortillas', 'Sour cream', 'Shredded cheese'] }
   ];
 
-  let state = { meals: [], menu: {}, locks: { thu:true, fri:true } };
+  let state = { meals: [], menu: {}, locks: { thu:true, fri:true }, showIngredientList: false, ingredientView: 'combined' };
   const confirmTimers = new WeakMap();
   const editingIds = new Set();
 
@@ -498,6 +616,8 @@
   function persistMeals(){ try{ localStorage.setItem(LS_MEALS, JSON.stringify(state.meals)); }catch(e){} }
   function persistMenu(){ try{ localStorage.setItem(LS_MENU, JSON.stringify(state.menu)); }catch(e){} }
   function persistLocks(){ try{ localStorage.setItem(LS_LOCKS, JSON.stringify(state.locks)); }catch(e){} }
+  function persistShowIngredientList(){ try{ localStorage.setItem(LS_SHOW_INGREDIENTS, state.showIngredientList ? '1' : '0'); }catch(e){} }
+  function persistIngredientView(){ try{ localStorage.setItem(LS_INGREDIENT_VIEW, state.ingredientView); }catch(e){} }
 
   async function loadMeals(){
     try{
@@ -526,6 +646,14 @@
     return { menu, locks };
   }
 
+  function loadShowIngredientList(){
+    try{ return localStorage.getItem(LS_SHOW_INGREDIENTS) === '1'; }catch(e){ return false; }
+  }
+
+  function loadIngredientView(){
+    try{ return localStorage.getItem(LS_INGREDIENT_VIEW) === 'grouped' ? 'grouped' : 'combined'; }catch(e){ return 'combined'; }
+  }
+
   // ---------- helpers ----------
   function mealById(id){ return state.meals.find(m => m.id === id); }
   function traditionMealFor(day){ return state.meals.find(m => m.tradition === day); }
@@ -538,20 +666,6 @@
       .filter(Boolean);
   }
 
-  // Keeps the two tradition meals' emoji current even if a browser's saved
-  // localStorage copy (or an older meals.json on the server) predates this field.
-  function syncTraditionEmoji(){
-    let changed = false;
-    DEFAULT_MEALS.forEach(dm => {
-      if(!dm.tradition) return;
-      const existing = state.meals.find(m => m.id === dm.id);
-      if(existing && existing.emoji !== dm.emoji){
-        existing.emoji = dm.emoji;
-        changed = true;
-      }
-    });
-    return changed;
-  }
   function isLockedDay(day){ return !!state.locks[day]; }
   function shuffle(arr){
     const a = arr.slice();
@@ -622,6 +736,18 @@
     showToast('Unlocked every night except Thursday & Friday.');
   }
 
+  function toggleIngredientList(){
+    state.showIngredientList = !state.showIngredientList;
+    persistShowIngredientList();
+    renderIngredientList();
+  }
+
+  function toggleIngredientView(){
+    state.ingredientView = state.ingredientView === 'grouped' ? 'combined' : 'grouped';
+    persistIngredientView();
+    renderIngredientList();
+  }
+
   function setDayMeal(day, value){
     if(isLockedDay(day)) return;
     state.menu[day] = value;
@@ -645,11 +771,11 @@
     renderMenu();
   }
 
-  function addMeal(name, notes, ingredientsText){
+  function addMeal(name, notes, ingredientsText, emoji){
     name = (name || '').trim();
     if(!name) return;
     const id = 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
-    state.meals.push({ id, name, notes: (notes || '').trim(), ingredients: parseIngredientsText(ingredientsText) });
+    state.meals.push({ id, name, notes: (notes || '').trim(), emoji: (emoji || '').trim(), ingredients: parseIngredientsText(ingredientsText) });
     persistMeals();
     renderDatabase();
     renderMenu();
@@ -666,13 +792,14 @@
     renderMenu();
   }
 
-  function saveMealEdit(id, name, notes, ingredientsText){
+  function saveMealEdit(id, name, notes, ingredientsText, emoji){
     name = (name || '').trim();
     if(!name){ showToast('Meal name cannot be empty.'); return; }
     const m = mealById(id);
     if(!m) return;
     m.name = name;
     m.notes = (notes || '').trim();
+    m.emoji = (emoji || '').trim();
     m.ingredients = parseIngredientsText(ingredientsText);
     editingIds.delete(id);
     persistMeals();
@@ -723,6 +850,7 @@
               id: (m.id && typeof m.id === 'string') ? m.id : ('m-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7)),
               name: m.name.trim(),
               notes: typeof m.notes === 'string' ? m.notes.trim() : '',
+              emoji: typeof m.emoji === 'string' ? m.emoji.trim() : '',
               ingredients: Array.isArray(m.ingredients) ? m.ingredients.filter(i => typeof i === 'string' && i.trim()).map(i => i.trim()) : []
               // tradition flags are never imported — those two slots stay protected
             });
@@ -885,7 +1013,7 @@
       }
 
       // Drag-and-drop swapping works regardless of lock state — locking only
-      // protects a day from the dropdown and from Randomize Week.
+      // protects a day from the dropdown and from Randomize.
       card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
       card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
       card.addEventListener('drop', (e) => {
@@ -897,6 +1025,87 @@
 
       grid.appendChild(card);
     });
+
+    renderIngredientList();
+  }
+
+  function renderIngredientList(){
+    const btn = document.getElementById('toggleIngredientListBtn');
+    if(btn) btn.textContent = state.showIngredientList ? '🛒 Hide Ingredient List' : '🛒 Show Ingredient List';
+
+    const viewBtn = document.getElementById('ingredientViewToggle');
+    if(viewBtn) viewBtn.textContent = state.ingredientView === 'grouped' ? 'Combined list' : 'Group by meal';
+
+    const section = document.getElementById('ingredientListSection');
+    const list = document.getElementById('ingredientList');
+    list.innerHTML = '';
+    list.className = 'ingredient-list' + (state.ingredientView === 'grouped' ? ' grouped' : '');
+
+    if(!state.showIngredientList){
+      section.hidden = true;
+      return;
+    }
+
+    section.hidden = false;
+
+    // Every day with a real (non-Flex) meal that has ingredients listed.
+    const dayMeals = DAYS.map(day => {
+      const mealId = state.menu[day];
+      if(mealId === FLEX) return null;
+      const meal = mealById(mealId);
+      const ings = mealIngredients(meal);
+      if(!meal || !ings.length) return null;
+      return { day, meal, ings };
+    }).filter(Boolean);
+
+    if(!dayMeals.length){
+      const emptyLi = document.createElement('li');
+      emptyLi.className = 'ingredient-list-empty';
+      emptyLi.textContent = "No ingredients to show for this week's menu yet — try Randomize, or check that each day has a meal with ingredients listed.";
+      list.appendChild(emptyLi);
+      return;
+    }
+
+    if(state.ingredientView === 'grouped'){
+      dayMeals.forEach(({ day, meal, ings }) => {
+        const groupLi = document.createElement('li');
+        groupLi.className = 'ingredient-group';
+
+        const heading = document.createElement('div');
+        heading.className = 'ingredient-group-heading';
+        heading.textContent = `${DAY_LABELS[day]} — ${mealDisplayName(meal)}`;
+        groupLi.appendChild(heading);
+
+        const subList = document.createElement('ul');
+        subList.className = 'ingredient-sublist';
+        ings.forEach(ing => {
+          const item = document.createElement('li');
+          item.textContent = ing;
+          subList.appendChild(item);
+        });
+        groupLi.appendChild(subList);
+
+        list.appendChild(groupLi);
+      });
+    } else {
+      const counts = new Map();
+      dayMeals.forEach(({ ings }) => {
+        ings.forEach(ing => {
+          const trimmed = (ing || '').trim();
+          if(!trimmed) return;
+          const key = trimmed.toLowerCase();
+          if(counts.has(key)) counts.get(key).count++;
+          else counts.set(key, { label: trimmed, count: 1 });
+        });
+      });
+
+      const items = Array.from(counts.values()).sort((a, b) => a.label.localeCompare(b.label));
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item.count > 1 ? `${item.label} (${item.count} meals)` : item.label;
+        list.appendChild(li);
+      });
+    }
   }
 
   function renderDatabase(){
@@ -935,12 +1144,24 @@
         const editWrap = document.createElement('div');
         editWrap.className = 'meal-edit';
 
+        const topRow = document.createElement('div');
+        topRow.className = 'edit-row';
+
+        const emojiInput = document.createElement('input');
+        emojiInput.type = 'text';
+        emojiInput.className = 'edit-input edit-emoji';
+        emojiInput.value = m.emoji || '';
+        emojiInput.placeholder = '😀';
+        topRow.appendChild(emojiInput);
+
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.className = 'edit-input edit-name';
         nameInput.value = m.name;
         nameInput.placeholder = 'Meal name';
-        editWrap.appendChild(nameInput);
+        topRow.appendChild(nameInput);
+
+        editWrap.appendChild(topRow);
 
         const notesInput = document.createElement('input');
         notesInput.type = 'text';
@@ -975,9 +1196,9 @@
 
         li.appendChild(actions);
 
-        saveBtn.addEventListener('click', () => saveMealEdit(m.id, nameInput.value, notesInput.value, ingredientsInput.value));
+        saveBtn.addEventListener('click', () => saveMealEdit(m.id, nameInput.value, notesInput.value, ingredientsInput.value, emojiInput.value));
         cancelBtn.addEventListener('click', () => { editingIds.delete(m.id); renderDatabase(); });
-        [nameInput, notesInput, ingredientsInput].forEach(inp => {
+        [emojiInput, nameInput, notesInput, ingredientsInput].forEach(inp => {
           inp.addEventListener('keydown', (e) => {
             if(e.key === 'Enter') saveBtn.click();
             if(e.key === 'Escape') cancelBtn.click();
@@ -1050,12 +1271,16 @@
     document.getElementById('unlockAllBtn').addEventListener('click', unlockAll);
     document.getElementById('copyBtn').addEventListener('click', copyMenu);
     document.getElementById('printBtn').addEventListener('click', () => window.print());
+    document.getElementById('toggleIngredientListBtn').addEventListener('click', toggleIngredientList);
+    document.getElementById('ingredientViewToggle').addEventListener('click', toggleIngredientView);
 
     document.getElementById('addMealBtn').addEventListener('click', () => {
+      const emojiInput = document.getElementById('newMealEmoji');
       const nameInput = document.getElementById('newMealName');
       const notesInput = document.getElementById('newMealNotes');
       const ingredientsInput = document.getElementById('newMealIngredients');
-      addMeal(nameInput.value, notesInput.value, ingredientsInput.value);
+      addMeal(nameInput.value, notesInput.value, ingredientsInput.value, emojiInput.value);
+      emojiInput.value = '';
       nameInput.value = '';
       notesInput.value = '';
       ingredientsInput.value = '';
@@ -1089,8 +1314,9 @@
   // ---------- init ----------
   async function init(){
     state.meals = await loadMeals();
-    syncTraditionEmoji();
     persistMeals();
+    state.showIngredientList = loadShowIngredientList();
+    state.ingredientView = loadIngredientView();
 
     const defaultLocks = { fri:true, sat:false, sun:false, mon:false, tue:false, wed:false, thu:true };
     const { menu, locks } = loadMenuAndLocks();
