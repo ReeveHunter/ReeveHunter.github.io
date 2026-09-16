@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stopwatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    html, body {
+        height: 100%;
+    }
+    body {
+        background: black;
+        color: white;
+        font-family: 'Montserrat', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        padding: 24px 16px 16px;
+    }
+
+    #timer-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 12px;
+    }
+    #main-time {
+        font-size: clamp(48px, 14vw, 104px);
+        font-weight: 700;
+        letter-spacing: 2px;
+        font-variant-numeric: tabular-nums;
+    }
+    .mult-badge {
+        color: #e0a94e;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+    #main-multiplier {
+        font-size: clamp(18px, 4.5vw, 34px);
+    }
+
+    #controls {
+        display: flex;
+        gap: 12px;
+        margin-top: 28px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    button {
+        font-family: inherit;
+        font-size: 16px;
+        padding: 10px 22px;
+        background: #555;
+        border: none;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    button:hover:not(:disabled) {
+        background: #666;
+    }
+    button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+    #startPauseBtn {
+        background: #3a7d44;
+        min-width: 110px;
+    }
+    #startPauseBtn:hover:not(:disabled) {
+        background: #458d50;
+    }
+    #startPauseBtn.running {
+        background: #8a5a2b;
+    }
+    #startPauseBtn.running:hover:not(:disabled) {
+        background: #9c6832;
+    }
+    #resetBtn {
+        background: #7a3030;
+    }
+    #resetBtn:hover:not(:disabled) {
+        background: #8c3838;
+    }
+
+    #hint {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #555;
+        text-align: center;
+    }
+
+    #settings {
+        margin-top: 22px;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .setting-group {
+        font-size: 14px;
+        color: #aaa;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .setting-group input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+    #multValue, #decimalsSelect {
+        padding: 4px 6px;
+        background: #333;
+        border: 1px solid #555;
+        color: white;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 14px;
+        text-align: center;
+    }
+    #multValue {
+        width: 3.5em;
+    }
+    #multValue:disabled {
+        opacity: 0.4;
+    }
+
+    #laps-wrap {
+        margin-top: 26px;
+        width: 100%;
+        max-width: 560px;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    #laps {
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    #laps:empty::before {
+        content: "";
+    }
+    .lap-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        padding: 10px 6px;
+        border-bottom: 1px solid #222;
+        color: #999;
+        font-size: 17px;
+        font-variant-numeric: tabular-nums;
+    }
+    .lap-label {
+        color: #666;
+        font-weight: 600;
+        min-width: 64px;
+    }
+    .lap-values {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+    }
+    .lap-item .mult-badge {
+        margin-left: 8px;
+        font-size: 0.85em;
+    }
+
+    #laps::-webkit-scrollbar {
+        width: 8px;
+    }
+    #laps::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 4px;
+    }
+</style>
+</head>
+<body>
+
+<div id="timer-row">
+    <span id="main-time">00:00</span>
+    <span id="main-multiplier" class="mult-badge" style="display:none;"></span>
+</div>
+
+<div id="controls">
+    <button id="startPauseBtn">Start</button>
+    <button id="lapBtn" disabled>Chunk</button>
+    <button id="resetBtn">Reset</button>
+</div>
+
+<div id="hint">space: start / pause &nbsp;·&nbsp; L: chunk &nbsp;·&nbsp; R: reset</div>
+
+<div id="settings">
+    <div class="setting-group">
+        <label for="multToggle" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="multToggle">
+            Multiplier &times;
+        </label>
+        <input type="number" id="multValue" value="5" min="0.1" step="0.5" disabled>
+    </div>
+    <div class="setting-group">
+        <label for="decimalsSelect">Decimals</label>
+        <select id="decimalsSelect">
+            <option value="0" selected>0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+        </select>
+    </div>
+</div>
+
+<div id="laps-wrap">
+    <div id="laps"></div>
+</div>
+
+<script>
+(function () {
+    const mainTime = document.getElementById('main-time');
+    const mainMultiplier = document.getElementById('main-multiplier');
+    const startPauseBtn = document.getElementById('startPauseBtn');
+    const lapBtn = document.getElementById('lapBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const multToggle = document.getElementById('multToggle');
+    const multValueInput = document.getElementById('multValue');
+    const decimalsSelect = document.getElementById('decimalsSelect');
+    const lapsContainer = document.getElementById('laps');
+
+    let running = false;
+    let startTimestamp = 0;   // Date.now() at last start/resume
+    let accumulated = 0;      // ms accumulated before the current run segment
+    let lastLapTotal = 0;     // ms elapsed at the last chunk press
+    let lapCount = 0;
+    let laps = [];            // {n, total, chunk} in ms
+    let rafId = null;
+
+    function nowElapsed() {
+        return accumulated + (running ? (Date.now() - startTimestamp) : 0);
+    }
+
+    function pad(n) {
+        return String(n).padStart(2, '0');
+    }
+
+    function getDecimals() {
+        const v = parseInt(decimalsSelect.value, 10);
+        return (isFinite(v) && v >= 0) ? v : 0;
+    }
+
+    function formatTime(ms) {
+        if (!isFinite(ms) || ms < 0) ms = 0;
+        const decimals = getDecimals();
+        const totalMs = Math.floor(ms);
+        const totalSec = Math.floor(totalMs / 1000);
+        const hours = Math.floor(totalSec / 3600);
+        const minutes = Math.floor((totalSec % 3600) / 60);
+        const seconds = totalSec % 60;
+        let frac = '';
+        if (decimals > 0) {
+            const divisor = Math.pow(10, 3 - decimals);
+            const fracVal = Math.floor((totalMs % 1000) / divisor);
+            frac = '.' + String(fracVal).padStart(decimals, '0');
+        }
+        if (hours > 0) {
+            return hours + ':' + pad(minutes) + ':' + pad(seconds) + frac;
+        }
+        return pad(minutes) + ':' + pad(seconds) + frac;
+    }
+
+    function getMultiplier() {
+        const v = parseFloat(multValueInput.value);
+        return (isFinite(v) && v > 0) ? v : 1;
+    }
+
+    function multLabel() {
+        const raw = multValueInput.value.trim();
+        return raw !== '' ? raw : String(getMultiplier());
+    }
+
+    function render() {
+        const elapsed = nowElapsed();
+        mainTime.textContent = formatTime(elapsed);
+        if (multToggle.checked) {
+            const mult = getMultiplier();
+            mainMultiplier.style.display = '';
+            mainMultiplier.textContent = '×' + multLabel() + '  ' + formatTime(elapsed * mult);
+        } else {
+            mainMultiplier.style.display = 'none';
+        }
+    }
+
+    function renderLaps() {
+        const on = multToggle.checked;
+        const mult = getMultiplier();
+        const label = multLabel();
+        lapsContainer.innerHTML = '';
+        laps.forEach(function (lap) {
+            const row = document.createElement('div');
+            row.className = 'lap-row';
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'lap-label';
+            labelSpan.textContent = 'Chunk ' + lap.n;
+
+            const valuesSpan = document.createElement('span');
+            valuesSpan.className = 'lap-values';
+
+            const totalItem = document.createElement('span');
+            totalItem.className = 'lap-item';
+            totalItem.textContent = 'Total ' + formatTime(lap.total);
+            if (on) {
+                const badge = document.createElement('span');
+                badge.className = 'mult-badge';
+                badge.textContent = '×' + label + ' ' + formatTime(lap.total * mult);
+                totalItem.appendChild(badge);
+            }
+
+            const chunkItem = document.createElement('span');
+            chunkItem.className = 'lap-item';
+            chunkItem.textContent = 'Chunk ' + formatTime(lap.chunk);
+            if (on) {
+                const badge = document.createElement('span');
+                badge.className = 'mult-badge';
+                badge.textContent = '×' + label + ' ' + formatTime(lap.chunk * mult);
+                chunkItem.appendChild(badge);
+            }
+
+            valuesSpan.appendChild(totalItem);
+            valuesSpan.appendChild(chunkItem);
+            row.appendChild(labelSpan);
+            row.appendChild(valuesSpan);
+            lapsContainer.appendChild(row);
+        });
+        lapsContainer.scrollTop = lapsContainer.scrollHeight;
+    }
+
+    function loop() {
+        render();
+        rafId = requestAnimationFrame(loop);
+    }
+
+    function start() {
+        if (running) return;
+        running = true;
+        startTimestamp = Date.now();
+        startPauseBtn.textContent = 'Pause';
+        startPauseBtn.classList.add('running');
+        lapBtn.disabled = false;
+        loop();
+    }
+
+    function pause() {
+        if (!running) return;
+        accumulated += Date.now() - startTimestamp;
+        running = false;
+        startPauseBtn.textContent = 'Resume';
+        startPauseBtn.classList.remove('running');
+        lapBtn.disabled = true;
+        if (rafId) cancelAnimationFrame(rafId);
+        render();
+    }
+
+    function toggleStartPause() {
+        if (running) pause(); else start();
+    }
+
+    function reset() {
+        running = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        accumulated = 0;
+        lastLapTotal = 0;
+        lapCount = 0;
+        laps = [];
+        startPauseBtn.textContent = 'Start';
+        startPauseBtn.classList.remove('running');
+        lapBtn.disabled = true;
+        lapsContainer.innerHTML = '';
+        render();
+    }
+
+    function lap() {
+        if (!running) return;
+        const total = nowElapsed();
+        const chunk = total - lastLapTotal;
+        lastLapTotal = total;
+        lapCount += 1;
+        laps.push({ n: lapCount, total: total, chunk: chunk });
+        renderLaps();
+    }
+
+    startPauseBtn.addEventListener('click', toggleStartPause);
+    lapBtn.addEventListener('click', lap);
+    resetBtn.addEventListener('click', reset);
+
+    multToggle.addEventListener('change', function () {
+        multValueInput.disabled = !multToggle.checked;
+        render();
+        renderLaps();
+    });
+    multValueInput.addEventListener('input', function () {
+        render();
+        renderLaps();
+    });
+    decimalsSelect.addEventListener('change', function () {
+        render();
+        renderLaps();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        const tag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (e.code === 'Space') {
+            e.preventDefault();
+            toggleStartPause();
+        } else if (e.key === 'l' || e.key === 'L') {
+            lap();
+        } else if (e.key === 'r' || e.key === 'R') {
+            reset();
+        }
+    });
+
+    render();
+})();
+</script>
+
+</body>
+</html>
