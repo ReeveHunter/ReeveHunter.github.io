@@ -1,0 +1,645 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --accent: #e0a94e;
+  --bg: #0b0b0c;
+  --panel: #17181a;
+  --panel-border: #2a2b2e;
+  --text: #f2f2f2;
+  --text-dim: rgba(242, 242, 242, 0.6);
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Montserrat', sans-serif;
+}
+
+body {
+  padding: 24px 16px 64px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+header h1 {
+  font-size: clamp(22px, 4vw, 30px);
+  font-weight: 700;
+}
+
+header a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 14px;
+}
+header a:hover {
+  color: var(--accent);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+.panel.compact-panel {
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.panel h2 {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.panel-header-row h2 {
+  margin-bottom: 0;
+}
+.panel-toggle {
+  padding: 4px 12px;
+  font-size: 11px;
+}
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-note {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+.compact-panel .row {
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+select, input[type="text"] {
+  background: #0f0f10;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  min-width: 150px;
+}
+
+/* Dropdown (labeled <select>) */
+.dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dropdown-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.dropdown select {
+  min-width: 130px;
+}
+
+/* Graphical dropdowns: a labeled button showing the current choice as an
+   icon (waveforms, DCO1×DCO2 modulation, vibrato wave), which opens a
+   popup grid of every choice (icon + name) to pick from. */
+.icon-dropdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.icon-dropdown .dropdown-label {
+  text-align: center;
+}
+.icon-glyph {
+  width: 42px;
+  height: 32px;
+  flex: none;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  padding: 2px 3px;
+}
+.icon-glyph-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+}
+
+.icon-picker {
+  position: relative;
+}
+.icon-picker-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+  display: inline-flex;
+}
+.icon-picker-btn:hover .icon-glyph {
+  border-color: var(--accent);
+}
+.icon-picker-menu {
+  display: none;
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  right: 0;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+}
+.icon-picker-menu.open {
+  display: grid;
+}
+.icon-picker-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.icon-picker-option:hover {
+  border-color: var(--accent);
+}
+.icon-picker-option.active {
+  border-color: var(--accent);
+  background: #241c0c;
+}
+.icon-picker-option .icon-glyph {
+  width: 34px;
+  height: 26px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.icon-picker-option-label {
+  font-size: 8px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+button {
+  background: #232427;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+button.primary-btn {
+  background: var(--accent);
+  color: #1a1200;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.primary-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* Knob */
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 52px;
+  user-select: none;
+}
+.knob-dial {
+  width: 40px;
+  height: 40px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.knob-dial:focus {
+  outline: none;
+}
+.knob-dial:focus .knob-face {
+  stroke: var(--accent);
+}
+.knob-face {
+  fill: #0f0f10;
+  stroke: var(--panel-border);
+  stroke-width: 2;
+}
+.knob-pointer {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.knob-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.knob-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Choice group (button switches) */
+.choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.choice-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.choice-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.choice-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  min-width: 34px;
+}
+.choice-btn.active {
+  background: var(--accent);
+  color: #1a1200;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* Stepper (numeric rate/level control: drag the value, or nudge with the
+   small arrows) */
+.stepper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 32px;
+  user-select: none;
+}
+.stepper-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.stepper-arrow {
+  width: 100%;
+  height: 14px;
+  padding: 0;
+  font-size: 8px;
+  line-height: 1;
+  background: #1c1d1f;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+}
+.stepper-arrow:hover {
+  border-color: var(--accent);
+}
+.stepper-value {
+  width: 100%;
+  padding: 2px 0;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: ns-resize;
+  border-radius: 3px;
+}
+.stepper-value:focus {
+  outline: 1px solid var(--accent);
+}
+
+/* Envelope numeric strip: one column per stage, shown alongside the graph.
+   A grid (not flex) so the 8 columns always span the full width of the
+   editing area, evenly, instead of hugging their own content width and
+   leaving space unused; auto-fit + minmax keeps each column at least
+   44px, wrapping to fewer per row only if the panel gets too narrow for
+   all 8 (see the max-width:560px rule below). */
+.envelope-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+.envelope-strip-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 5px;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  min-width: 0;
+}
+.envelope-strip-col.inactive {
+  opacity: 0.4;
+}
+.envelope-strip-num {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+/* Level above rate, stacked rather than side-by-side, so all 8 stages
+   fit on one line instead of wrapping. */
+.envelope-strip-steppers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.envelope-strip-sustain {
+  padding: 3px 6px;
+  font-size: 9px;
+  width: 100%;
+}
+.envelope-strip-sustain.active {
+  background: #6fc2ff;
+  color: #062033;
+  border-color: #6fc2ff;
+  font-weight: 600;
+}
+
+/* Envelope editor
+   Each .envelope-block is a *subgrid* of .envelope-row's row tracks, so
+   the title row, the stage-count/Edit row, and the graph row each take
+   the height of their tallest sibling across DCA/DCW/DCO - keeping all
+   three graphs vertically aligned even when one title wraps to two
+   lines and the others don't. */
+.envelope-row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 10px;
+  align-items: start;
+}
+.envelope-row.is-hidden {
+  display: none;
+}
+.envelope-block {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  row-gap: 6px;
+  background: #101112;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 8px;
+}
+.envelope-block.is-hidden {
+  display: none;
+}
+.envelope-title {
+  font-size: 11px;
+  font-weight: 600;
+}
+.envelope-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.envelope-summary {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.envelope-toggle {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+.envelope-thumb {
+  width: 100%;
+  height: 130px;
+  display: block;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.envelope-thumb:hover {
+  border-color: var(--accent);
+}
+.envelope-detail {
+  margin-top: 8px;
+}
+.envelope-canvas {
+  width: 100%;
+  height: 260px;
+  display: block;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  touch-action: none;
+  cursor: crosshair;
+}
+.envelope-note, .envelope-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* Envelope tools: curve generator, rate/level stretch, randomize, copy/
+   paste - shown below the numeric strip while an envelope is expanded. */
+.envelope-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+.tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 220px;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.tool-group-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.tool-btn {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.tool-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+.tool-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.tool-checkbox {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* RateSlider: a "press and hold, releases to center" slider used by the
+   envelope Stretch/Scale tools - see RateSlider in knob.js. */
+.rate-slider {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  width: 150px;
+}
+.rate-slider-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  text-align: center;
+}
+.rate-slider-input {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: ew-resize;
+}
+.rate-slider-hint {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 560px) {
+  .envelope-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Shared full-width host for whichever envelope is currently being
+   edited - see the comment above buildOscillatorSection() in app.js.
+   No border/background of its own (the moved-in .envelope-block already
+   has that); just page-flow spacing to match the other panels. */
+.expanded-envelope-host {
+  margin-bottom: 14px;
+}
+
+/* MIDI status log */
+#status-log {
+  margin-top: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 11px;
+  font-family: 'SF Mono', Consolas, monospace;
+  color: var(--text-dim);
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+#status-log div {
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  word-break: break-all;
+}
+
+@media (min-width: 760px) {
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    /* Without this, a grid item stretches to match its row's tallest
+       sibling - so whichever oscillator currently has its envelope row
+       hidden (moved into the shared expanded-envelope-host) would be
+       stretched to match the other one's full height, leaving an empty
+       gap at its bottom instead of just ending after its own content. */
+    align-items: start;
+  }
+}
