@@ -254,7 +254,6 @@
     </div>
 
     <div id="state" class="state"></div>
-    <footer id="footer"></footer>
 </div>
 
 <script>
@@ -268,7 +267,6 @@
     var listEl = document.getElementById('list');
     var stateEl = document.getElementById('state');
     var projectBarEl = document.getElementById('projectBar');
-    var footerEl = document.getElementById('footer');
 
     var nowProjectEl = document.getElementById('nowProject');
     var nowTitleEl = document.getElementById('nowTitle');
@@ -470,11 +468,6 @@
         });
     }
 
-    function showFooter() {
-        footerEl.innerHTML =
-            'Add songs by dropping audio files into <code>/tunes/songs/&lt;project name&gt;/</code> in the repo and pushing &mdash; folders show up here automatically as tabs.';
-    }
-
     renderPlayerInfo();
     stateEl.textContent = 'Loading songs…';
     fetch('https://api.github.com/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1')
@@ -499,18 +492,12 @@
                 });
             });
 
-            if (songs.length === 0) {
-                stateEl.innerHTML = 'No songs yet.<br><br>Drop audio files into<br><code>/tunes/songs/&lt;project name&gt;/</code><br>in the repo and push &mdash; they\'ll show up here.';
-            } else {
-                stateEl.textContent = '';
-            }
-            showFooter();
+            stateEl.textContent = songs.length === 0 ? 'No songs yet.' : '';
             renderPlayerInfo();
             renderList();
         })
         .catch(function (err) {
-            stateEl.innerHTML = 'Couldn\'t load the song list right now.<br><span style="color:#666;font-size:12px;">(' + err.message + ')</span>';
-            showFooter();
+            stateEl.textContent = 'Couldn\'t load the song list right now.';
         });
 })();
 </script>
