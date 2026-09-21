@@ -1,0 +1,101 @@
+{
+  "Warm Bass.syx": {
+    "tags": [
+      "bass",
+      "warm",
+      "low"
+    ]
+  },
+  "Pluck Bass.syx": {
+    "tags": [
+      "bass",
+      "pluck",
+      "percussive"
+    ]
+  },
+  "Bell Tines.syx": {
+    "tags": [
+      "bell",
+      "bright",
+      "mallet",
+      "percussive"
+    ]
+  },
+  "Glass Bell.syx": {
+    "tags": [
+      "bell",
+      "glass",
+      "shimmer",
+      "ambient"
+    ]
+  },
+  "Brass Stab.syx": {
+    "tags": [
+      "brass",
+      "stab",
+      "punchy",
+      "bright"
+    ]
+  },
+  "Analog Pad.syx": {
+    "tags": [
+      "pad",
+      "warm",
+      "slow",
+      "strings"
+    ]
+  },
+  "Airy Pad.syx": {
+    "tags": [
+      "pad",
+      "airy",
+      "ambient",
+      "evolving"
+    ]
+  },
+  "Pluck Lead.syx": {
+    "tags": [
+      "lead",
+      "pluck",
+      "bright",
+      "mono"
+    ]
+  },
+  "Resonant Lead.syx": {
+    "tags": [
+      "lead",
+      "resonant",
+      "aggressive",
+      "bright"
+    ]
+  },
+  "Wobble Bass.syx": {
+    "tags": [
+      "bass",
+      "wobble",
+      "movement"
+    ]
+  },
+  "Electric Piano.syx": {
+    "tags": [
+      "keys",
+      "ep",
+      "mellow"
+    ]
+  },
+  "Organ Drone.syx": {
+    "tags": [
+      "organ",
+      "sustained",
+      "drone"
+    ]
+  },
+  "Sci-fi Sweep.syx": {
+    "tags": [
+      "sfx",
+      "sweep",
+      "movement",
+      "riser"
+    ]
+  }
+}
