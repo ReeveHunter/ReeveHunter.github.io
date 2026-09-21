@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tunes</title>
 <meta name="description" content="Browse and play Reeve's songs.">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
 <style>
     * {
@@ -17,9 +17,14 @@
         min-height: 100%;
     }
     body {
-        background: #121212;
-        color: #eee;
-        font-family: 'Montserrat', sans-serif;
+        background-color: #000;
+        background-image:
+            radial-gradient(#fff 1px, transparent 1px),
+            radial-gradient(#fff 1px, transparent 1px);
+        background-size: 140px 140px, 90px 90px;
+        background-position: 0 0, 45px 60px;
+        color: #ddd;
+        font-family: 'Times New Roman', Times, serif;
         padding: 28px 16px 60px;
         display: flex;
         flex-direction: column;
@@ -35,27 +40,35 @@
         flex-wrap: wrap;
         gap: 8px;
         justify-content: center;
+        padding-bottom: 16px;
         margin-bottom: 20px;
+        border-bottom: 6px solid transparent;
+        border-image: linear-gradient(90deg, #ff3b3b, #ffb400, #ffe93b, #3bff6e, #3bd7ff, #a13bff, #ff3bd7) 1;
     }
     .pill {
-        font-family: inherit;
+        font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
         font-size: 14px;
+        font-weight: bold;
         padding: 7px 14px;
-        background: #262626;
-        border: 1px solid #3a3a3a;
-        color: #ccc;
-        border-radius: 999px;
+        background: #c8c8d4;
+        border: 3px outset #e8e8f2;
+        color: #111;
         cursor: pointer;
         white-space: nowrap;
+        box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
     }
     .pill:hover {
-        background: #303030;
+        background: #dcdce6;
+    }
+    .pill:active {
+        border-style: inset;
     }
     .pill.active {
-        background: #e0a94e;
-        border-color: #e0a94e;
-        color: #1a1a1a;
-        font-weight: 600;
+        background: #ffe93b;
+        border-color: #fff6b0;
+        color: #700;
+        border-style: inset;
+        box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.4);
     }
 
     .layout {
@@ -68,42 +81,66 @@
         flex: 0 0 240px;
         position: sticky;
         top: 16px;
-        background: #1c1c1c;
-        border: 1px solid #2a2a2a;
-        border-radius: 12px;
-        padding: 18px;
+        background: #c8c8d4;
+        border: 4px outset #e8e8f2;
+        border-radius: 2px;
+        padding: 16px;
+        box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.65);
+        color: #111;
+    }
+    .cover {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        border: 3px inset #888;
+        margin-bottom: 14px;
+        background: #999;
+        display: none;
+    }
+    .cover.show {
+        display: block;
     }
     .player .project-tag {
+        font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
         font-size: 11px;
+        font-weight: bold;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: #e0a94e;
+        color: #7a0099;
         margin-bottom: 4px;
         min-height: 14px;
     }
     .player .now-title {
-        font-weight: 600;
-        font-size: 16px;
+        font-weight: bold;
+        font-size: 17px;
         line-height: 1.3;
         margin-bottom: 14px;
         min-height: 42px;
+        color: #111;
+        text-shadow: 1px 1px 0 #fff;
     }
     .player .now-title.placeholder {
-        color: #777;
-        font-weight: 400;
+        color: #555;
+        font-weight: normal;
         font-size: 14px;
+        text-shadow: none;
+        font-style: italic;
     }
     .scrub {
         width: 100%;
-        margin-bottom: 4px;
-        accent-color: #e0a94e;
+        margin-bottom: 6px;
+        accent-color: #a13bff;
     }
     .time-row {
         display: flex;
         justify-content: space-between;
-        font-size: 11px;
-        color: #888;
-        font-variant-numeric: tabular-nums;
+        font-family: 'VT323', monospace;
+        font-size: 16px;
+        letter-spacing: 1px;
+        color: #39ff6e;
+        background: #001a00;
+        border: 2px inset #444;
+        padding: 2px 8px;
         margin-bottom: 14px;
     }
     .transport {
@@ -113,79 +150,93 @@
         gap: 10px;
     }
     .transport button {
-        font-family: inherit;
+        font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
         font-size: 18px;
-        background: #262626;
-        border: 1px solid #3a3a3a;
-        color: #eee;
-        border-radius: 8px;
+        background: #c8c8d4;
+        border: 3px outset #e8e8f2;
+        color: #111;
         padding: 8px 12px;
         cursor: pointer;
     }
     .transport button:hover:not(:disabled) {
-        background: #303030;
+        background: #dcdce6;
+    }
+    .transport button:active:not(:disabled) {
+        border-style: inset;
     }
     .transport button:disabled {
-        opacity: 0.35;
+        opacity: 0.4;
         cursor: not-allowed;
     }
     .transport #playPauseBtn {
-        background: #3a7d44;
-        border-color: #3a7d44;
+        background: #3bd85b;
+        border-color: #a4f5b4;
         font-size: 20px;
         padding: 8px 16px;
     }
     .transport #playPauseBtn:hover:not(:disabled) {
-        background: #458f51;
+        background: #4ef06f;
     }
 
     .list {
         flex: 1 1 auto;
         min-width: 0;
+        background: #0a0a0a;
+        border: 3px inset #444;
+        padding: 10px 12px;
     }
-    .project-heading {
+    .group-heading {
+        font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
         font-size: 13px;
+        font-weight: bold;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: #e0a94e;
+        color: #ffe93b;
         margin: 18px 0 6px;
-        padding-bottom: 6px;
-        border-bottom: 1px solid #2a2a2a;
+        padding-bottom: 4px;
+        border-bottom: 2px dashed #555;
     }
-    .project-heading:first-child {
+    .group-heading:first-child {
         margin-top: 0;
     }
     .song-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 9px 6px;
-        border-bottom: 1px solid #212121;
+        padding: 7px 8px;
+        border-bottom: 1px dotted #333;
         cursor: pointer;
-        border-radius: 6px;
+    }
+    .song-row:nth-child(even) {
+        background: rgba(255, 255, 255, 0.03);
     }
     .song-row:hover {
-        background: #1a1a1a;
+        background: rgba(161, 59, 255, 0.15);
+    }
+    .song-row:hover .title {
+        color: #ff3b3b;
     }
     .song-row.current {
-        background: #232316;
-        border-bottom-color: #2a2a2a;
+        background: rgba(255, 233, 59, 0.12);
+        border-bottom-color: #665500;
     }
     .song-row .title {
         flex: 1 1 auto;
         min-width: 0;
-        font-size: 14.5px;
+        font-size: 15px;
+        color: #4ea8ff;
+        text-decoration: underline;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .song-row.current .title {
-        color: #e0a94e;
-        font-weight: 600;
+        color: #ffe93b;
+        font-weight: bold;
     }
     .song-row .now-icon {
         font-size: 13px;
-        color: #e0a94e;
+        color: #ffe93b;
         width: 14px;
         flex-shrink: 0;
         text-align: center;
@@ -193,31 +244,15 @@
 
     .state {
         text-align: center;
-        color: #999;
-        font-size: 14px;
-        line-height: 1.6;
+        color: #39ff6e;
+        font-family: 'VT323', monospace;
+        font-size: 20px;
+        letter-spacing: 1px;
         margin-top: 30px;
         padding: 0 10px;
     }
-    .state code {
-        background: #262626;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 13px;
-    }
-
-    footer {
-        margin-top: 34px;
-        text-align: center;
-        color: #555;
-        font-size: 12px;
-        line-height: 1.6;
-        max-width: 480px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    footer code {
-        color: #777;
+    .state:not(:empty)::after {
+        content: '_';
     }
 
     @media (max-width: 640px) {
@@ -238,6 +273,7 @@
 
     <div class="layout">
         <div class="player">
+            <img class="cover" id="coverArt" alt="">
             <div class="project-tag" id="nowProject"></div>
             <div class="now-title placeholder" id="nowTitle">Pick a song to start</div>
             <input type="range" class="scrub" id="scrub" value="0" min="0" max="0" step="0.1" disabled>
@@ -262,12 +298,17 @@
     var REPO = 'ReeveHunter.github.io';
     var BRANCH = 'main';
     var SONGS_ROOT = 'tunes/songs/';
+    var ORDER_FILE = 'tunes/project-order.txt';
     var AUDIO_EXT = /\.(mp3|wav|m4a|ogg|flac|aac)$/i;
+    var IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i;
+    var SECRET_NAME = 'secret';
+    var SECRET_LABEL = 'Secret';
 
     var listEl = document.getElementById('list');
     var stateEl = document.getElementById('state');
     var projectBarEl = document.getElementById('projectBar');
 
+    var coverEl = document.getElementById('coverArt');
     var nowProjectEl = document.getElementById('nowProject');
     var nowTitleEl = document.getElementById('nowTitle');
     var scrubEl = document.getElementById('scrub');
@@ -279,9 +320,13 @@
     var audioEl = document.getElementById('audioEl');
 
     var activeProject = 'all';
-    var songs = []; // { path, title, project }
+    var songs = []; // { path, title, project, album, folder }
+    var coverByFolder = {}; // folder -> image path
+    var projectOrder = []; // names, in desired order, from ORDER_FILE
     var currentPath = null;
     var scrubbing = false;
+    var secretUnlocked = false;
+    var secretBuffer = '';
 
     function titleFromFilename(name) {
         var base = name.replace(AUDIO_EXT, '');
@@ -292,7 +337,7 @@
         });
     }
 
-    function audioUrlFor(path) {
+    function repoFileUrl(path) {
         return '/' + path.split('/').map(encodeURIComponent).join('/');
     }
 
@@ -303,6 +348,25 @@
         return m + ':' + (s < 10 ? '0' : '') + s;
     }
 
+    // Classify a path relative to SONGS_ROOT, e.g. "RH 2026 EP/song.mp3"
+    // or "secret/Some Album/song.mp3", into which tab it belongs under
+    // (project), which sub-group within that tab (album), and which
+    // folder its cover art (if any) would live in.
+    function classify(relPath) {
+        var parts = relPath.split('/');
+        var filename = parts[parts.length - 1];
+        if (parts.length === 1) {
+            return { project: 'Uncategorized', album: 'Uncategorized', folder: '', filename: filename };
+        }
+        if (parts[0].toLowerCase() === SECRET_NAME) {
+            if (parts.length >= 3) {
+                return { project: SECRET_NAME, album: parts[1], folder: parts.slice(0, 2).join('/'), filename: filename };
+            }
+            return { project: SECRET_NAME, album: SECRET_LABEL, folder: parts[0], filename: filename };
+        }
+        return { project: parts[0], album: parts[0], folder: parts[0], filename: filename };
+    }
+
     function songByPath(path) {
         for (var i = 0; i < songs.length; i++) {
             if (songs[i].path === path) return songs[i];
@@ -310,14 +374,37 @@
         return null;
     }
 
-    // songs currently visible given the project filter, in the same
-    // order they're rendered (project asc, title asc within project)
+    function projectLabel(p) {
+        return p === SECRET_NAME ? SECRET_LABEL : p;
+    }
+
+    function sortProjects(list) {
+        list.sort(function (a, b) {
+            if (a === 'Uncategorized') return b === 'Uncategorized' ? 0 : 1;
+            if (b === 'Uncategorized') return -1;
+            var ia = projectOrder.indexOf(a);
+            var ib = projectOrder.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+        return list;
+    }
+
+    // songs currently visible given the project filter (and secret-lock),
+    // in render order
     function visibleSongs() {
         var list = songs.filter(function (s) {
+            if (s.project === SECRET_NAME && !secretUnlocked) return false;
             return activeProject === 'all' || s.project === activeProject;
         });
         list.sort(function (a, b) {
-            if (a.project !== b.project) return a.project.localeCompare(b.project);
+            if (a.project !== b.project) {
+                return sortProjects([a.project, b.project]).indexOf(a.project) -
+                       sortProjects([a.project, b.project]).indexOf(b.project);
+            }
+            if (a.album !== b.album) return a.album.localeCompare(b.album);
             return a.title.localeCompare(b.title);
         });
         return list;
@@ -325,7 +412,7 @@
 
     function playSong(song) {
         currentPath = song.path;
-        audioEl.src = audioUrlFor(song.path);
+        audioEl.src = repoFileUrl(song.path);
         audioEl.play().catch(function () {});
         renderPlayerInfo();
         renderList();
@@ -334,6 +421,7 @@
     function renderPlayerInfo() {
         var song = currentPath ? songByPath(currentPath) : null;
         if (!song) {
+            coverEl.classList.remove('show');
             nowProjectEl.textContent = '';
             nowTitleEl.textContent = 'Pick a song to start';
             nowTitleEl.classList.add('placeholder');
@@ -344,7 +432,14 @@
             playPauseBtn.title = 'Play';
             return;
         }
-        nowProjectEl.textContent = song.project;
+        var cover = coverByFolder[song.folder];
+        if (cover) {
+            coverEl.src = repoFileUrl(cover);
+            coverEl.classList.add('show');
+        } else {
+            coverEl.classList.remove('show');
+        }
+        nowProjectEl.textContent = song.project === SECRET_NAME ? (SECRET_LABEL + ' — ' + song.album) : song.project;
         nowTitleEl.textContent = song.title;
         nowTitleEl.classList.remove('placeholder');
         prevBtn.disabled = false;
@@ -402,18 +497,32 @@
         scrubbing = false;
     });
 
+    // type "secret" anywhere on the page to reveal the secret tab
+    window.addEventListener('keydown', function (e) {
+        if (secretUnlocked || e.key.length !== 1) return;
+        secretBuffer = (secretBuffer + e.key).slice(-SECRET_NAME.length).toLowerCase();
+        if (secretBuffer === SECRET_NAME) {
+            secretUnlocked = true;
+            renderList();
+        }
+    });
+
     function renderList() {
         listEl.innerHTML = '';
 
         var visibleProjects = songs.reduce(function (acc, s) {
+            if (s.project === SECRET_NAME && !secretUnlocked) return acc;
             if (acc.indexOf(s.project) === -1) acc.push(s.project);
             return acc;
         }, []);
-        visibleProjects.sort(function (a, b) {
-            if (a === 'Uncategorized') return 1;
-            if (b === 'Uncategorized') return -1;
-            return a.localeCompare(b);
-        });
+        sortProjects(visibleProjects);
+        if (secretUnlocked) {
+            // always last, regardless of the order file
+            visibleProjects = visibleProjects.filter(function (p) { return p !== SECRET_NAME; });
+            if (songs.some(function (s) { return s.project === SECRET_NAME; })) {
+                visibleProjects.push(SECRET_NAME);
+            }
+        }
 
         projectBarEl.innerHTML = '';
         var allBtn = document.createElement('button');
@@ -424,7 +533,7 @@
         visibleProjects.forEach(function (p) {
             var b = document.createElement('button');
             b.className = 'pill' + (activeProject === p ? ' active' : '');
-            b.textContent = p;
+            b.textContent = projectLabel(p);
             b.onclick = function () { activeProject = p; renderList(); };
             projectBarEl.appendChild(b);
         });
@@ -440,14 +549,23 @@
         }
         stateEl.textContent = '';
 
-        var lastProject = null;
+        // group headings: by project when viewing "All", by album when
+        // viewing the secret tab (it holds multiple albums), otherwise flat
+        var groupKey = null;
+        if (activeProject === 'all') groupKey = function (s) { return projectLabel(s.project); };
+        else if (activeProject === SECRET_NAME) groupKey = function (s) { return s.album; };
+
+        var lastGroup = null;
         toShow.forEach(function (s) {
-            if (activeProject === 'all' && s.project !== lastProject) {
-                var h = document.createElement('div');
-                h.className = 'project-heading';
-                h.textContent = s.project;
-                listEl.appendChild(h);
-                lastProject = s.project;
+            if (groupKey) {
+                var g = groupKey(s);
+                if (g !== lastGroup) {
+                    var h = document.createElement('div');
+                    h.className = 'group-heading';
+                    h.textContent = g;
+                    listEl.appendChild(h);
+                    lastGroup = g;
+                }
             }
 
             var row = document.createElement('div');
@@ -470,33 +588,60 @@
 
     renderPlayerInfo();
     stateEl.textContent = 'Loading songs…';
-    fetch('https://api.github.com/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1')
+
+    var treeFetch = fetch('https://api.github.com/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1')
         .then(function (res) {
             if (!res.ok) throw new Error('GitHub API returned ' + res.status);
             return res.json();
-        })
-        .then(function (data) {
+        });
+
+    var orderFetch = fetch('https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/' + BRANCH + '/' + ORDER_FILE)
+        .then(function (res) { return res.ok ? res.text() : ''; })
+        .catch(function () { return ''; });
+
+    Promise.all([treeFetch, orderFetch])
+        .then(function (results) {
+            var data = results[0];
+            var orderText = results[1];
+
+            projectOrder = orderText.split('\n')
+                .map(function (l) { return l.trim(); })
+                .filter(function (l) { return l && l.charAt(0) !== '#'; });
+
+            var imageCandidates = {}; // folder -> [filenames]
+
             var tree = data.tree || [];
             tree.forEach(function (item) {
                 if (item.type !== 'blob') return;
                 if (item.path.indexOf(SONGS_ROOT) !== 0) return;
-                if (!AUDIO_EXT.test(item.path)) return;
-                var rest = item.path.slice(SONGS_ROOT.length);
-                var slash = rest.indexOf('/');
-                var project = slash === -1 ? 'Uncategorized' : rest.slice(0, slash);
-                var filename = slash === -1 ? rest : rest.slice(slash + 1);
-                songs.push({
-                    path: item.path,
-                    title: titleFromFilename(filename),
-                    project: project
-                });
+                var relPath = item.path.slice(SONGS_ROOT.length);
+
+                if (AUDIO_EXT.test(item.path)) {
+                    var info = classify(relPath);
+                    songs.push({
+                        path: item.path,
+                        title: titleFromFilename(info.filename),
+                        project: info.project,
+                        album: info.album,
+                        folder: info.folder
+                    });
+                } else if (IMAGE_EXT.test(item.path)) {
+                    var imgInfo = classify(relPath);
+                    (imageCandidates[imgInfo.folder] = imageCandidates[imgInfo.folder] || []).push(imgInfo.filename);
+                }
+            });
+
+            Object.keys(imageCandidates).forEach(function (folder) {
+                var names = imageCandidates[folder].slice().sort();
+                var cover = names.find(function (n) { return /cover/i.test(n); }) || names[0];
+                coverByFolder[folder] = folder ? folder + '/' + cover : cover;
             });
 
             stateEl.textContent = songs.length === 0 ? 'No songs yet.' : '';
             renderPlayerInfo();
             renderList();
         })
-        .catch(function (err) {
+        .catch(function () {
             stateEl.textContent = 'Couldn\'t load the song list right now.';
         });
 })();
