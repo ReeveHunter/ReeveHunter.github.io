@@ -23,6 +23,7 @@ import {
 } from "./labels.js";
 import { createWaveformPicker, WAVE_NAMES } from "./waveicons.js";
 import { createModulationPicker, createVibratoPicker } from "./paramicons.js";
+import { FACTORY_PATCHES } from "./library.js";
 
 const state = {
   patch: initPatch(),
@@ -123,7 +124,7 @@ function randomChoice(namesMap) {
 // draggable graph on demand.
 // ---------------------------------------------------------------------
 
-function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse } = {}) {
+function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse, onRandomize } = {}) {
   // Title, stage-count/Edit row, and the graph itself are three separate
   // rows (not one flex header) so that a longer title in a neighboring
   // column - e.g. "DCW1 · tone / phase distortion" wrapping to two lines -
@@ -136,8 +137,12 @@ function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse }
 
   const statsRow = el("div", { className: "envelope-stats-row" });
   const summary = el("span", { className: "envelope-summary" });
+  // Reshuffle this envelope without opening it - hidden again once expanded,
+  // since the tools panel underneath the graph has its own 🎲 by then.
+  const randomizeBtn = el("button", { type: "button", className: "envelope-randomize", textContent: "🎲", title: "Randomize" });
+  randomizeBtn.addEventListener("click", () => onRandomize?.());
   const editBtn = el("button", { className: "envelope-toggle", textContent: "Edit" });
-  statsRow.append(summary, editBtn);
+  statsRow.append(summary, randomizeBtn, editBtn);
 
   const thumb = el("canvas", { className: "envelope-thumb" });
 
@@ -164,6 +169,7 @@ function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse }
     detail.hidden = !expanding;
     editBtn.textContent = expanding ? "Done" : "Edit";
     thumb.style.display = expanding ? "none" : "";
+    randomizeBtn.style.display = expanding ? "none" : "";
     if (expanding && editor) editor.resize(); // ...then measure the canvas at its new size
     if (!expanding) refreshThumb?.(); // thumb was hidden (and not being redrawn) while editing - catch it up now that it's visible again
   }
@@ -379,12 +385,7 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
 
   // --- Randomize, and copy/paste between any two envelopes ---
   const randomizeBtn = el("button", { className: "tool-btn", textContent: "🎲", title: "Randomize" });
-  randomizeBtn.addEventListener("click", () => {
-    const stages = Array.from({ length: 8 }, () => ({ rate: randInt(0, 99), level: randInt(0, 99), sustain: false }));
-    const endStep = randInt(1, 7);
-    if (hasSustain) stages[randInt(0, endStep)].sustain = true;
-    applyEnvelopeStages(key, { stages, endStep });
-  });
+  randomizeBtn.addEventListener("click", () => randomizeEnvelope(key, hasSustain));
   const copyBtn = el("button", { className: "tool-btn", textContent: "Copy" });
   const pasteBtn = el("button", { className: "tool-btn", textContent: "Paste", disabled: true });
   copyBtn.addEventListener("click", () => {
@@ -512,14 +513,15 @@ function setExpandedBlock(block) {
 }
 
 /** Editing an envelope goes "full screen": everything else on the page -
- * MIDI, Voice basics, both oscillator cards - is hidden until you back out
- * (the "Done" button), leaving only the one envelope being edited. midi/
- * global/oscGrid are declared later in this file (Assemble section) but,
- * as with resetOscillator()/copyOtherOscillator() elsewhere, this function
- * is only ever called from a click handler, long after the whole module -
- * and those consts - have finished loading. */
+ * MIDI, the patch library, Voice basics, both oscillator cards - is hidden
+ * until you back out (the "Done" button), leaving only the one envelope
+ * being edited. midi/library/global/oscGrid are declared later in this file
+ * (Assemble section) but, as with resetOscillator()/copyOtherOscillator()
+ * elsewhere, this function is only ever called from a click handler, long
+ * after the whole module - and those consts - have finished loading. */
 function setFocusMode(active) {
   midiSection.classList.toggle("is-hidden", active);
+  librarySection.classList.toggle("is-hidden", active);
   globalSection.classList.toggle("is-hidden", active);
   oscGrid.classList.toggle("is-hidden", active);
 }
@@ -601,8 +603,10 @@ function buildOscillatorSection(oscNum) {
   const blocks = {};
   function makeBlock(key, title, opts = {}) {
     let originalNextSibling = null; // where block.wrap goes back to on collapse
+    const patchKey = `${key}${oscNum}`;
     const block = envelopeBlock(title, {
       ...opts,
+      onRandomize: () => randomizeEnvelope(patchKey, opts.hasSustain),
       onExpand: () => {
         setExpandedBlock(block); // auto-collapses whatever else was open, in either oscillator
         // A class, not the `hidden` attribute: .envelope-block sets its own
@@ -814,6 +818,196 @@ function buildMidiSection() {
 }
 
 // ---------------------------------------------------------------------
+// Patch library: a tagged, filterable list of ready-made patches (see
+// library.js) plus anything saved from the current patch. Lives in
+// localStorage from first load onward, seeded from the factory set once.
+// ---------------------------------------------------------------------
+
+const LIBRARY_STORAGE_KEY = "cz101-patch-library-v1";
+
+function seedLibrary() {
+  return FACTORY_PATCHES.map((e) => ({ id: e.id, name: e.name, tags: [...e.tags], patch: clonePatch(e.patch), builtin: true }));
+}
+function loadLibrary() {
+  try {
+    const raw = localStorage.getItem(LIBRARY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  } catch (err) {
+    log(`Patch library failed to load, starting fresh: ${err.message}`);
+  }
+  return seedLibrary();
+}
+function saveLibrary(library) {
+  try {
+    localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(library));
+  } catch (err) {
+    log(`Patch library failed to save: ${err.message}`);
+  }
+}
+function normalizeTags(text) {
+  const seen = new Set();
+  for (const raw of text.split(",")) {
+    const t = raw.trim().toLowerCase();
+    if (t) seen.add(t);
+  }
+  return [...seen].sort();
+}
+
+function buildLibrarySection() {
+  const s = section("Patch Library", "A tagged set of ready-made patches - filter by tag, load one into the editor, or save what you've got going as a new entry.");
+
+  let library = loadLibrary();
+  const activeTags = new Set();
+  let nameFilter = "";
+
+  const headerRow = el("div", { className: "panel-header-row" });
+  const titleEl = s.querySelector("h2");
+  const saveToggleBtn = el("button", { className: "panel-toggle", textContent: "Save current…" });
+  const resetBtn = el("button", { className: "panel-toggle", textContent: "Reset to factory" });
+  titleEl.replaceWith(headerRow);
+  headerRow.append(titleEl, el("div", { className: "panel-header-actions" }, [saveToggleBtn, resetBtn]));
+
+  // --- Save current patch as a new library entry ---
+  const saveNameInput = el("input", { type: "text", className: "library-text-input", placeholder: "Name" });
+  const saveTagsInput = el("input", { type: "text", className: "library-text-input", placeholder: "Tags, comma-separated" });
+  const saveConfirmBtn = el("button", { className: "tool-btn", textContent: "Save" });
+  const saveCancelBtn = el("button", { className: "tool-btn", textContent: "Cancel" });
+  const saveForm = el("div", { className: "library-save-form" }, [saveNameInput, saveTagsInput, saveConfirmBtn, saveCancelBtn]);
+  saveForm.hidden = true;
+  saveToggleBtn.addEventListener("click", () => {
+    saveForm.hidden = !saveForm.hidden;
+    if (!saveForm.hidden) {
+      saveNameInput.value = state.patch.name && state.patch.name !== "init" ? state.patch.name : "";
+      saveTagsInput.value = "";
+      saveNameInput.focus();
+    }
+  });
+  saveCancelBtn.addEventListener("click", () => { saveForm.hidden = true; });
+  saveConfirmBtn.addEventListener("click", () => {
+    const name = saveNameInput.value.trim() || "Untitled patch";
+    const tags = normalizeTags(saveTagsInput.value);
+    library.push({ id: `custom-${Date.now()}`, name, tags, patch: clonePatch({ ...state.patch, name }), builtin: false });
+    saveLibrary(library);
+    saveForm.hidden = true;
+    renderList();
+    log(`Saved "${name}" to the patch library.`);
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if (!confirm("Restore all factory patches to their original tags (custom patches you've saved are kept)?")) return;
+    const custom = library.filter((e) => !e.builtin);
+    library = [...seedLibrary(), ...custom];
+    saveLibrary(library);
+    activeTags.clear();
+    renderList();
+  });
+
+  // --- Filters: name search + tag chips (AND match - a patch must carry
+  // every active tag, not just one) ---
+  const searchInput = el("input", { type: "text", className: "library-text-input library-search", placeholder: "Filter by name…" });
+  searchInput.addEventListener("input", () => {
+    nameFilter = searchInput.value.trim().toLowerCase();
+    renderList();
+  });
+  const tagRow = el("div", { className: "library-tag-row" });
+  const listEl = el("div", { className: "library-list" });
+  const emptyNote = el("p", { className: "tool-hint", textContent: "No patches match the current filters." });
+
+  function allTags() {
+    const set = new Set();
+    for (const e of library) for (const t of e.tags) set.add(t);
+    return [...set].sort();
+  }
+
+  function renderTagRow() {
+    tagRow.innerHTML = "";
+    for (const tag of allTags()) {
+      const chip = el("button", { type: "button", className: "library-tag-chip", textContent: tag });
+      chip.classList.toggle("active", activeTags.has(tag));
+      chip.addEventListener("click", () => {
+        if (activeTags.has(tag)) activeTags.delete(tag); else activeTags.add(tag);
+        renderTagRow();
+        renderList();
+      });
+      tagRow.appendChild(chip);
+    }
+  }
+
+  function matchesFilters(entry) {
+    if (nameFilter && !entry.name.toLowerCase().includes(nameFilter)) return false;
+    for (const tag of activeTags) if (!entry.tags.includes(tag)) return false;
+    return true;
+  }
+
+  function startTagEdit(entry, tagsEl) {
+    const input = el("input", { type: "text", className: "library-text-input", value: entry.tags.join(", ") });
+    tagsEl.replaceWith(input);
+    input.focus();
+    input.select();
+    function commit() {
+      entry.tags = normalizeTags(input.value);
+      saveLibrary(library);
+      renderTagRow();
+      renderList();
+    }
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") commit();
+      else if (e.key === "Escape") renderList();
+    });
+    input.addEventListener("blur", commit);
+  }
+
+  function renderList() {
+    listEl.innerHTML = "";
+    const filtered = library.filter(matchesFilters);
+    if (!filtered.length) {
+      listEl.appendChild(emptyNote);
+      return;
+    }
+    for (const entry of filtered) {
+      const nameEl = el("span", { className: "library-row-name", textContent: entry.name });
+      const tagsEl = el("div", { className: "library-row-tags" },
+        entry.tags.map((t) => el("span", { className: "library-tag-chip library-tag-chip-static", textContent: t })));
+      const editTagsBtn = el("button", { type: "button", className: "tool-btn", textContent: "🏷️", title: "Edit tags" });
+      editTagsBtn.addEventListener("click", () => startTagEdit(entry, tagsEl));
+      const loadBtn = el("button", { type: "button", className: "tool-btn", textContent: "Load" });
+      loadBtn.addEventListener("click", () => {
+        applyPatchToUI(entry.patch);
+        log(`Loaded "${entry.name}" from the patch library.`);
+      });
+      const rowActions = [loadBtn, editTagsBtn];
+      if (!entry.builtin) {
+        const deleteBtn = el("button", { type: "button", className: "tool-btn", textContent: "🗑️", title: "Delete" });
+        deleteBtn.addEventListener("click", () => {
+          if (!confirm(`Delete "${entry.name}" from the patch library?`)) return;
+          library = library.filter((e) => e.id !== entry.id);
+          saveLibrary(library);
+          renderTagRow();
+          renderList();
+        });
+        rowActions.push(deleteBtn);
+      }
+      const row = el("div", { className: "library-row" }, [
+        el("div", { className: "library-row-main" }, [nameEl, tagsEl]),
+        el("div", { className: "library-row-actions" }, rowActions),
+      ]);
+      listEl.appendChild(row);
+    }
+  }
+
+  saveLibrary(library); // persist the initial seed on a first-ever visit
+  renderTagRow();
+  renderList();
+
+  // headerRow is already in place via replaceWith above - only the rest is new.
+  s.append(saveForm, el("div", { className: "library-filters" }, [searchInput, tagRow]), listEl);
+  return s;
+}
+
+// ---------------------------------------------------------------------
 // Assemble
 // ---------------------------------------------------------------------
 
@@ -821,9 +1015,10 @@ const globalSection = buildGlobalSection();
 const osc1Section = buildOscillatorSection(1);
 const osc2Section = buildOscillatorSection(2);
 const midiSection = buildMidiSection();
+const librarySection = buildLibrarySection();
 
 const oscGrid = el("div", { className: "two-col" }, [osc1Section, osc2Section]);
-root.append(midiSection, globalSection, expandedHost, oscGrid);
+root.append(midiSection, librarySection, globalSection, expandedHost, oscGrid);
 
 const envelopeEditors = {};
 const envelopeStrips = {};
@@ -936,6 +1131,17 @@ function applyEnvelopeStages(key, { stages, endStep }) {
   envelopeStrips[key].setStages(stages, endStep);
   refreshEnvelopeSummary(envelopeBlocksByKey[key], stages, endStep);
   notifyPatchChanged();
+}
+
+/** Replace one envelope's 8 stages with random values - the single
+ * implementation behind both the 🎲 button in its tools panel (while
+ * expanded) and the 🎲 button next to its Edit button (while collapsed),
+ * so a whole envelope can be reshuffled without opening it first. */
+function randomizeEnvelope(key, hasSustain) {
+  const stages = Array.from({ length: 8 }, () => ({ rate: randInt(0, 99), level: randInt(0, 99), sustain: false }));
+  const endStep = randInt(1, 7);
+  if (hasSustain) stages[randInt(0, endStep)].sustain = true;
+  applyEnvelopeStages(key, { stages, endStep });
 }
 
 /** Copy the other oscillator's waveform, key-follow, and all three

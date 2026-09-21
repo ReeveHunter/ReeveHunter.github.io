@@ -480,10 +480,10 @@ button.primary-btn:hover {
 .envelope-stats-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
 .envelope-summary {
+  margin-right: auto;
   font-size: 10px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
@@ -491,6 +491,12 @@ button.primary-btn:hover {
 }
 .envelope-toggle {
   padding: 4px 10px;
+  font-size: 11px;
+}
+/* The 🎲 next to Edit, for reshuffling this envelope without opening it -
+   hidden again while the block is expanded (see toggle() in envelopeBlock). */
+.envelope-randomize {
+  padding: 4px 7px;
   font-size: 11px;
 }
 .envelope-thumb {
@@ -669,6 +675,110 @@ button.primary-btn:hover {
    has that); just page-flow spacing to match the other panels. */
 .expanded-envelope-host {
   margin-bottom: 14px;
+}
+
+/* Patch library (see buildLibrarySection() in app.js) */
+.library-text-input {
+  min-width: 0;
+}
+.library-save-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+.library-save-form input {
+  flex: 1 1 160px;
+}
+.library-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.library-search {
+  flex: 0 1 220px;
+  min-width: 140px;
+}
+.library-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+.library-tag-chip {
+  padding: 3px 10px;
+  font-size: 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.library-tag-chip.active {
+  background: var(--accent);
+  color: #1a1200;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+/* A tag pill shown on a library row, not a filter toggle - not a button, so
+   no hover/active affordance, just the same pill shape for visual grouping. */
+.library-tag-chip-static {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  color: var(--text-dim);
+}
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.library-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #0f0f10;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+.library-row-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+.library-row-name {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.library-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.library-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.library-row-actions .tool-btn {
+  padding: 4px 9px;
 }
 
 /* MIDI status log */
