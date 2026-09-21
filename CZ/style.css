@@ -599,6 +599,12 @@ button.primary-btn:hover {
   color: var(--text-dim);
   line-height: 1.35;
 }
+/* Sole child of the .library-list grid when a filter matches nothing -
+   without this it would sit in just one narrow grid column instead of
+   reading as a message for the whole panel. */
+.library-list .tool-hint {
+  grid-column: 1 / -1;
+}
 .tool-checkbox-row {
   display: flex;
   align-items: center;
@@ -695,6 +701,10 @@ button.primary-btn:hover {
 .library-save-form input {
   flex: 1 1 160px;
 }
+.library-body-actions {
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
 .library-filters {
   display: flex;
   flex-wrap: wrap;
@@ -738,47 +748,59 @@ button.primary-btn:hover {
   border: 1px solid var(--panel-border);
   color: var(--text-dim);
 }
+/* A fixed-height, scrolling grid rather than a single column that just
+   keeps growing - with 100+ factory patches now alongside the hand-built
+   set, letting the list run to whatever length it wants would make this
+   panel dwarf the rest of the editor. Multiple compact columns (like a
+   hardware librarian's patch list) fit far more on screen at once than
+   one wide row per patch ever could; auto-fill lets the column count grow
+   on wider windows rather than locking in a fixed number. */
 .library-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-content: start;
   gap: 6px;
   margin-top: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px; /* keeps the scrollbar from sitting flush against card content */
 }
 .library-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 8px 10px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 9px;
   background: #0f0f10;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
+  min-width: 0;
 }
 .library-row-main {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-direction: column;
+  gap: 4px;
   min-width: 0;
 }
 .library-row-name {
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .library-row-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 .library-row-actions {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+  justify-content: flex-end;
 }
 .library-row-actions .tool-btn {
-  padding: 4px 9px;
+  padding: 4px 8px;
 }
 
 /* MIDI status log */

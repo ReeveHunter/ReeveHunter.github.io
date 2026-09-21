@@ -923,12 +923,29 @@ function buildLibrarySection() {
     return entry;
   }
 
-  const headerRow = el("div", { className: "panel-header-row" });
+  const toggleBtn = el("button", { className: "panel-toggle", textContent: "Show" });
   const titleEl = s.querySelector("h2");
+  const subtitleEl = s.querySelector(".panel-note");
+  const headerRow = el("div", { className: "panel-header-row" });
+  titleEl.replaceWith(headerRow);
+  headerRow.append(titleEl, toggleBtn);
+
+  // Collapsed by default - with 100+ factory patches now in here alongside
+  // the hand-built set, this panel is big enough that it shouldn't be the
+  // first thing you see on every visit. A click on "Show" reveals the
+  // whole thing: save/reset, search and tags, and the patch grid below.
+  const body = el("div", { className: "library-body" });
+  body.hidden = true;
+  if (subtitleEl) subtitleEl.hidden = true;
+  toggleBtn.addEventListener("click", () => {
+    body.hidden = !body.hidden;
+    if (subtitleEl) subtitleEl.hidden = body.hidden;
+    toggleBtn.textContent = body.hidden ? "Show" : "Hide";
+  });
+
   const saveToggleBtn = el("button", { className: "panel-toggle", textContent: "Save current…" });
   const resetBtn = el("button", { className: "panel-toggle", textContent: "Reset to factory" });
-  titleEl.replaceWith(headerRow);
-  headerRow.append(titleEl, el("div", { className: "panel-header-actions" }, [saveToggleBtn, resetBtn]));
+  const bodyActions = el("div", { className: "panel-header-actions library-body-actions" }, [saveToggleBtn, resetBtn]);
 
   // --- Save current patch as a new library entry ---
   const saveNameInput = el("input", { type: "text", className: "library-text-input", placeholder: "Name" });
@@ -1061,7 +1078,8 @@ function buildLibrarySection() {
   renderList();
 
   // headerRow is already in place via replaceWith above - only the rest is new.
-  s.append(saveForm, el("div", { className: "library-filters" }, [searchInput, tagRow]), listEl);
+  body.append(bodyActions, saveForm, el("div", { className: "library-filters" }, [searchInput, tagRow]), listEl);
+  s.append(body);
 
   // Exposed for handleImportedPatch() - a .syx import or a live MIDI dump
   // adds straight to the library the same way "Save current..." does,
