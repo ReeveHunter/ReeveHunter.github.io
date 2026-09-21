@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tunes</title>
-<meta name="description" content="Browse and rate Reeve's songs for the band to consider playing live.">
+<meta name="description" content="Browse and play Reeve's songs.">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
 <style>
@@ -20,7 +20,7 @@
         background: #121212;
         color: #eee;
         font-family: 'Montserrat', sans-serif;
-        padding: 24px 16px 60px;
+        padding: 28px 16px 60px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -29,29 +29,13 @@
         width: 100%;
         max-width: 820px;
     }
-    h1 {
-        font-size: clamp(32px, 8vw, 44px);
-        font-weight: 700;
-        text-align: center;
-    }
-    .subtitle {
-        color: #aaa;
-        text-align: center;
-        font-size: 14px;
-        line-height: 1.5;
-        margin: 10px auto 24px;
-        max-width: 560px;
-    }
-    .subtitle strong {
-        color: #eee;
-    }
 
     .bar {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         justify-content: center;
-        margin-bottom: 14px;
+        margin-bottom: 20px;
     }
     .pill {
         font-family: inherit;
@@ -73,17 +57,11 @@
         color: #1a1a1a;
         font-weight: 600;
     }
-    .filter-pill.active {
-        background: #3a7d44;
-        border-color: #3a7d44;
-        color: #fff;
-    }
 
     .layout {
         display: flex;
         gap: 20px;
         align-items: flex-start;
-        margin-top: 20px;
     }
 
     .player {
@@ -133,7 +111,6 @@
         justify-content: center;
         align-items: center;
         gap: 10px;
-        margin-bottom: 16px;
     }
     .transport button {
         font-family: inherit;
@@ -160,11 +137,6 @@
     }
     .transport #playPauseBtn:hover:not(:disabled) {
         background: #458f51;
-    }
-    .player .rate-group {
-        display: flex;
-        justify-content: center;
-        gap: 8px;
     }
 
     .list {
@@ -218,32 +190,6 @@
         flex-shrink: 0;
         text-align: center;
     }
-    .rate-btn {
-        font-size: 16px;
-        line-height: 1;
-        padding: 4px 6px;
-        background: #262626;
-        border: 1px solid #3a3a3a;
-        border-radius: 6px;
-        cursor: pointer;
-        filter: grayscale(1);
-        opacity: 0.5;
-        flex-shrink: 0;
-    }
-    .player .rate-btn {
-        font-size: 19px;
-        padding: 6px 10px;
-    }
-    .rate-btn:hover {
-        opacity: 0.85;
-    }
-    .rate-btn.selected {
-        filter: none;
-        opacity: 1;
-        background: #333;
-        border-color: #e0a94e;
-        box-shadow: 0 0 0 1px #e0a94e;
-    }
 
     .state {
         text-align: center;
@@ -273,21 +219,6 @@
     footer code {
         color: #777;
     }
-    footer button {
-        margin-top: 10px;
-        font-family: inherit;
-        font-size: 12px;
-        background: none;
-        border: 1px solid #3a3a3a;
-        color: #777;
-        padding: 5px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-    }
-    footer button:hover {
-        color: #aaa;
-        border-color: #555;
-    }
 
     @media (max-width: 640px) {
         .layout {
@@ -303,22 +234,7 @@
 </head>
 <body>
 <div class="wrap">
-    <h1>Tunes</h1>
-    <p class="subtitle">
-        Listen through and mark how you feel about each one &mdash;
-        <strong>&#128169; pass</strong>,
-        <strong>&#129335;&zwj;&#9794;&#65039; maybe</strong>,
-        <strong>&#129304; let's play it</strong>.
-        Then filter down to what you want and screenshot the list to send back.
-    </p>
-
     <div id="projectBar" class="bar"></div>
-    <div class="bar">
-        <button class="pill filter-pill active" data-filter="play">&#129304; play</button>
-        <button class="pill filter-pill active" data-filter="maybe">&#129335;&zwj;&#9794;&#65039; maybe</button>
-        <button class="pill filter-pill active" data-filter="pass">&#128169; pass</button>
-        <button class="pill filter-pill active" data-filter="unrated">unrated</button>
-    </div>
 
     <div class="layout">
         <div class="player">
@@ -331,7 +247,6 @@
                 <button id="playPauseBtn" disabled title="Play">&#9654;</button>
                 <button id="nextBtn" disabled title="Next">&#9197;</button>
             </div>
-            <div class="rate-group" id="playerRateGroup"></div>
             <audio id="audioEl" preload="none"></audio>
         </div>
 
@@ -349,9 +264,6 @@
     var BRANCH = 'main';
     var SONGS_ROOT = 'tunes/songs/';
     var AUDIO_EXT = /\.(mp3|wav|m4a|ogg|flac|aac)$/i;
-    var RATING_KEY = 'tunes-ratings-v1';
-    var RATINGS = ['play', 'maybe', 'pass'];
-    var EMOJI = { play: '\u{1F918}', maybe: '\u{1F937}‍♂️', pass: '\u{1F4A9}' };
 
     var listEl = document.getElementById('list');
     var stateEl = document.getElementById('state');
@@ -366,28 +278,12 @@
     var prevBtn = document.getElementById('prevBtn');
     var playPauseBtn = document.getElementById('playPauseBtn');
     var nextBtn = document.getElementById('nextBtn');
-    var playerRateGroupEl = document.getElementById('playerRateGroup');
     var audioEl = document.getElementById('audioEl');
 
-    var activeFilters = { play: true, maybe: true, pass: true, unrated: true };
     var activeProject = 'all';
     var songs = []; // { path, title, project }
     var currentPath = null;
     var scrubbing = false;
-
-    function loadRatings() {
-        try {
-            return JSON.parse(localStorage.getItem(RATING_KEY)) || {};
-        } catch (e) {
-            return {};
-        }
-    }
-    function saveRatings(r) {
-        try {
-            localStorage.setItem(RATING_KEY, JSON.stringify(r));
-        } catch (e) {}
-    }
-    var ratings = loadRatings();
 
     function titleFromFilename(name) {
         var base = name.replace(AUDIO_EXT, '');
@@ -416,42 +312,17 @@
         return null;
     }
 
-    // songs currently visible given project + rating filters, in the same
+    // songs currently visible given the project filter, in the same
     // order they're rendered (project asc, title asc within project)
     function visibleSongs() {
         var list = songs.filter(function (s) {
-            if (activeProject !== 'all' && s.project !== activeProject) return false;
-            var r = ratings[s.path];
-            if (!r) return activeFilters.unrated;
-            return activeFilters[r];
+            return activeProject === 'all' || s.project === activeProject;
         });
         list.sort(function (a, b) {
             if (a.project !== b.project) return a.project.localeCompare(b.project);
             return a.title.localeCompare(b.title);
         });
         return list;
-    }
-
-    function renderRateGroup(container, path, size) {
-        container.innerHTML = '';
-        RATINGS.forEach(function (r) {
-            var btn = document.createElement('button');
-            btn.className = 'rate-btn' + (ratings[path] === r ? ' selected' : '');
-            btn.textContent = EMOJI[r];
-            btn.setAttribute('aria-label', r);
-            btn.onclick = function (ev) {
-                ev.stopPropagation();
-                if (ratings[path] === r) {
-                    delete ratings[path];
-                } else {
-                    ratings[path] = r;
-                }
-                saveRatings(ratings);
-                renderList();
-                renderPlayerInfo();
-            };
-            container.appendChild(btn);
-        });
     }
 
     function playSong(song) {
@@ -468,16 +339,16 @@
             nowProjectEl.textContent = '';
             nowTitleEl.textContent = 'Pick a song to start';
             nowTitleEl.classList.add('placeholder');
-            playerRateGroupEl.innerHTML = '';
             prevBtn.disabled = true;
-            playPauseBtn.disabled = true;
+            playPauseBtn.disabled = songs.length === 0;
             nextBtn.disabled = true;
+            playPauseBtn.innerHTML = '&#9654;';
+            playPauseBtn.title = 'Play';
             return;
         }
         nowProjectEl.textContent = song.project;
         nowTitleEl.textContent = song.title;
         nowTitleEl.classList.remove('placeholder');
-        renderRateGroup(playerRateGroupEl, song.path);
         prevBtn.disabled = false;
         playPauseBtn.disabled = false;
         nextBtn.disabled = false;
@@ -502,7 +373,7 @@
 
     playPauseBtn.addEventListener('click', function () {
         if (!currentPath) {
-            step(1);
+            step(1); // nothing picked yet -> play whatever's at the top of the current list
             return;
         }
         if (audioEl.paused) audioEl.play().catch(function () {});
@@ -566,7 +437,7 @@
             return;
         }
         if (toShow.length === 0) {
-            stateEl.textContent = 'Nothing matches the current filters.';
+            stateEl.textContent = 'No songs in this project.';
             return;
         }
         stateEl.textContent = '';
@@ -595,37 +466,13 @@
             title.textContent = s.title;
             row.appendChild(title);
 
-            var rg = document.createElement('div');
-            rg.className = 'rate-group';
-            renderRateGroup(rg, s.path);
-            row.appendChild(rg);
-
             listEl.appendChild(row);
         });
     }
 
-    document.querySelectorAll('.filter-pill').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var f = btn.getAttribute('data-filter');
-            activeFilters[f] = !activeFilters[f];
-            btn.classList.toggle('active', activeFilters[f]);
-            renderList();
-        });
-    });
-
     function showFooter() {
         footerEl.innerHTML =
             'Add songs by dropping audio files into <code>/tunes/songs/&lt;project name&gt;/</code> in the repo and pushing &mdash; folders show up here automatically as tabs.';
-        var clearBtn = document.createElement('button');
-        clearBtn.textContent = 'Clear my ratings';
-        clearBtn.onclick = function () {
-            ratings = {};
-            saveRatings(ratings);
-            renderList();
-            renderPlayerInfo();
-        };
-        footerEl.appendChild(document.createElement('br'));
-        footerEl.appendChild(clearBtn);
     }
 
     renderPlayerInfo();
@@ -658,6 +505,7 @@
                 stateEl.textContent = '';
             }
             showFooter();
+            renderPlayerInfo();
             renderList();
         })
         .catch(function (err) {
