@@ -311,7 +311,6 @@
     var AUDIO_EXT = /\.(mp3|wav|m4a|ogg|flac|aac)$/i;
     var IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i;
     var SECRET_NAME = 'secret';
-    var SECRET_LABEL = 'Secret';
 
     var listEl = document.getElementById('list');
     var stateEl = document.getElementById('state');
@@ -329,8 +328,8 @@
     var audioEl = document.getElementById('audioEl');
 
     var activeProject = 'all';
-    var songs = []; // { path, title, project, album, folder }
-    var coverByFolder = {}; // folder -> image path
+    var songs = []; // { path, title, project, folder, secret }
+    var coverByFolder = {}; // folder -> image path (full repo path)
     var projectOrder = []; // names, in desired order, from ORDER_FILE
     var currentPath = null;
     var scrubbing = false;
@@ -356,23 +355,23 @@
         return m + ':' + (s < 10 ? '0' : '') + s;
     }
 
-    // Classify a path relative to SONGS_ROOT, e.g. "RH 2026 EP/song.mp3"
-    // or "secret/Some Album/song.mp3", into which tab it belongs under
-    // (project), which sub-group within that tab (album), and which
-    // folder its cover art (if any) would live in.
+    // Classify a path relative to SONGS_ROOT. Every top-level folder is a
+    // project/tab, EXCEPT "secret" -- for that one, the folder *inside* it
+    // (the album) becomes the project/tab instead, and it's marked secret
+    // so it stays out of the tab bar until unlocked.
     function classify(relPath) {
         var parts = relPath.split('/');
         var filename = parts[parts.length - 1];
         if (parts.length === 1) {
-            return { project: 'Uncategorized', album: 'Uncategorized', folder: '', filename: filename };
+            return { project: 'Uncategorized', folder: '', filename: filename, secret: false };
         }
         if (parts[0].toLowerCase() === SECRET_NAME) {
             if (parts.length >= 3) {
-                return { project: SECRET_NAME, album: parts[1], folder: parts.slice(0, 2).join('/'), filename: filename };
+                return { project: parts[1], folder: parts.slice(0, 2).join('/'), filename: filename, secret: true };
             }
-            return { project: SECRET_NAME, album: SECRET_LABEL, folder: parts[0], filename: filename };
+            return { project: 'Secret', folder: parts[0], filename: filename, secret: true };
         }
-        return { project: parts[0], album: parts[0], folder: parts[0], filename: filename };
+        return { project: parts[0], folder: parts[0], filename: filename, secret: false };
     }
 
     function songByPath(path) {
@@ -382,21 +381,18 @@
         return null;
     }
 
-    function projectLabel(p) {
-        return p === SECRET_NAME ? SECRET_LABEL : p;
+    function compareProjectNames(a, b) {
+        if (a === 'Uncategorized') return b === 'Uncategorized' ? 0 : 1;
+        if (b === 'Uncategorized') return -1;
+        var ia = projectOrder.indexOf(a);
+        var ib = projectOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
     }
-
     function sortProjects(list) {
-        list.sort(function (a, b) {
-            if (a === 'Uncategorized') return b === 'Uncategorized' ? 0 : 1;
-            if (b === 'Uncategorized') return -1;
-            var ia = projectOrder.indexOf(a);
-            var ib = projectOrder.indexOf(b);
-            if (ia === -1 && ib === -1) return a.localeCompare(b);
-            if (ia === -1) return 1;
-            if (ib === -1) return -1;
-            return ia - ib;
-        });
+        list.sort(compareProjectNames);
         return list;
     }
 
@@ -404,15 +400,11 @@
     // in render order
     function visibleSongs() {
         var list = songs.filter(function (s) {
-            if (s.project === SECRET_NAME && !secretUnlocked) return false;
+            if (s.secret && !secretUnlocked) return false;
             return activeProject === 'all' || s.project === activeProject;
         });
         list.sort(function (a, b) {
-            if (a.project !== b.project) {
-                return sortProjects([a.project, b.project]).indexOf(a.project) -
-                       sortProjects([a.project, b.project]).indexOf(b.project);
-            }
-            if (a.album !== b.album) return a.album.localeCompare(b.album);
+            if (a.project !== b.project) return compareProjectNames(a.project, b.project);
             return a.title.localeCompare(b.title);
         });
         return list;
@@ -447,7 +439,7 @@
         } else {
             coverEl.classList.remove('show');
         }
-        nowProjectEl.textContent = song.project === SECRET_NAME ? (SECRET_LABEL + ' — ' + song.album) : song.project;
+        nowProjectEl.textContent = song.project;
         nowTitleEl.textContent = song.title;
         nowTitleEl.classList.remove('placeholder');
         prevBtn.disabled = false;
@@ -505,7 +497,7 @@
         scrubbing = false;
     });
 
-    // click the sparkle at the bottom of the page to reveal the secret tab
+    // click the sparkle at the bottom of the page to reveal the secret albums
     var unlockGifEl = document.getElementById('unlockGif');
     unlockGifEl.addEventListener('click', function () {
         if (secretUnlocked) return;
@@ -518,18 +510,11 @@
         listEl.innerHTML = '';
 
         var visibleProjects = songs.reduce(function (acc, s) {
-            if (s.project === SECRET_NAME && !secretUnlocked) return acc;
+            if (s.secret && !secretUnlocked) return acc;
             if (acc.indexOf(s.project) === -1) acc.push(s.project);
             return acc;
         }, []);
         sortProjects(visibleProjects);
-        if (secretUnlocked) {
-            // always last, regardless of the order file
-            visibleProjects = visibleProjects.filter(function (p) { return p !== SECRET_NAME; });
-            if (songs.some(function (s) { return s.project === SECRET_NAME; })) {
-                visibleProjects.push(SECRET_NAME);
-            }
-        }
 
         projectBarEl.innerHTML = '';
         var allBtn = document.createElement('button');
@@ -540,7 +525,7 @@
         visibleProjects.forEach(function (p) {
             var b = document.createElement('button');
             b.className = 'pill' + (activeProject === p ? ' active' : '');
-            b.textContent = projectLabel(p);
+            b.textContent = p;
             b.onclick = function () { activeProject = p; renderList(); };
             projectBarEl.appendChild(b);
         });
@@ -556,23 +541,16 @@
         }
         stateEl.textContent = '';
 
-        // group headings: by project when viewing "All", by album when
-        // viewing the secret tab (it holds multiple albums), otherwise flat
-        var groupKey = null;
-        if (activeProject === 'all') groupKey = function (s) { return projectLabel(s.project); };
-        else if (activeProject === SECRET_NAME) groupKey = function (s) { return s.album; };
-
+        // group headings by project, but only when viewing "All" (a single
+        // project tab is already just that one project, so no heading needed)
         var lastGroup = null;
         toShow.forEach(function (s) {
-            if (groupKey) {
-                var g = groupKey(s);
-                if (g !== lastGroup) {
-                    var h = document.createElement('div');
-                    h.className = 'group-heading';
-                    h.textContent = g;
-                    listEl.appendChild(h);
-                    lastGroup = g;
-                }
+            if (activeProject === 'all' && s.project !== lastGroup) {
+                var h = document.createElement('div');
+                h.className = 'group-heading';
+                h.textContent = s.project;
+                listEl.appendChild(h);
+                lastGroup = s.project;
             }
 
             var row = document.createElement('div');
@@ -629,8 +607,8 @@
                         path: item.path,
                         title: titleFromFilename(info.filename),
                         project: info.project,
-                        album: info.album,
-                        folder: info.folder
+                        folder: info.folder,
+                        secret: info.secret
                     });
                 } else if (IMAGE_EXT.test(item.path)) {
                     var imgInfo = classify(relPath);

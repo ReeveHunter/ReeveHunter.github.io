@@ -1,8 +1,6 @@
 # One project folder name per line, in the order you want the tabs to
 # appear. Anything not listed here just gets sorted alphabetically after
-# these. Lines starting with # are ignored. "secret" is never listed here
-# on purpose -- it's hidden until someone types "secret" on the page, and
-# always shows up last, after everything else.
+# these. Lines starting with # are ignored.
 
 RH 2026 EP
 RH Bits and Pieces
