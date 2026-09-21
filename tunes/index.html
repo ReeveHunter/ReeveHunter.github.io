@@ -241,6 +241,17 @@
         flex-shrink: 0;
         text-align: center;
     }
+    .song-row.external .title {
+        color: #ff9d3b;
+    }
+    .song-row.missing {
+        cursor: default;
+    }
+    .song-row.missing .title {
+        color: #777;
+        text-decoration: none;
+        font-style: italic;
+    }
 
     .state {
         text-align: center;
@@ -308,6 +319,7 @@
     var BRANCH = 'main';
     var SONGS_ROOT = 'tunes/songs/';
     var ORDER_FILE = 'tunes/project-order.txt';
+    var PICKS_FILE = 'tunes/picks.txt';
     var AUDIO_EXT = /\.(mp3|wav|m4a|ogg|flac|aac)$/i;
     var IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i;
     var SECRET_NAME = 'secret';
@@ -327,10 +339,12 @@
     var nextBtn = document.getElementById('nextBtn');
     var audioEl = document.getElementById('audioEl');
 
-    var activeProject = 'all';
+    var activeView = { kind: 'all' }; // {kind:'all'} | {kind:'project', name} | {kind:'pick', name}
     var songs = []; // { path, title, project, folder, secret }
     var coverByFolder = {}; // folder -> image path (full repo path)
     var projectOrder = []; // names, in desired order, from ORDER_FILE
+    var picks = []; // [{ name, entries: [{kind:'song',song}|{kind:'external',title,url}|{kind:'missing',title}] }]
+    var picksByName = {};
     var currentPath = null;
     var scrubbing = false;
     var secretUnlocked = false;
@@ -342,6 +356,56 @@
             var word = str.slice(str.lastIndexOf(' ', i) + 1).match(/^\S*/)[0];
             return word === word.toLowerCase() ? c.toUpperCase() : c;
         });
+    }
+
+    function normalizeTitle(t) {
+        return t.toLowerCase()
+            .replace(/^\d+\s+/, '')
+            .replace(/[^a-z0-9 ]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function findSongByTitle(query) {
+        var nq = normalizeTitle(query);
+        for (var i = 0; i < songs.length; i++) {
+            if (normalizeTitle(songs[i].title) === nq) return songs[i];
+        }
+        return null;
+    }
+
+    // "## Name" starts a new pick list (its button label). A line starting
+    // with a single "#" (not "##") is just a comment and is ignored.
+    // "Title = youtube:<url>" is an external link entry. Any other
+    // non-blank line is a song title, matched fuzzily against songs[].
+    function parsePicks(text) {
+        var list = [];
+        var current = null;
+        text.split('\n').forEach(function (raw) {
+            var line = raw.trim();
+            if (!line) return;
+            if (line.indexOf('##') === 0) {
+                var name = line.slice(2).trim();
+                if (!name) return;
+                current = { name: name, entries: [] };
+                list.push(current);
+                return;
+            }
+            if (line.charAt(0) === '#') return; // comment
+            if (!current) return;
+            var eq = line.indexOf('=');
+            if (eq !== -1) {
+                var title = line.slice(0, eq).trim();
+                var value = line.slice(eq + 1).trim();
+                if (value.indexOf('youtube:') === 0) {
+                    current.entries.push({ kind: 'external', title: title, url: value.slice('youtube:'.length).trim() });
+                    return;
+                }
+            }
+            var song = findSongByTitle(line);
+            current.entries.push(song ? { kind: 'song', song: song } : { kind: 'missing', title: line });
+        });
+        return list;
     }
 
     function repoFileUrl(path) {
@@ -397,17 +461,31 @@
     }
 
     // songs currently visible given the project filter (and secret-lock),
-    // in render order
+    // in render order. Only meaningful for the 'all'/'project' views -- a
+    // 'pick' view uses its own authored order (see currentPlayableList).
     function visibleSongs() {
         var list = songs.filter(function (s) {
             if (s.secret && !secretUnlocked) return false;
-            return activeProject === 'all' || s.project === activeProject;
+            return activeView.kind === 'all' || s.project === activeView.name;
         });
         list.sort(function (a, b) {
             if (a.project !== b.project) return compareProjectNames(a.project, b.project);
             return a.title.localeCompare(b.title);
         });
         return list;
+    }
+
+    // the ordered list of *playable* songs for whatever view is active --
+    // what prev/next/auto-advance step through
+    function currentPlayableList() {
+        if (activeView.kind === 'pick') {
+            var p = picksByName[activeView.name];
+            if (!p) return [];
+            return p.entries
+                .filter(function (e) { return e.kind === 'song'; })
+                .map(function (e) { return e.song; });
+        }
+        return visibleSongs();
     }
 
     function playSong(song) {
@@ -450,7 +528,7 @@
     }
 
     function step(delta) {
-        var list = visibleSongs();
+        var list = currentPlayableList();
         if (list.length === 0) return;
         var idx = list.findIndex(function (s) { return s.path === currentPath; });
         var nextIdx;
@@ -506,6 +584,58 @@
         renderList();
     });
 
+    function buildSongRow(s) {
+        var row = document.createElement('div');
+        row.className = 'song-row' + (s.path === currentPath ? ' current' : '');
+        row.onclick = function () { playSong(s); };
+
+        var icon = document.createElement('span');
+        icon.className = 'now-icon';
+        icon.textContent = (s.path === currentPath && !audioEl.paused) ? '♪' : '';
+        row.appendChild(icon);
+
+        var title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = s.title;
+        row.appendChild(title);
+
+        return row;
+    }
+
+    function buildExternalRow(title, url) {
+        var row = document.createElement('div');
+        row.className = 'song-row external';
+        row.onclick = function () { window.open(url, '_blank', 'noopener'); };
+
+        var icon = document.createElement('span');
+        icon.className = 'now-icon';
+        icon.textContent = '↗';
+        row.appendChild(icon);
+
+        var titleEl = document.createElement('div');
+        titleEl.className = 'title';
+        titleEl.textContent = title;
+        row.appendChild(titleEl);
+
+        return row;
+    }
+
+    function buildMissingRow(title) {
+        var row = document.createElement('div');
+        row.className = 'song-row missing';
+
+        var icon = document.createElement('span');
+        icon.className = 'now-icon';
+        row.appendChild(icon);
+
+        var titleEl = document.createElement('div');
+        titleEl.className = 'title';
+        titleEl.textContent = title;
+        row.appendChild(titleEl);
+
+        return row;
+    }
+
     function renderList() {
         listEl.innerHTML = '';
 
@@ -518,23 +648,45 @@
 
         projectBarEl.innerHTML = '';
         var allBtn = document.createElement('button');
-        allBtn.className = 'pill' + (activeProject === 'all' ? ' active' : '');
+        allBtn.className = 'pill' + (activeView.kind === 'all' ? ' active' : '');
         allBtn.textContent = 'All';
-        allBtn.onclick = function () { activeProject = 'all'; renderList(); };
+        allBtn.onclick = function () { activeView = { kind: 'all' }; renderList(); };
         projectBarEl.appendChild(allBtn);
         visibleProjects.forEach(function (p) {
             var b = document.createElement('button');
-            b.className = 'pill' + (activeProject === p ? ' active' : '');
+            b.className = 'pill' + (activeView.kind === 'project' && activeView.name === p ? ' active' : '');
             b.textContent = p;
-            b.onclick = function () { activeProject = p; renderList(); };
+            b.onclick = function () { activeView = { kind: 'project', name: p }; renderList(); };
             projectBarEl.appendChild(b);
         });
-
-        var toShow = visibleSongs();
+        picks.forEach(function (pick) {
+            var b = document.createElement('button');
+            b.className = 'pill' + (activeView.kind === 'pick' && activeView.name === pick.name ? ' active' : '');
+            b.textContent = pick.name;
+            b.onclick = function () { activeView = { kind: 'pick', name: pick.name }; renderList(); };
+            projectBarEl.appendChild(b);
+        });
 
         if (songs.length === 0) {
             return;
         }
+
+        if (activeView.kind === 'pick') {
+            var pick = picksByName[activeView.name];
+            if (!pick || pick.entries.length === 0) {
+                stateEl.textContent = 'Nothing in this list.';
+                return;
+            }
+            stateEl.textContent = '';
+            pick.entries.forEach(function (e) {
+                if (e.kind === 'song') listEl.appendChild(buildSongRow(e.song));
+                else if (e.kind === 'external') listEl.appendChild(buildExternalRow(e.title, e.url));
+                else listEl.appendChild(buildMissingRow(e.title));
+            });
+            return;
+        }
+
+        var toShow = visibleSongs();
         if (toShow.length === 0) {
             stateEl.textContent = 'No songs in this project.';
             return;
@@ -545,29 +697,14 @@
         // project tab is already just that one project, so no heading needed)
         var lastGroup = null;
         toShow.forEach(function (s) {
-            if (activeProject === 'all' && s.project !== lastGroup) {
+            if (activeView.kind === 'all' && s.project !== lastGroup) {
                 var h = document.createElement('div');
                 h.className = 'group-heading';
                 h.textContent = s.project;
                 listEl.appendChild(h);
                 lastGroup = s.project;
             }
-
-            var row = document.createElement('div');
-            row.className = 'song-row' + (s.path === currentPath ? ' current' : '');
-            row.onclick = function () { playSong(s); };
-
-            var icon = document.createElement('span');
-            icon.className = 'now-icon';
-            icon.textContent = (s.path === currentPath && !audioEl.paused) ? '♪' : '';
-            row.appendChild(icon);
-
-            var title = document.createElement('div');
-            title.className = 'title';
-            title.textContent = s.title;
-            row.appendChild(title);
-
-            listEl.appendChild(row);
+            listEl.appendChild(buildSongRow(s));
         });
     }
 
@@ -584,10 +721,15 @@
         .then(function (res) { return res.ok ? res.text() : ''; })
         .catch(function () { return ''; });
 
-    Promise.all([treeFetch, orderFetch])
+    var picksFetch = fetch('https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/' + BRANCH + '/' + PICKS_FILE)
+        .then(function (res) { return res.ok ? res.text() : ''; })
+        .catch(function () { return ''; });
+
+    Promise.all([treeFetch, orderFetch, picksFetch])
         .then(function (results) {
             var data = results[0];
             var orderText = results[1];
+            var picksText = results[2];
 
             projectOrder = orderText.split('\n')
                 .map(function (l) { return l.trim(); })
@@ -621,6 +763,10 @@
                 var cover = names.find(function (n) { return /cover/i.test(n); }) || names[0];
                 coverByFolder[folder] = SONGS_ROOT + (folder ? folder + '/' + cover : cover);
             });
+
+            picks = parsePicks(picksText); // needs songs[] populated above, for title matching
+            picksByName = {};
+            picks.forEach(function (p) { picksByName[p.name] = p; });
 
             stateEl.textContent = songs.length === 0 ? 'No songs yet.' : '';
             renderPlayerInfo();

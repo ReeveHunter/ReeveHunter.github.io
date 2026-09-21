@@ -1,0 +1,32 @@
+# Lines starting with a single # (like this one) are comments and are
+# ignored. A line starting with ## begins a new pick list -- the text
+# after it is the button label. Under it, one song per line: just the
+# title (with or without the leading track number, doesn't matter,
+# matching ignores it, case and punctuation too).
+#
+# For a track that isn't a local file, use:
+#   Title = youtube:<url>
+# and it'll show up as a link that opens in a new tab instead of playing
+# here.
+
+## Reeve's Picks
+History = youtube:https://www.youtube.com/watch?v=yWzfO4_rQoM
+07 Grow Up
+13 Most Boats Float
+14 Soon
+02 Dangerously Close
+05 We Beneath Us
+03 The Rummage
+02 Cocoon Boy
+
+## Jared's Picks
+14 Soon
+Get You In Trouble
+Hands
+Grow Up
+You Hold Us Down
+I Was Raised
+We've Had Time
+
+## Beau's Picks
+A Story Like the Wind
