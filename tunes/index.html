@@ -255,6 +255,13 @@
         content: '_';
     }
 
+    .unlock-gif {
+        display: block;
+        margin: 50px auto 0;
+        cursor: pointer;
+        image-rendering: pixelated;
+    }
+
     @media (max-width: 640px) {
         .layout {
             flex-direction: column;
@@ -290,6 +297,8 @@
     </div>
 
     <div id="state" class="state"></div>
+
+    <img id="unlockGif" class="unlock-gif" src="unlock.gif" alt="" width="64" height="64">
 </div>
 
 <script>
@@ -326,7 +335,6 @@
     var currentPath = null;
     var scrubbing = false;
     var secretUnlocked = false;
-    var secretBuffer = '';
 
     function titleFromFilename(name) {
         var base = name.replace(AUDIO_EXT, '');
@@ -497,14 +505,13 @@
         scrubbing = false;
     });
 
-    // type "secret" anywhere on the page to reveal the secret tab
-    window.addEventListener('keydown', function (e) {
-        if (secretUnlocked || e.key.length !== 1) return;
-        secretBuffer = (secretBuffer + e.key).slice(-SECRET_NAME.length).toLowerCase();
-        if (secretBuffer === SECRET_NAME) {
-            secretUnlocked = true;
-            renderList();
-        }
+    // click the sparkle at the bottom of the page to reveal the secret tab
+    var unlockGifEl = document.getElementById('unlockGif');
+    unlockGifEl.addEventListener('click', function () {
+        if (secretUnlocked) return;
+        secretUnlocked = true;
+        unlockGifEl.style.display = 'none';
+        renderList();
     });
 
     function renderList() {
@@ -634,7 +641,7 @@
             Object.keys(imageCandidates).forEach(function (folder) {
                 var names = imageCandidates[folder].slice().sort();
                 var cover = names.find(function (n) { return /cover/i.test(n); }) || names[0];
-                coverByFolder[folder] = folder ? folder + '/' + cover : cover;
+                coverByFolder[folder] = SONGS_ROOT + (folder ? folder + '/' + cover : cover);
             });
 
             stateEl.textContent = songs.length === 0 ? 'No songs yet.' : '';
