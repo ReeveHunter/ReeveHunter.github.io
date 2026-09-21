@@ -19,6 +19,15 @@ html, body {
   font-family: 'Montserrat', sans-serif;
 }
 
+/* Generic force-hide utility, used to hide whole top-level sections while
+   an envelope is being edited "full screen" (see setFocusMode() in
+   app.js). !important because some targets (e.g. .two-col) set their own
+   `display`, and this utility's effect shouldn't depend on which of two
+   same-specificity rules happens to come later in the file. */
+.is-hidden {
+  display: none !important;
+}
+
 body {
   padding: 24px 16px 64px;
   max-width: 1180px;
@@ -381,10 +390,12 @@ button.primary-btn:hover {
    editing area, evenly, instead of hugging their own content width and
    leaving space unused; auto-fit + minmax keeps each column at least
    44px, wrapping to fewer per row only if the panel gets too narrow for
-   all 8 (see the max-width:560px rule below). */
+   all 8 (see the max-width:560px rule below). Widened from 44px now that
+   level/rate sit side by side again (see .envelope-strip-steppers) - two
+   32px steppers plus their gap need more like 70px+ to stay unwrapped. */
 .envelope-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
   gap: 6px;
   margin-top: 10px;
   padding-top: 10px;
@@ -409,12 +420,13 @@ button.primary-btn:hover {
   font-weight: 600;
   color: var(--text-dim);
 }
-/* Level above rate, stacked rather than side-by-side, so all 8 stages
-   fit on one line instead of wrapping. */
+/* Level and rate side by side - now that the envelope editor takes over
+   the full page width while expanded, there's room for both without
+   wrapping the 8-stage strip. */
 .envelope-strip-steppers {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
   gap: 4px;
 }
 .envelope-strip-sustain {
@@ -533,6 +545,16 @@ button.primary-btn:hover {
   border-radius: 6px;
   padding: 8px 10px;
 }
+/* Stretch/scale needs more elbow room than the other two groups (it's grown
+   from two horizontal sliders to four vertical slider/nudge columns);
+   randomize/copy needs the least, being just three buttons - so it gives
+   up width for stretch/scale to take. */
+.tool-group-wide {
+  flex: 1.6 1 260px;
+}
+.tool-group-narrow {
+  flex: 0.6 1 140px;
+}
 .tool-group-label {
   font-size: 10px;
   color: var(--text-dim);
@@ -548,6 +570,23 @@ button.primary-btn:hover {
 .tool-btn {
   padding: 6px 10px;
   font-size: 11px;
+}
+.tool-pair {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+/* Pairing a vertical RateSlider with its nudge stepper - both are narrow
+   columns of about the same height, so center them on each other instead
+   of the horizontal pairing's flex-end (baseline-ish) alignment. */
+.tool-pair-vertical {
+  align-items: center;
+}
+/* Houses the four stretch/scale columns (level slider, level nudge, rate
+   slider, rate nudge) - more breathing room between the level and rate
+   pairs than the default .tool-row gap. */
+.tool-row-vertical {
+  gap: 18px;
 }
 .tool-hint {
   font-size: 10px;
@@ -593,6 +632,27 @@ button.primary-btn:hover {
 .rate-slider-hint {
   display: flex;
   justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+/* Vertical variant - stretch/scale now runs its sliders top-to-bottom
+   (grow at top, shrink at bottom) so level and rate can sit side by side
+   with their nudge steppers instead of stacked full-width rows. Chromium
+   (this app already requires Chrome/Edge/Brave/Opera for MIDI SysEx) turns
+   a range input vertical via -webkit-appearance:slider-vertical, which
+   renders it rotated: width is the track's thickness, height is its length. */
+.rate-slider-vertical {
+  width: auto;
+  align-items: center;
+}
+.rate-slider-input.rate-slider-input-vertical {
+  -webkit-appearance: slider-vertical;
+  width: 8px;
+  height: 92px;
+  cursor: ns-resize;
+}
+.rate-slider-hint-vert {
   font-size: 9px;
   color: var(--text-dim);
 }

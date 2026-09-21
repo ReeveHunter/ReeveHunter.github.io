@@ -241,15 +241,17 @@ export class RateSlider {
    * having to type a target percentage first.
    * @param {object} opts
    * @param {string} [opts.label]
+   * @param {"horizontal"|"vertical"} [opts.orientation="horizontal"]
    * @param {() => void} [opts.onStart] - fires once when a drag begins
-   * @param {(direction:number, dtSeconds:number) => void} opts.onTick - direction is -1 (full left) .. 1 (full right)
+   * @param {(direction:number, dtSeconds:number) => void} opts.onTick - direction is -1 (full left/down) .. 1 (full right/up)
    */
-  constructor({ label, onStart, onTick }) {
+  constructor({ label, orientation = "horizontal", onStart, onTick }) {
     this.onStart = onStart;
     this.onTick = onTick;
+    const vertical = orientation === "vertical";
 
     this.el = document.createElement("div");
-    this.el.className = "rate-slider";
+    this.el.className = "rate-slider" + (vertical ? " rate-slider-vertical" : "");
 
     if (label) {
       const labelEl = document.createElement("div");
@@ -263,17 +265,31 @@ export class RateSlider {
     this.input.min = "-100";
     this.input.max = "100";
     this.input.value = "0";
-    this.input.className = "rate-slider-input";
-    this.el.appendChild(this.input);
+    this.input.className = "rate-slider-input" + (vertical ? " rate-slider-input-vertical" : "");
 
-    const hint = document.createElement("div");
-    hint.className = "rate-slider-hint";
-    const shrink = document.createElement("span");
-    shrink.textContent = "shrink";
-    const grow = document.createElement("span");
-    grow.textContent = "grow";
-    hint.append(shrink, grow);
-    this.el.appendChild(hint);
+    if (vertical) {
+      // With -webkit-appearance:slider-vertical (see style.css), the track's
+      // max sits at the top and min at the bottom - so "grow" (max, +100)
+      // belongs above the track and "shrink" (min, -100) below it, instead
+      // of the horizontal layout's side-by-side hint row.
+      const grow = document.createElement("span");
+      grow.className = "rate-slider-hint-vert";
+      grow.textContent = "grow";
+      const shrink = document.createElement("span");
+      shrink.className = "rate-slider-hint-vert";
+      shrink.textContent = "shrink";
+      this.el.append(grow, this.input, shrink);
+    } else {
+      this.el.appendChild(this.input);
+      const hint = document.createElement("div");
+      hint.className = "rate-slider-hint";
+      const shrink = document.createElement("span");
+      shrink.textContent = "shrink";
+      const grow = document.createElement("span");
+      grow.textContent = "grow";
+      hint.append(shrink, grow);
+      this.el.appendChild(hint);
+    }
 
     let raf = null;
     let lastT = null;

@@ -304,10 +304,10 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
   generateBtn.addEventListener("click", doGenerate);
   const generateGroup = el("div", { className: "tool-group" }, [
     el("span", { className: "tool-group-label", textContent: "Generate" }),
+    el("div", { className: "tool-row" }, [curveDropdown.el, generateBtn]),
     el("div", { className: "tool-row" }, [
-      curveDropdown.el, speedStepper.el, peakStepper.el, baseStepper.el, stagesStepper.el, generateBtn,
+      liveLabel, speedStepper.el, peakStepper.el, baseStepper.el, stagesStepper.el,
     ]),
-    liveLabel,
     curveHint,
   ]);
 
@@ -317,10 +317,13 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
   // (liveRateFloats/liveLevelFloats) seeded fresh from the current integer
   // values whenever a new drag starts, so slow/small scaling still
   // accumulates smoothly instead of being wiped out by per-frame rounding.
+  // Vertical orientation so level+nudge and rate+nudge can sit side by
+  // side as four narrow columns instead of two full-width rows.
   function makeContinuousScaler(field, label) {
     let liveFloats = null;
     return new RateSlider({
       label,
+      orientation: "vertical",
       onStart: () => { liveFloats = state.patch[key].stages.map((s) => s[field]); },
       onTick: (direction, dt) => {
         const factor = Math.pow(2.5, direction * dt);
@@ -332,9 +335,46 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
   }
   const rateSlider = makeContinuousScaler("rate", "Rate");
   const levelSlider = makeContinuousScaler("level", "Level");
-  const scaleGroup = el("div", { className: "tool-group" }, [
-    el("span", { className: "tool-group-label", textContent: "Stretch / scale (hold + drag, all 8 stages)" }),
-    el("div", { className: "tool-row" }, [rateSlider.el, levelSlider.el]),
+
+  // A one-at-a-time nudge, for when a precise ±1 to every stage is what's
+  // wanted rather than a proportional scale - reuses the Stepper's own
+  // arrow styling (no numeric readout, since there's no single value to
+  // show for "all 8 stages").
+  function makeNudgeControl(field, label) {
+    const wrap = document.createElement("div");
+    wrap.className = "stepper";
+    const labelEl = document.createElement("div");
+    labelEl.className = "stepper-label";
+    labelEl.textContent = label;
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.className = "stepper-arrow";
+    upBtn.textContent = "▲";
+    const valueEl = document.createElement("div");
+    valueEl.className = "stepper-value";
+    valueEl.textContent = "all";
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.className = "stepper-arrow";
+    downBtn.textContent = "▼";
+    function nudge(delta) {
+      const stages = state.patch[key].stages.map((s) => ({ ...s, [field]: clamp99(s[field] + delta) }));
+      applyEnvelopeStages(key, { stages, endStep: state.patch[key].endStep });
+    }
+    upBtn.addEventListener("click", () => nudge(1));
+    downBtn.addEventListener("click", () => nudge(-1));
+    wrap.append(labelEl, upBtn, valueEl, downBtn);
+    return wrap;
+  }
+  const rateNudge = makeNudgeControl("rate", "Rate ±1");
+  const levelNudge = makeNudgeControl("level", "Level ±1");
+
+  const scaleGroup = el("div", { className: "tool-group tool-group-wide" }, [
+    el("span", { className: "tool-group-label", textContent: "Stretch / scale (all 8 stages)" }),
+    el("div", { className: "tool-row tool-row-vertical" }, [
+      el("div", { className: "tool-pair tool-pair-vertical" }, [levelSlider.el, levelNudge]),
+      el("div", { className: "tool-pair tool-pair-vertical" }, [rateSlider.el, rateNudge]),
+    ]),
   ]);
 
   // --- Randomize, and copy/paste between any two envelopes ---
@@ -363,7 +403,7 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
     });
   });
   pasteButtons.push(pasteBtn);
-  const copyGroup = el("div", { className: "tool-group" }, [
+  const copyGroup = el("div", { className: "tool-group tool-group-narrow" }, [
     el("span", { className: "tool-group-label", textContent: "Randomize / copy" }),
     el("div", { className: "tool-row" }, [randomizeBtn, copyBtn, pasteBtn]),
   ]);
@@ -387,30 +427,30 @@ function buildGlobalSection() {
 
   const octave = new Dropdown({
     label: "Octave", choices: dropdownChoices(OCTAVE_NAMES), value: state.patch.octave,
-    onChange: (v) => (state.patch.octave = v),
+    onChange: (v) => { state.patch.octave = v; notifyPatchChanged(); },
   });
   const line = new Dropdown({
     label: "Line select", choices: dropdownChoices(LINE_SELECT_NAMES), value: state.patch.line,
-    onChange: (v) => (state.patch.line = v),
+    onChange: (v) => { state.patch.line = v; notifyPatchChanged(); },
   });
   const detuneSign = new Dropdown({
     label: "Detune", choices: dropdownChoices(DETUNE_SIGN_NAMES), value: state.patch.detune.sign,
-    onChange: (v) => (state.patch.detune.sign = v),
+    onChange: (v) => { state.patch.detune.sign = v; notifyPatchChanged(); },
   });
-  const detuneFine = new Knob({ label: "fine", min: 0, max: 60, value: state.patch.detune.fine, onChange: (v) => (state.patch.detune.fine = v) });
-  const detuneOctave = new Knob({ label: "oct", min: 0, max: 3, value: state.patch.detune.octave, onChange: (v) => (state.patch.detune.octave = v) });
-  const detuneNote = new Knob({ label: "note", min: 0, max: 11, value: state.patch.detune.note, onChange: (v) => (state.patch.detune.note = v) });
+  const detuneFine = new Knob({ label: "fine", min: 0, max: 60, value: state.patch.detune.fine, onChange: (v) => { state.patch.detune.fine = v; notifyPatchChanged(); } });
+  const detuneOctave = new Knob({ label: "oct", min: 0, max: 3, value: state.patch.detune.octave, onChange: (v) => { state.patch.detune.octave = v; notifyPatchChanged(); } });
+  const detuneNote = new Knob({ label: "note", min: 0, max: 11, value: state.patch.detune.note, onChange: (v) => { state.patch.detune.note = v; notifyPatchChanged(); } });
 
   const vibratoWave = createVibratoPicker({
     label: "Vibrato wave", names: VIBRATO_WAVE_NAMES, value: state.patch.vibrato.wave,
-    onChange: (v) => (state.patch.vibrato.wave = v),
+    onChange: (v) => { state.patch.vibrato.wave = v; notifyPatchChanged(); },
   });
   // Steppers (value + up/down arrows), not knobs, for these three: a knob's
   // whole sweep only covers 0-99 in a couple of drag-inches, which is too
   // coarse for landing on an exact value across that full range.
-  const vDelay = new Stepper({ label: "delay", min: 0, max: 99, value: state.patch.vibrato.delay, onChange: (v) => (state.patch.vibrato.delay = v) });
-  const vRate = new Stepper({ label: "rate", min: 0, max: 99, value: state.patch.vibrato.rate, onChange: (v) => (state.patch.vibrato.rate = v) });
-  const vDepth = new Stepper({ label: "depth", min: 0, max: 99, value: state.patch.vibrato.depth, onChange: (v) => (state.patch.vibrato.depth = v) });
+  const vDelay = new Stepper({ label: "delay", min: 0, max: 99, value: state.patch.vibrato.delay, onChange: (v) => { state.patch.vibrato.delay = v; notifyPatchChanged(); } });
+  const vRate = new Stepper({ label: "rate", min: 0, max: 99, value: state.patch.vibrato.rate, onChange: (v) => { state.patch.vibrato.rate = v; notifyPatchChanged(); } });
+  const vDepth = new Stepper({ label: "depth", min: 0, max: 99, value: state.patch.vibrato.depth, onChange: (v) => { state.patch.vibrato.depth = v; notifyPatchChanged(); } });
 
   const randomizeVibratoBtn = el("button", { className: "panel-toggle", textContent: "Randomize" });
   randomizeVibratoBtn.addEventListener("click", () => {
@@ -421,6 +461,7 @@ function buildGlobalSection() {
     vDelay.setValue(delay, { silent: true });
     vRate.setValue(rate, { silent: true });
     vDepth.setValue(depth, { silent: true });
+    notifyPatchChanged();
   });
 
   initBtn.addEventListener("click", () => {
@@ -437,6 +478,7 @@ function buildGlobalSection() {
     vDelay.setValue(init.vibrato.delay, { silent: true });
     vRate.setValue(init.vibrato.rate, { silent: true });
     vDepth.setValue(init.vibrato.depth, { silent: true });
+    notifyPatchChanged();
   });
 
   s.appendChild(row(
@@ -467,6 +509,19 @@ let expandedBlock = null;
 function setExpandedBlock(block) {
   if (expandedBlock && expandedBlock !== block) expandedBlock.collapse();
   expandedBlock = block;
+}
+
+/** Editing an envelope goes "full screen": everything else on the page -
+ * MIDI, Voice basics, both oscillator cards - is hidden until you back out
+ * (the "Done" button), leaving only the one envelope being edited. midi/
+ * global/oscGrid are declared later in this file (Assemble section) but,
+ * as with resetOscillator()/copyOtherOscillator() elsewhere, this function
+ * is only ever called from a click handler, long after the whole module -
+ * and those consts - have finished loading. */
+function setFocusMode(active) {
+  midiSection.classList.toggle("is-hidden", active);
+  globalSection.classList.toggle("is-hidden", active);
+  oscGrid.classList.toggle("is-hidden", active);
 }
 
 // ---------------------------------------------------------------------
@@ -501,13 +556,13 @@ function buildOscillatorSection(oscNum) {
   const firstPicker = createWaveformPicker({
     label: "Line 1 waveform",
     value: state.patch[oscKey].first,
-    onChange: (v) => (state.patch[oscKey].first = v),
+    onChange: (v) => { state.patch[oscKey].first = v; notifyPatchChanged(); },
   });
 
   const secondPicker = createWaveformPicker({
     label: "Line 2 waveform",
     value: state.patch[oscKey].second,
-    onChange: (v) => (state.patch[oscKey].second = v),
+    onChange: (v) => { state.patch[oscKey].second = v; notifyPatchChanged(); },
   });
 
   let modulation = null;
@@ -517,7 +572,7 @@ function buildOscillatorSection(oscNum) {
       label: "Osc1×Osc2 mod",
       names: MODULATION_NAMES,
       value: state.patch.osc1.modulation,
-      onChange: (v) => (state.patch.osc1.modulation = v),
+      onChange: (v) => { state.patch.osc1.modulation = v; notifyPatchChanged(); },
     });
     headerRow.appendChild(modulation.el);
   }
@@ -534,10 +589,11 @@ function buildOscillatorSection(oscNum) {
       state.patch.osc1.modulation = mod;
       modulation.setValue(mod);
     }
+    notifyPatchChanged();
   });
   headerRow.appendChild(randomizeWaveBtn);
-  const keyFollowDca = new Knob({ label: "DCA follow", min: 0, max: 9, value: state.patch[dcaKey].keyFollow, onChange: (v) => (state.patch[dcaKey].keyFollow = v) });
-  const keyFollowDcw = new Knob({ label: "DCW follow", min: 0, max: 9, value: state.patch[dcwKey].keyFollow, onChange: (v) => (state.patch[dcwKey].keyFollow = v) });
+  const keyFollowDca = new Knob({ label: "DCA follow", min: 0, max: 9, value: state.patch[dcaKey].keyFollow, onChange: (v) => { state.patch[dcaKey].keyFollow = v; notifyPatchChanged(); } });
+  const keyFollowDcw = new Knob({ label: "DCW follow", min: 0, max: 9, value: state.patch[dcwKey].keyFollow, onChange: (v) => { state.patch[dcwKey].keyFollow = v; notifyPatchChanged(); } });
   headerRow.append(keyFollowDca.el, keyFollowDcw.el);
   s.appendChild(headerRow);
 
@@ -559,6 +615,7 @@ function buildOscillatorSection(oscNum) {
         expandedHost.appendChild(block.wrap); // move (not clone) into the shared full-width host
         expandedHost.hidden = false;
         envRow.classList.add("is-hidden"); // nothing left in this row to show - it would otherwise be a hairline empty gap
+        setFocusMode(true); // hide MIDI/Voice basics/both oscillator cards - just this envelope, full screen
         // The canvas is measured at its new (full) width by toggle()'s own
         // editor.resize() call right after this, once detail.hidden flips -
         // that happens after onExpand() returns, i.e. after the move above.
@@ -569,6 +626,7 @@ function buildOscillatorSection(oscNum) {
         envRow.classList.remove("is-hidden");
         for (const b of Object.values(blocks)) b.wrap.classList.remove("is-hidden");
         expandedHost.hidden = true;
+        setFocusMode(false);
         if (expandedBlock === block) expandedBlock = null;
       },
     });
@@ -645,9 +703,26 @@ function buildMidiSection() {
   const loadBtn = el("button", { textContent: "Load patch (.json)" });
   const loadInput = el("input", { type: "file", accept: "application/json", style: "display:none" });
 
+  // "Live sync": every edit anywhere in the app - a knob nudge, a dragged
+  // envelope point, a randomize click - normally only changes state.patch
+  // in memory, and nothing reaches the CZ-101 until Send is pressed. This
+  // opts into sending after every change instead, so the synth's edit
+  // buffer tracks the UI live. requestSend() is called from all over
+  // app.js (see notifyPatchChanged()); it's a no-op unless this box is
+  // checked and an output is connected, and debounces rapid-fire changes
+  // (like dragging a slider) into one send after things settle.
+  const liveSyncCheckbox = el("input", { type: "checkbox", id: "live-sync-checkbox", className: "tool-checkbox" });
+  const liveSyncLabel = el("label", { className: "tool-checkbox-row", htmlFor: "live-sync-checkbox" }, [liveSyncCheckbox, " Live sync to CZ-101"]);
+  const liveSyncHint = el("p", {
+    className: "panel-note",
+    textContent: "Sends the patch to your CZ-101 automatically after every change here, instead of waiting for Send. Needs Connect + an output selected; works best with Target set to Temporary / edit buffer.",
+  });
+
   body.appendChild(row(connectBtn, outputLabel, inputLabel));
   body.appendChild(row(channelLabel, targetLabel, modeLabel));
   body.appendChild(row(sendBtn, saveBtn, loadBtn, loadInput));
+  body.appendChild(row(liveSyncLabel));
+  body.appendChild(liveSyncHint);
 
   const logEl = el("div", { id: "status-log" });
   body.appendChild(logEl);
@@ -712,6 +787,29 @@ function buildMidiSection() {
     loadInput.value = "";
   });
 
+  let liveSyncTimer = null;
+  async function sendLiveSync() {
+    if (!outputSelect.value) return; // nothing connected - quietly skip rather than erroring on every keystroke
+    try {
+      const channel = Number(channelSelect.value);
+      const program = Number(targetSelect.value);
+      const mode = modeSelect.value;
+      await state.midi.sendVoiceDump(channel, program, state.patch, { mode });
+    } catch (err) {
+      log(`Live sync failed: ${err.message}`);
+    }
+  }
+  s._liveUpdate = {
+    requestSend() {
+      if (!liveSyncCheckbox.checked) return;
+      clearTimeout(liveSyncTimer);
+      // Debounced rather than immediate: a dragged slider or a held stepper
+      // arrow can fire this dozens of times a second, and only the value
+      // after things settle is worth an actual MIDI send.
+      liveSyncTimer = setTimeout(sendLiveSync, 120);
+    },
+  };
+
   return s;
 }
 
@@ -744,6 +842,7 @@ function mountEnvelopeEditors(oscSection, oscNum) {
         state.patch[key].endStep = endStep;
         refreshEnvelopeSummary(block, stages, endStep);
         strip?.setStages(stages, endStep);
+        notifyPatchChanged();
       },
     });
     block.setEditor(editor);
@@ -767,6 +866,7 @@ function mountEnvelopeEditors(oscSection, oscNum) {
         editor.setStages(state.patch[key].stages, state.patch[key].endStep);
         refreshEnvelopeSummary(block, state.patch[key].stages, state.patch[key].endStep);
         strip.setStages(state.patch[key].stages, state.patch[key].endStep);
+        notifyPatchChanged();
       },
     });
     envelopeStrips[key] = strip;
@@ -783,6 +883,15 @@ function mountEnvelopeEditors(oscSection, oscNum) {
 }
 mountEnvelopeEditors(osc1Section, 1);
 mountEnvelopeEditors(osc2Section, 2);
+
+/** Called after any edit anywhere in the patch - forwards to the MIDI
+ * panel's "Live sync" feature (see buildMidiSection()), which is a no-op
+ * unless that checkbox is on. midiSection is declared later in this file
+ * (Assemble section) but, same as elsewhere, this is only ever invoked
+ * from a click/drag handler long after the whole module has loaded. */
+function notifyPatchChanged() {
+  midiSection._liveUpdate?.requestSend();
+}
 
 /** Reset one oscillator's waveform, modulation, key-follow and all three
  * envelopes to the CZ-101's own hardware INITIALIZE values (see
@@ -811,6 +920,7 @@ function resetOscillator(oscNum) {
     envelopeStrips[key].setStages(state.patch[key].stages, state.patch[key].endStep);
     refreshEnvelopeSummary(s._envelopeBlocks[kind], state.patch[key].stages, state.patch[key].endStep);
   }
+  notifyPatchChanged();
 }
 
 /** Replace one envelope's stages/endStep wholesale (as opposed to
@@ -825,6 +935,7 @@ function applyEnvelopeStages(key, { stages, endStep }) {
   envelopeEditors[key].setStages(stages, endStep);
   envelopeStrips[key].setStages(stages, endStep);
   refreshEnvelopeSummary(envelopeBlocksByKey[key], stages, endStep);
+  notifyPatchChanged();
 }
 
 /** Copy the other oscillator's waveform, key-follow, and all three
@@ -857,6 +968,7 @@ function copyOtherOscillator(targetOscNum) {
       endStep: state.patch[srcKey].endStep,
     });
   }
+  notifyPatchChanged();
 }
 
 function applyPatchToUI(patch) {
@@ -889,6 +1001,7 @@ function applyPatchToUI(patch) {
       refreshEnvelopeSummary(s._envelopeBlocks[kind], state.patch[key].stages, state.patch[key].endStep);
     }
   }
+  notifyPatchChanged();
 }
 
 log("Ready. Connect to MIDI, pick your CZ-101's output port, then send.");
