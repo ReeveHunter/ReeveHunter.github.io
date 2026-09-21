@@ -1,7 +1,7 @@
 // cz230s-presets.js
 // Auto-generated - do not hand-edit. One compact JSON line per voice, to
 // keep this file's size sane (100 full CZ voices is a lot of numbers).
-// Regenerate from the source .syx files in patches/sysex/cz-230s-factory/
+// Regenerate from the source .syx files in patches/cz-230s-factory/
 // (see patches/README.md) if this ever needs to change.
 //
 // These are the 100 factory-programmed voices from a real Casio CZ-230S (a

@@ -9,22 +9,23 @@ hardware itself understands.
 
 ```
 patches/
-  sysex/
-    <source-name>/   raw, unmodified .syx files exactly as sourced
+  <source-name>/   raw, unmodified .syx files exactly as sourced
 ```
 
-One subfolder per source bank, e.g. `sysex/cz-230s-factory/`, named for
-where the patches came from rather than what they sound like (nobody's
-listened to most of these yet - see below). Keeping each source in its own
-folder, unmodified, keeps this a faithful archive of exactly what was
-downloaded - handy for provenance, and lets `sysex.js`'s decoder be
-re-applied from scratch if it ever improves, without losing anything.
+One subfolder per source bank, e.g. `cz-230s-factory/`, named for where
+the patches came from rather than what they sound like (nobody's listened
+to most of these yet - see below). Keeping each source in its own folder,
+unmodified, keeps this a faithful archive of exactly what was downloaded -
+handy for provenance, and lets `sysex.js`'s decoder be re-applied from
+scratch if it ever improves, without losing anything.
 
-(Earlier this also had a `patches/native/` folder of this editor's own
-JSON patch format, one file per voice. That's gone now that `sysex.js` can
-both encode and decode - .syx is the only file format the app reads or
-writes, so a parallel JSON copy of the same 100 voices was just redundant
-weight in the repo.)
+(This used to also have a `patches/native/` folder of this editor's own
+JSON patch format, one file per voice, with the source folders nested a
+level deeper under `patches/sysex/` to distinguish the two formats. Both
+are gone now: `sysex.js` can encode as well as decode, so .syx is the only
+file format the app reads or writes, which made the JSON copy redundant
+weight and the `sysex/` layer an empty distinction - so the source folders
+now live directly under `patches/`.)
 
 ## What's here now: cz-230s-factory
 
@@ -35,7 +36,7 @@ exported to SysEx and shared publicly at
 GitHub. Casio's CZ-101, CZ-1000, and CZ-230S all speak the same voice
 SysEx format, so these load and decode cleanly as ordinary CZ-101 voices.
 
-- `sysex/cz-230s-factory/` - the 100 individual voice dumps, named with
+- `cz-230s-factory/` - the 100 individual voice dumps, named with
   their preset number plus Casio's own real factory voice name (e.g. `00 -
   Brass Ens. 1.syx`, ... `99 - Sweep.syx`), sourced from the source repo's
   `CZ230Sindex.txt` - plus the source repo's own 7 "ready to import" bulk
@@ -65,7 +66,7 @@ yourself), it's worth keeping that in mind.
 
 Found another free `.syx` file worth including?
 
-1. Drop the raw file(s) into a new `sysex/<source-name>/` folder, unmodified.
+1. Drop the raw file(s) into a new `patches/<source-name>/` folder, unmodified.
 2. Try it out immediately through the app itself: MIDI panel → **Load
    patch (.syx)**, which decodes it, loads the first voice into the
    editor, and adds every voice in the file to the Patch Library tagged

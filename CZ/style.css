@@ -493,8 +493,9 @@ button.primary-btn:hover {
   padding: 4px 10px;
   font-size: 11px;
 }
-/* The 🎲 next to Edit, for reshuffling this envelope without opening it -
-   hidden again while the block is expanded (see toggle() in envelopeBlock). */
+/* The 🎲 and 🔄 next to ✏️, for reshuffling/resetting this envelope without
+   opening it - both hidden again while the block is expanded (see toggle()
+   in envelopeBlock). */
 .envelope-randomize {
   padding: 4px 7px;
   font-size: 11px;
@@ -787,11 +788,29 @@ button.primary-btn:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 .library-row-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  min-width: 0;
+}
+/* Load (⬇️) sits right before the name, and the tag-edit icon (🏷️) right
+   before the tags themselves - each icon reads as a label for what follows
+   it, rather than living off in a separate actions column. */
+.library-row-name-row,
+.library-row-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.library-row-name-row .tool-btn,
+.library-row-tags-row .tool-btn {
+  padding: 3px 6px;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 .library-row-actions {
   display: flex;

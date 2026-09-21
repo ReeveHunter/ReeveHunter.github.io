@@ -11,7 +11,7 @@
 
 import { CzMidi, hex } from "./midi.js";
 import { splitSysexMessages, decodeVoiceDumpMessage, buildVoiceDumpMessage } from "./sysex.js";
-import { initPatch, clonePatch, hardwareInitVoiceBasics, hardwareInitOscillator } from "./patch.js";
+import { initPatch, clonePatch, hardwareInitVoiceBasics, hardwareInitOscillator, initEnvelope } from "./patch.js";
 import { Knob, ChoiceGroup, Dropdown, Stepper, RateSlider } from "./knob.js";
 import { EnvelopeEditor, drawEnvelopeThumbnail } from "./envelope.js";
 import { CURVE_PRESETS } from "./curves.js";
@@ -130,7 +130,7 @@ function randomChoice(namesMap) {
 // draggable graph on demand.
 // ---------------------------------------------------------------------
 
-function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse, onRandomize } = {}) {
+function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse, onRandomize, onInit } = {}) {
   // Title, stage-count/Edit row, and the graph itself are three separate
   // rows (not one flex header) so that a longer title in a neighboring
   // column - e.g. "DCW1 · tone / phase distortion" wrapping to two lines -
@@ -143,12 +143,15 @@ function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse, 
 
   const statsRow = el("div", { className: "envelope-stats-row" });
   const summary = el("span", { className: "envelope-summary" });
-  // Reshuffle this envelope without opening it - hidden again once expanded,
-  // since the tools panel underneath the graph has its own 🎲 by then.
+  // Reshuffle/reset this envelope without opening it - both hidden again
+  // once expanded, since the tools panel underneath the graph has its own
+  // 🎲 and 🔄 by then.
   const randomizeBtn = el("button", { type: "button", className: "envelope-randomize", textContent: "🎲", title: "Randomize" });
   randomizeBtn.addEventListener("click", () => onRandomize?.());
-  const editBtn = el("button", { className: "envelope-toggle", textContent: "Edit" });
-  statsRow.append(summary, randomizeBtn, editBtn);
+  const initBtn = el("button", { type: "button", className: "envelope-randomize", textContent: "🔄", title: "Initialize" });
+  initBtn.addEventListener("click", () => onInit?.());
+  const editBtn = el("button", { className: "envelope-toggle", textContent: "✏️" });
+  statsRow.append(summary, randomizeBtn, initBtn, editBtn);
 
   const thumb = el("canvas", { className: "envelope-thumb" });
 
@@ -173,9 +176,10 @@ function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse, 
     const expanding = detail.hidden;
     if (expanding) onExpand?.(); else onCollapse?.(); // resize layout first...
     detail.hidden = !expanding;
-    editBtn.textContent = expanding ? "Done" : "Edit";
+    editBtn.textContent = expanding ? "Done" : "✏️";
     thumb.style.display = expanding ? "none" : "";
     randomizeBtn.style.display = expanding ? "none" : "";
+    initBtn.style.display = expanding ? "none" : "";
     if (expanding && editor) editor.resize(); // ...then measure the canvas at its new size
     if (!expanding) refreshThumb?.(); // thumb was hidden (and not being redrawn) while editing - catch it up now that it's visible again
   }
@@ -389,9 +393,11 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
     ]),
   ]);
 
-  // --- Randomize, and copy/paste between any two envelopes ---
+  // --- Randomize, initialize, and copy/paste between any two envelopes ---
   const randomizeBtn = el("button", { className: "tool-btn", textContent: "🎲", title: "Randomize" });
   randomizeBtn.addEventListener("click", () => randomizeEnvelope(key, hasSustain));
+  const initBtn = el("button", { className: "tool-btn", textContent: "🔄", title: "Initialize" });
+  initBtn.addEventListener("click", () => initEnvelopeByKey(key));
   const copyBtn = el("button", { className: "tool-btn", textContent: "Copy" });
   const pasteBtn = el("button", { className: "tool-btn", textContent: "Paste", disabled: true });
   copyBtn.addEventListener("click", () => {
@@ -411,8 +417,8 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
   });
   pasteButtons.push(pasteBtn);
   const copyGroup = el("div", { className: "tool-group tool-group-narrow" }, [
-    el("span", { className: "tool-group-label", textContent: "Randomize / copy" }),
-    el("div", { className: "tool-row" }, [randomizeBtn, copyBtn, pasteBtn]),
+    el("span", { className: "tool-group-label", textContent: "Randomize / init / copy" }),
+    el("div", { className: "tool-row" }, [randomizeBtn, initBtn, copyBtn, pasteBtn]),
   ]);
 
   container.append(generateGroup, scaleGroup, copyGroup);
@@ -428,7 +434,7 @@ function buildGlobalSection() {
 
   const titleEl = s.querySelector("h2");
   const headerRow = el("div", { className: "panel-header-row" });
-  const initBtn = el("button", { className: "panel-toggle", textContent: "Initialize" });
+  const initBtn = el("button", { className: "panel-toggle", textContent: "🔄", title: "Initialize" });
   titleEl.replaceWith(headerRow);
   headerRow.append(titleEl, initBtn);
 
@@ -548,7 +554,7 @@ function buildOscillatorSection(oscNum) {
   const titleEl = s.querySelector("h2");
   const headerRow0 = el("div", { className: "panel-header-row" });
   const copyOtherBtn = el("button", { className: "panel-toggle", textContent: `Copy from Osc ${otherOscNum}` });
-  const initBtn = el("button", { className: "panel-toggle", textContent: "Initialize" });
+  const initBtn = el("button", { className: "panel-toggle", textContent: "🔄", title: "Initialize" });
   // resetOscillator() and copyOtherOscillator() are defined further down
   // (they need the envelope editors/strips, which only exist once
   // mountEnvelopeEditors() has run) but by the time anyone actually clicks
@@ -613,6 +619,7 @@ function buildOscillatorSection(oscNum) {
     const block = envelopeBlock(title, {
       ...opts,
       onRandomize: () => randomizeEnvelope(patchKey, opts.hasSustain),
+      onInit: () => initEnvelopeByKey(patchKey),
       onExpand: () => {
         setExpandedBlock(block); // auto-collapses whatever else was open, in either oscillator
         // A class, not the `hidden` attribute: .envelope-block sets its own
@@ -1048,12 +1055,17 @@ function buildLibrarySection() {
         entry.tags.map((t) => el("span", { className: "library-tag-chip library-tag-chip-static", textContent: t })));
       const editTagsBtn = el("button", { type: "button", className: "tool-btn", textContent: "🏷️", title: "Edit tags" });
       editTagsBtn.addEventListener("click", () => startTagEdit(entry, tagsEl));
-      const loadBtn = el("button", { type: "button", className: "tool-btn", textContent: "Load" });
+      const loadBtn = el("button", { type: "button", className: "tool-btn", textContent: "⬇️", title: "Load" });
       loadBtn.addEventListener("click", () => {
         applyPatchToUI(entry.patch);
         log(`Loaded "${entry.name}" from the patch library.`);
       });
-      const rowActions = [loadBtn, editTagsBtn];
+      // Load sits right before the name, and the tag-edit icon right before
+      // the tags themselves, rather than off in a separate actions column -
+      // each icon reads as a label for what follows it.
+      const nameRow = el("div", { className: "library-row-name-row" }, [loadBtn, nameEl]);
+      const tagsRow = el("div", { className: "library-row-tags-row" }, [editTagsBtn, tagsEl]);
+      const rowActions = [];
       if (!entry.builtin) {
         const deleteBtn = el("button", { type: "button", className: "tool-btn", textContent: "🗑️", title: "Delete" });
         deleteBtn.addEventListener("click", () => {
@@ -1066,8 +1078,8 @@ function buildLibrarySection() {
         rowActions.push(deleteBtn);
       }
       const row = el("div", { className: "library-row" }, [
-        el("div", { className: "library-row-main" }, [nameEl, tagsEl]),
-        el("div", { className: "library-row-actions" }, rowActions),
+        el("div", { className: "library-row-main" }, [nameRow, tagsRow]),
+        ...(rowActions.length ? [el("div", { className: "library-row-actions" }, rowActions)] : []),
       ]);
       listEl.appendChild(row);
     }
@@ -1224,6 +1236,16 @@ function randomizeEnvelope(key, hasSustain) {
   const endStep = randInt(1, 7);
   if (hasSustain) stages[randInt(0, endStep)].sustain = true;
   applyEnvelopeStages(key, { stages, endStep });
+}
+
+/** Reset one envelope to this editor's own "doing nothing" default for its
+ * kind (see initEnvelope() in patch.js) - the single implementation behind
+ * both the 🔄 button in its tools panel (while expanded) and the 🔄 button
+ * next to its ✏️ button (while collapsed). `key` is e.g. "dca1"/"dcw2" -
+ * strip the oscillator number to get the envelope kind initEnvelope() wants. */
+function initEnvelopeByKey(key) {
+  const kind = key.replace(/[12]$/, "");
+  applyEnvelopeStages(key, initEnvelope(kind));
 }
 
 /** Copy the other oscillator's waveform, key-follow, and all three

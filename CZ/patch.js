@@ -109,6 +109,30 @@ function hardwareInitPitchEnvelope() {
   return { endStep: 7, stages: makeEightStages(50, 0) };
 }
 
+// ---------------------------------------------------------------------
+// Per-envelope "🔄 initialize" reset
+// ---------------------------------------------------------------------
+// A lighter-weight reset than hardwareInitOscillator() below: this only
+// replaces one envelope's own stages/endStep (nothing else - waveform,
+// key-follow, etc. are untouched), for the 🔄 button that sits right on
+// each envelope itself (both collapsed and while editing). Deliberately
+// simpler than the manual's own multi-stage INITIALIZE table - each one is
+// just "the sound this envelope makes when it's doing nothing," a single
+// held stage rather than a hardware-accurate decay shape.
+
+export function initEnvelope(kind) {
+  switch (kind) {
+    case "dco": // Pitch: flat at the no-shift center, one stage - no pitch movement at all.
+      return { endStep: 0, stages: makeEightStages(50, 0) };
+    case "dca": // Amplitude: instantly on and held at full level - essentially a square wave.
+      return { endStep: 0, stages: makeEightStages(99, 99) };
+    case "dcw": // Tone/phase distortion: flat at zero - no distortion applied.
+      return { endStep: 0, stages: makeEightStages(50, 0) };
+    default:
+      throw new Error(`initEnvelope: unknown kind "${kind}"`);
+  }
+}
+
 /** @param {1|2} oscNum */
 export function hardwareInitOscillator(oscNum) {
   return {
