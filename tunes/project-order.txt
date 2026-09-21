@@ -3,7 +3,7 @@
 # these. Lines starting with # are ignored.
 
 RH 2026 EP
-RH Bits and Pieces
-RH John Perry Split
-RH Suburban Tumbleweed
+Bits and Pieces
+John Perry Split
+Suburban Tumbleweed
 MKF GEFG
