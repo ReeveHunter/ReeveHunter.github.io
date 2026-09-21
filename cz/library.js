@@ -3,20 +3,17 @@
 // (see buildLibrarySection() in app.js), plus the shape helpers used to
 // build them.
 //
-// A note on where these came from: real third-party CZ-101 patch banks
-// exist online, but every one found is either a paid product (Patch Base,
-// Patchman Music, the CZPL hardware library) or distributed as a binary
-// SysEx (.syx) voice dump - and this editor has no way to fetch arbitrary
-// files from third-party sites in its sandboxed environment, nor a SysEx
-// *decoder* (sysex.js only encodes, going the other direction). Rather than
-// fabricate patches and claim they came from somewhere real, these are
-// original patches, built directly in this editor's own data model and
-// covering a spread of classic CZ-101 territory - that distinctive
-// phase-distortion brightness - tagged by category so the library panel's
-// tag filter has something real to filter on. If you find specific .syx
-// files you want in here, a SysEx importer (decoding, the reverse of
-// encodePatchToBytes in sysex.js) would be the way to bring them in - just
-// ask.
+// Two sources feed FACTORY_PATCHES below: a hand-built set (this file),
+// designed directly in this editor's own data model to cover a spread of
+// classic CZ-101 territory - that distinctive phase-distortion brightness -
+// tagged by mood/category so the library panel's tag filter has something
+// descriptive to filter on; and a real hardware-sourced set, decoded from
+// actual Casio CZ-230S factory SysEx dumps now that sysex.js can decode as
+// well as encode (see cz230s-presets.js and patches/README.md for
+// provenance). The real set is tagged only "factory"/"cz-230s" rather than
+// guessed moods, since nobody's actually listened to them yet.
+
+import { CZ230S_PRESETS } from "./cz230s-presets.js";
 
 function st(rate, level, sustain = false) {
   return { rate, level, sustain };
@@ -88,7 +85,7 @@ function entry(id, name, tags, p) {
   return { id, name, tags, patch: p };
 }
 
-export const FACTORY_PATCHES = [
+const HAND_BUILT_PATCHES = [
   entry("warm-bass", "Warm Bass", ["bass", "warm", "low"], patch("Warm Bass", {
     octave: -1,
     detune: detune("+", 6, 0, 0),
@@ -203,13 +200,17 @@ export const FACTORY_PATCHES = [
   })),
 ];
 
-// Osc2 defaults to mirroring osc1's envelopes for every patch above that
-// doesn't set its own dca2/dcw2/dco2 - most CZ patches use very similar or
-// identical envelopes on both oscillators, and the per-oscillator "Copy
-// from Osc" button already exists for anyone who wants to diverge them
-// further from the editor.
-for (const { patch: p } of FACTORY_PATCHES) {
+// Osc2 defaults to mirroring osc1's envelopes for every hand-built patch
+// above that doesn't set its own dca2/dcw2/dco2 - most CZ patches use very
+// similar or identical envelopes on both oscillators, and the
+// per-oscillator "Copy from Osc" button already exists for anyone who
+// wants to diverge them further from the editor. The decoded CZ230S_PRESETS
+// already carry real dca2/dcw2/dco2 values straight off the hardware, so
+// this loop only ever needs to run over the hand-built set.
+for (const { patch: p } of HAND_BUILT_PATCHES) {
   if (p.dca2 === undefined) p.dca2 = JSON.parse(JSON.stringify(p.dca1));
   if (p.dcw2 === undefined) p.dcw2 = JSON.parse(JSON.stringify(p.dcw1));
   if (p.dco2 === undefined) p.dco2 = JSON.parse(JSON.stringify(p.dco1));
 }
+
+export const FACTORY_PATCHES = [...HAND_BUILT_PATCHES, ...CZ230S_PRESETS];

@@ -452,3 +452,293 @@ export function buildVoiceDumpMessage(channel, program, patch) {
     0xf7,
   ]);
 }
+
+// =======================================================================
+// Decoding: bytes -> patch (the reverse direction, for importing a .syx
+// file or a live dump received over MIDI)
+// =======================================================================
+//
+// Every decode function below is the mathematical inverse of the encode
+// function immediately above it in this file. Where an encode function is
+// a clean, invertible formula (a straight linear-ish scale from a 0-99
+// value to a byte), the decoder builds a lookup table by running the
+// *encoder* forward over every possible 0-99 input once at module load,
+// then reads it backwards - that's mechanically guaranteed to exactly
+// round-trip anything this app's own encoder ever produces (including its
+// documented odd corners, like the transcription-typo'd byte at vibrato
+// rate/delay/depth=87 - see the CONFIDENCE NOTE up in the tables above),
+// without hand re-deriving each formula's inverse by algebra and risking a
+// transcription error of our own. A byte that doesn't appear in the table
+// (this app never emits it, but a third-party dump might, since it wasn't
+// necessarily produced by this exact code) falls back to the nearest key -
+// a reasonable best guess rather than a thrown error.
+
+function buildReverseTable(forwardFn, domainMax = 99) {
+  const table = new Map();
+  for (let v = 0; v <= domainMax; v++) {
+    const byte = forwardFn(v);
+    if (!table.has(byte)) table.set(byte, v); // lowest v wins a collision
+  }
+  return table;
+}
+function invertByte(table, byte) {
+  if (table.has(byte)) return table.get(byte);
+  let bestKey = null, bestDist = Infinity;
+  for (const k of table.keys()) {
+    const d = Math.abs(k - byte);
+    if (d < bestDist) { bestDist = d; bestKey = k; }
+  }
+  return table.get(bestKey);
+}
+
+const DCA_RATE_TABLE = buildReverseTable(dcaRateByte);
+const DCA_LEVEL_TABLE = buildReverseTable(dcaLevelByte);
+const DCW_RATE_TABLE = buildReverseTable(dcwRateByte);
+const DCO_RATE_TABLE = buildReverseTable(dcoRateByte);
+const DCO_LEVEL_TABLE = buildReverseTable(dcoLevelByte);
+
+export function decodePflagByte(byte) {
+  const octv = (byte >> 2) & 0b11;
+  const ls = byte & 0b11;
+  const octave = octv === 0b01 ? 1 : octv === 0b10 ? -1 : 0;
+  const line = { 0b00: 1, 0b01: 2, 0b10: 3, 0b11: 4 }[ls] ?? 1;
+  return { octave, line };
+}
+
+export function decodeDetuneSignByte(byte) {
+  return byte === 0x01 ? "-" : "+";
+}
+
+export function decodeDetuneFineByte(byte) {
+  if (byte <= 0x0f) return byte;
+  if (byte >= 0x11 && byte <= 0x1f) return byte - 1;
+  if (byte >= 0x21 && byte <= 0x2f) return byte - 2;
+  if (byte >= 0x31 && byte <= 0x3f) return byte - 3;
+  return clampInt(byte, 0, 60); // an unused gap byte (0x10/0x20/0x30) or garbage
+}
+
+export function decodeDetuneOctaveNoteByte(byte) {
+  return { octave: clampInt(Math.floor(byte / 12), 0, 3), note: clampInt(byte % 12, 0, 11) };
+}
+
+const VIBRATO_WAVE_BYTE_REVERSE = { 0x08: 1, 0x04: 2, 0x20: 3, 0x02: 4 };
+export function decodeVibratoWaveByte(byte) {
+  return VIBRATO_WAVE_BYTE_REVERSE[byte] ?? 1;
+}
+
+// Delay/rate/depth each spend 3 bytes on the wire, but - see the tables
+// above - the *first* of the 3 always literally is the 0-99 value itself
+// (that's true even in the v<=24 arithmetic branch), so decoding needs
+// only that one byte; the other two are redundant derived data on every
+// real CZ dump, same as the DCA/DCW envelope "falling" bit below.
+export function decodeVibratoTripletByte(firstByte) {
+  return clampInt(firstByte, 0, 99);
+}
+
+const WAVE_BASE_CODE_REVERSE = { 0b000: 1, 0b001: 2, 0b010: 3, 0b100: 4, 0b101: 5 };
+const WAVE_EXT_REVERSE = { 0b01: 6, 0b10: 7, 0b11: 8 };
+const MODULATION_CODE_REVERSE = { 0b000: "none", 0b100: "ring", 0b011: "noise" };
+
+function decodeWaveCode(code, ext) {
+  if (code === 0b110) return WAVE_EXT_REVERSE[ext] ?? 6;
+  return WAVE_BASE_CODE_REVERSE[code] ?? 1;
+}
+
+/** Inverse of waveformBytes() - byte1/byte2 as transmitted, big-endian. */
+export function decodeWaveformBytes(byte1, byte2) {
+  const word = ((byte1 & 0xff) << 8) | (byte2 & 0xff);
+  const firstCode = (word >> 13) & 0b111;
+  const secondCode = (word >> 10) & 0b111;
+  const ext2 = (word >> 6) & 0b11; // firstExt, when SECOND_EXT_IN_TRAILING_FIELD
+  const modCode = (word >> 3) & 0b111;
+  const trail = word & 0b111; // secondExt, when SECOND_EXT_IN_TRAILING_FIELD
+  const firstExt = SECOND_EXT_IN_TRAILING_FIELD ? ext2 : ext2 & 0b11;
+  const secondExt = SECOND_EXT_IN_TRAILING_FIELD ? trail & 0b11 : ext2 & 0b11;
+  return {
+    first: decodeWaveCode(firstCode, firstExt),
+    second: decodeWaveCode(secondCode, secondExt),
+    modulation: MODULATION_CODE_REVERSE[modCode] ?? "none",
+  };
+}
+
+export function decodeDcaKeyFollowBytes(firstByte) {
+  return clampInt(firstByte, 0, 9);
+}
+export function decodeDcwKeyFollowBytes(firstByte) {
+  return clampInt(firstByte, 0, 9);
+}
+
+/** Inverse of encodeDcaEnvelope() - bytes is the 17-byte
+ * [endStep, r0,l0, r1,l1, ... r7,l7] run for one DCA envelope. The rate
+ * byte's top bit ("level fell this step") is purely derived from the level
+ * sequence and isn't part of this app's stage data model (see
+ * encodeDcaEnvelope), so it's masked off and discarded rather than stored. */
+export function decodeDcaEnvelope(bytes) {
+  const endStep = clampInt(bytes[0], 0, 7);
+  const stages = [];
+  for (let i = 0; i < 8; i++) {
+    const rateByte = bytes[1 + i * 2] & 0x7f;
+    const levelByte = bytes[2 + i * 2] & 0xff;
+    stages.push({ rate: invertByte(DCA_RATE_TABLE, rateByte), level: invertByte(DCA_LEVEL_TABLE, levelByte), sustain: false });
+  }
+  return { endStep, stages };
+}
+
+/** Inverse of encodeDcwEnvelope(). Unlike DCA, the level byte's top bit
+ * here is real, independent data (the sustain flag) - it's decoded, not
+ * discarded. */
+export function decodeDcwEnvelope(bytes) {
+  const endStep = clampInt(bytes[0], 0, 7);
+  const stages = [];
+  for (let i = 0; i < 8; i++) {
+    const rateByte = bytes[1 + i * 2] & 0x7f;
+    const levelByteRaw = bytes[2 + i * 2] & 0xff;
+    const sustain = !!(levelByteRaw & 0x80);
+    const levelByte = levelByteRaw & 0x7f;
+    stages.push({ rate: invertByte(DCW_RATE_TABLE, rateByte), level: invertByte(DCA_LEVEL_TABLE, levelByte), sustain });
+  }
+  return { endStep, stages };
+}
+
+/** Inverse of encodeDcoEnvelope() - no direction/sustain bit to mask on
+ * either byte, per the encoder's own note that pitch has no documented
+ * sustain-point bit. sustain is still set to false on each stage (rather
+ * than left off) purely for shape consistency - every stage object
+ * elsewhere in this app (patch.js's makeStage, curves.js, library.js) always
+ * carries that key even where it's semantically inert, e.g. here and on DCA. */
+export function decodeDcoEnvelope(bytes) {
+  const endStep = clampInt(bytes[0], 0, 7);
+  const stages = [];
+  for (let i = 0; i < 8; i++) {
+    const rateByte = bytes[1 + i * 2] & 0x7f;
+    const levelByte = bytes[2 + i * 2] & 0xff;
+    stages.push({ rate: invertByte(DCO_RATE_TABLE, rateByte), level: invertByte(DCO_LEVEL_TABLE, levelByte), sustain: false });
+  }
+  return { endStep, stages };
+}
+
+/**
+ * Inverse of encodePatchToBytes(): given the 128 logical (already
+ * denibblized) voice bytes, reconstruct a patch object in this editor's own
+ * shape (see patch.js). Reads the exact same 25-section sequence the
+ * encoder writes, in the same order, so a byte offset bug in one shows up
+ * immediately as a mismatch in the other.
+ */
+export function decodePatchFromBytes(bytes) {
+  if (bytes.length !== 128) {
+    throw new Error(`Expected 128 decoded voice bytes, got ${bytes.length} - this doesn't look like a CZ-101 voice dump.`);
+  }
+  let i = 0;
+  const next = () => bytes[i++];
+
+  const { octave, line } = decodePflagByte(next());
+  const detuneSign = decodeDetuneSignByte(next());
+  const detuneFine = decodeDetuneFineByte(next());
+  const { octave: detuneOctave, note: detuneNote } = decodeDetuneOctaveNoteByte(next());
+  const vibratoWave = decodeVibratoWaveByte(next());
+  const vibratoDelay = decodeVibratoTripletByte(next()); i += 2;
+  const vibratoRate = decodeVibratoTripletByte(next()); i += 2;
+  const vibratoDepth = decodeVibratoTripletByte(next()); i += 2;
+  const osc1Wave = decodeWaveformBytes(bytes[i], bytes[i + 1]); i += 2;
+  const dca1KeyFollow = decodeDcaKeyFollowBytes(next()); i += 1;
+  const dcw1KeyFollow = decodeDcwKeyFollowBytes(next()); i += 1;
+  const dca1Env = decodeDcaEnvelope(bytes.slice(i, i + 17)); i += 17;
+  const dcw1Env = decodeDcwEnvelope(bytes.slice(i, i + 17)); i += 17;
+  const dco1Env = decodeDcoEnvelope(bytes.slice(i, i + 17)); i += 17;
+  const osc2Wave = decodeWaveformBytes(bytes[i], bytes[i + 1]); i += 2;
+  const dca2KeyFollow = decodeDcaKeyFollowBytes(next()); i += 1;
+  const dcw2KeyFollow = decodeDcwKeyFollowBytes(next()); i += 1;
+  const dca2Env = decodeDcaEnvelope(bytes.slice(i, i + 17)); i += 17;
+  const dcw2Env = decodeDcwEnvelope(bytes.slice(i, i + 17)); i += 17;
+  const dco2Env = decodeDcoEnvelope(bytes.slice(i, i + 17)); i += 17;
+
+  if (i !== 128) {
+    throw new Error(`CZ-101 voice decoding consumed ${i} bytes, expected 128 - this is an internal bug in sysex.js.`);
+  }
+
+  return {
+    octave, line,
+    detune: { sign: detuneSign, fine: detuneFine, octave: detuneOctave, note: detuneNote },
+    vibrato: { wave: vibratoWave, delay: vibratoDelay, rate: vibratoRate, depth: vibratoDepth },
+    osc1: osc1Wave,
+    osc2: { first: osc2Wave.first, second: osc2Wave.second },
+    dca1: { keyFollow: dca1KeyFollow, ...dca1Env },
+    dcw1: { keyFollow: dcw1KeyFollow, ...dcw1Env },
+    dco1: dco1Env,
+    dca2: { keyFollow: dca2KeyFollow, ...dca2Env },
+    dcw2: { keyFollow: dcw2KeyFollow, ...dcw2Env },
+    dco2: dco2Env,
+  };
+}
+
+/**
+ * Split a raw byte buffer (an entire .syx file, or a single MIDI SysEx
+ * message) into its individual F0...F7 messages. Handles both a lone
+ * message and several concatenated back-to-back - the common shape of a
+ * hand-collected "bank" file that's really just N single-voice dumps
+ * stuck together, which is how the vast majority of CZ-101 patch files
+ * circulating online are built (there's no widely-used *bulk* multi-voice
+ * dump format for this synth the way some later instruments have).
+ */
+export function splitSysexMessages(bytes) {
+  const messages = [];
+  let start = -1;
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 0xf0) start = i;
+    else if (bytes[i] === 0xf7 && start !== -1) {
+      messages.push(bytes.slice(start, i + 1));
+      start = -1;
+    }
+  }
+  return messages;
+}
+
+/**
+ * Decode one F0...F7 message into { channel, program, patch }, or
+ * { error } if it isn't a CZ voice-dump message this app understands (a
+ * different Casio format byte, a non-Casio manufacturer ID, or a plain
+ * malformed/truncated message).
+ */
+export function decodeVoiceDumpMessage(message) {
+  if (message.length < 8 || message[0] !== 0xf0 || message[message.length - 1] !== 0xf7) {
+    return { error: "Not a complete SysEx message (missing F0/F7)." };
+  }
+  if (message[1] !== 0x44 || message[2] !== 0x00 || message[3] !== 0x00) {
+    return { error: "Not a Casio CZ SysEx message (wrong manufacturer ID)." };
+  }
+  const channel = message[4] & 0x0f;
+  const format = message[5];
+  // Two shapes of "here is a voice" message show up in the wild, both
+  // carrying 256 nibbles of voice data:
+  //  - 0x20, with a program byte right after the format byte - what this
+  //    app's own buildVoiceDumpMessage() writes, matching the shape of
+  //    .syx patch files that have circulated for years (see the comment
+  //    there).
+  //  - 0x30, with NO program byte - the shape the CZ itself sends as the
+  //    "receive request" reply (see docs/sysex.md's REMOTE PROGRAMMING
+  //    section), and also how at least one real-world single-voice .syx
+  //    collection turned out to be stored. Since there's no program byte,
+  //    `program` comes back null - the caller doesn't know, and doesn't
+  //    need to know, which slot this voice came from.
+  let program, dataStart;
+  if (format === 0x20) {
+    program = message[6];
+    dataStart = 7;
+  } else if (format === 0x30) {
+    program = null;
+    dataStart = 6;
+  } else {
+    return { error: `Unrecognized message format 0x${format.toString(16)} (this decoder reads the single-voice "0x20" and "0x30" dump formats - see the comment above).` };
+  }
+  const nibbles = message.slice(dataStart, message.length - 1);
+  if (nibbles.length !== 256) {
+    return { error: `Expected 256 nibbles of voice data, found ${nibbles.length} - message looks truncated or padded.` };
+  }
+  const voiceBytes = denibblize(nibbles);
+  try {
+    const patch = decodePatchFromBytes(voiceBytes);
+    return { channel, program, patch };
+  } catch (err) {
+    return { error: err.message };
+  }
+}

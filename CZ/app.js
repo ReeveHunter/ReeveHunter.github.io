@@ -10,6 +10,7 @@
 // again when you're done.
 
 import { CzMidi, hex } from "./midi.js";
+import { splitSysexMessages, decodeVoiceDumpMessage } from "./sysex.js";
 import { initPatch, clonePatch, hardwareInitVoiceBasics, hardwareInitOscillator } from "./patch.js";
 import { Knob, ChoiceGroup, Dropdown, Stepper, RateSlider } from "./knob.js";
 import { EnvelopeEditor, drawEnvelopeThumbnail } from "./envelope.js";
@@ -41,6 +42,11 @@ function log(msg) {
   while (statusLog.children.length > 40) statusLog.removeChild(statusLog.lastChild);
 }
 state.midi.onLog = log;
+// handleImportedPatch and librarySection are both declared later in this
+// file (Patch library / Assemble sections) but, same as elsewhere, this
+// callback is only ever invoked from a live MIDI event, long after the
+// whole module - and those consts - have finished loading.
+state.midi.onVoiceDump = (result) => handleImportedPatch(result.patch, { name: `MIDI import (ch ${result.channel + 1})` });
 
 // ---------------------------------------------------------------------
 // small DOM helpers
@@ -706,6 +712,8 @@ function buildMidiSection() {
   const saveBtn = el("button", { textContent: "Save patch (.json)" });
   const loadBtn = el("button", { textContent: "Load patch (.json)" });
   const loadInput = el("input", { type: "file", accept: "application/json", style: "display:none" });
+  const importSyxBtn = el("button", { textContent: "Import .syx" });
+  const importSyxInput = el("input", { type: "file", accept: ".syx,application/octet-stream", style: "display:none" });
 
   // "Live sync": every edit anywhere in the app - a knob nudge, a dragged
   // envelope point, a randomize click - normally only changes state.patch
@@ -724,7 +732,7 @@ function buildMidiSection() {
 
   body.appendChild(row(connectBtn, outputLabel, inputLabel));
   body.appendChild(row(channelLabel, targetLabel, modeLabel));
-  body.appendChild(row(sendBtn, saveBtn, loadBtn, loadInput));
+  body.appendChild(row(sendBtn, saveBtn, loadBtn, loadInput, importSyxBtn, importSyxInput));
   body.appendChild(row(liveSyncLabel));
   body.appendChild(liveSyncHint);
 
@@ -789,6 +797,42 @@ function buildMidiSection() {
       log(`Load failed: ${err.message}`);
     }
     loadInput.value = "";
+  });
+
+  importSyxBtn.addEventListener("click", () => importSyxInput.click());
+  importSyxInput.addEventListener("change", async () => {
+    const file = importSyxInput.files?.[0];
+    if (!file) return;
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const messages = splitSysexMessages(buf);
+      if (!messages.length) {
+        log(`No SysEx messages found in ${file.name}.`);
+      } else {
+        const baseName = file.name.replace(/\.[^.]+$/, "");
+        let imported = 0;
+        let skipped = 0;
+        let firstPatch = null;
+        messages.forEach((msg, idx) => {
+          const result = decodeVoiceDumpMessage(msg);
+          if (result.error) {
+            skipped++;
+            log(`  message ${idx + 1}: skipped (${result.error})`);
+            return;
+          }
+          const name = messages.length > 1 ? `${baseName} #${idx + 1}` : baseName;
+          const named = { ...result.patch, name };
+          librarySection._addPatch(named, ["imported"]);
+          if (!firstPatch) firstPatch = named;
+          imported++;
+        });
+        if (firstPatch) applyPatchToUI(firstPatch);
+        log(`Imported ${imported} patch(es) from ${file.name}${skipped ? `, skipped ${skipped}` : ""}.`);
+      }
+    } catch (err) {
+      log(`Import failed: ${err.message}`);
+    }
+    importSyxInput.value = "";
   });
 
   let liveSyncTimer = null;
@@ -863,6 +907,28 @@ function buildLibrarySection() {
   const activeTags = new Set();
   let nameFilter = "";
 
+  // Shared by the "Save current..." form below and by _addPatch (called
+  // from handleImportedPatch for a .syx/MIDI import) - renderTagRow() too,
+  // not just renderList(), since either path can introduce a tag nothing
+  // else in the library has used yet. Random suffix on the id, not just
+  // Date.now(), because a multi-voice .syx import calls this once per
+  // voice, synchronously, fast enough to land in the same millisecond.
+  function addPatchToLibrary(patch, tags = []) {
+    const cleanTags = [...new Set(tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean))].sort();
+    const entry = {
+      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: patch.name || "Untitled patch",
+      tags: cleanTags,
+      patch: clonePatch(patch),
+      builtin: false,
+    };
+    library.push(entry);
+    saveLibrary(library);
+    renderTagRow();
+    renderList();
+    return entry;
+  }
+
   const headerRow = el("div", { className: "panel-header-row" });
   const titleEl = s.querySelector("h2");
   const saveToggleBtn = el("button", { className: "panel-toggle", textContent: "Save current…" });
@@ -889,10 +955,8 @@ function buildLibrarySection() {
   saveConfirmBtn.addEventListener("click", () => {
     const name = saveNameInput.value.trim() || "Untitled patch";
     const tags = normalizeTags(saveTagsInput.value);
-    library.push({ id: `custom-${Date.now()}`, name, tags, patch: clonePatch({ ...state.patch, name }), builtin: false });
-    saveLibrary(library);
+    addPatchToLibrary({ ...state.patch, name }, tags);
     saveForm.hidden = true;
-    renderList();
     log(`Saved "${name}" to the patch library.`);
   });
 
@@ -1004,6 +1068,12 @@ function buildLibrarySection() {
 
   // headerRow is already in place via replaceWith above - only the rest is new.
   s.append(saveForm, el("div", { className: "library-filters" }, [searchInput, tagRow]), listEl);
+
+  // Exposed for handleImportedPatch() - a .syx import or a live MIDI dump
+  // adds straight to the library the same way "Save current..." does,
+  // without needing the save form's UI round trip.
+  s._addPatch = addPatchToLibrary;
+
   return s;
 }
 
@@ -1175,6 +1245,22 @@ function copyOtherOscillator(targetOscNum) {
     });
   }
   notifyPatchChanged();
+}
+
+/** Shared landing point for a freshly-decoded patch, from either a loaded
+ * .syx file or a voice dump received live over MIDI (see
+ * decodeVoiceDumpMessage in sysex.js and CzMidi.onVoiceDump in midi.js) -
+ * loads it into the editor so its settings show up right away, and adds it
+ * to the patch library, tagged "imported", so it isn't lost the next time
+ * something else gets loaded. librarySection is declared later in this file
+ * (Assemble section) but, as elsewhere, this is only ever invoked from a
+ * later event (a file picked, a MIDI message received), long after the
+ * whole module has finished loading. */
+function handleImportedPatch(rawPatch, { name, tags = ["imported"] } = {}) {
+  const named = { ...rawPatch, name: name || rawPatch.name || "Imported patch" };
+  applyPatchToUI(named);
+  librarySection._addPatch(named, tags);
+  log(`Imported "${named.name}" - loaded into the editor and added to the patch library.`);
 }
 
 function applyPatchToUI(patch) {

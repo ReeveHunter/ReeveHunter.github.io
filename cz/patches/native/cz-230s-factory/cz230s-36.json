@@ -1,0 +1,300 @@
+{
+  "name": "CZ-230S 36",
+  "octave": 0,
+  "line": 4,
+  "detune": {
+    "sign": "-",
+    "fine": 0,
+    "octave": 0,
+    "note": 8
+  },
+  "vibrato": {
+    "wave": 1,
+    "delay": 65,
+    "rate": 47,
+    "depth": 18
+  },
+  "osc1": {
+    "first": 5,
+    "second": 1,
+    "modulation": "noise"
+  },
+  "osc2": {
+    "first": 3,
+    "second": 1
+  },
+  "dca1": {
+    "keyFollow": 1,
+    "endStep": 5,
+    "stages": [
+      {
+        "rate": 70,
+        "level": 50,
+        "sustain": false
+      },
+      {
+        "rate": 70,
+        "level": 93,
+        "sustain": false
+      },
+      {
+        "rate": 59,
+        "level": 99,
+        "sustain": false
+      },
+      {
+        "rate": 12,
+        "level": 99,
+        "sustain": false
+      },
+      {
+        "rate": 66,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      }
+    ]
+  },
+  "dcw1": {
+    "keyFollow": 8,
+    "endStep": 2,
+    "stages": [
+      {
+        "rate": 53,
+        "level": 69,
+        "sustain": false
+      },
+      {
+        "rate": 47,
+        "level": 20,
+        "sustain": true
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      }
+    ]
+  },
+  "dco1": {
+    "endStep": 0,
+    "stages": [
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      }
+    ]
+  },
+  "dca2": {
+    "keyFollow": 5,
+    "endStep": 2,
+    "stages": [
+      {
+        "rate": 66,
+        "level": 45,
+        "sustain": false
+      },
+      {
+        "rate": 24,
+        "level": 99,
+        "sustain": false
+      },
+      {
+        "rate": 66,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      }
+    ]
+  },
+  "dcw2": {
+    "keyFollow": 0,
+    "endStep": 2,
+    "stages": [
+      {
+        "rate": 90,
+        "level": 10,
+        "sustain": false
+      },
+      {
+        "rate": 99,
+        "level": 5,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      }
+    ]
+  },
+  "dco2": {
+    "endStep": 0,
+    "stages": [
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      },
+      {
+        "rate": 50,
+        "level": 0,
+        "sustain": false
+      }
+    ]
+  }
+}

@@ -5,7 +5,7 @@
 // sysex permission. If navigator.requestMIDIAccess is missing entirely,
 // callers should tell the user to switch browsers rather than retry.
 
-import { buildVoiceDumpMessage } from "./sysex.js";
+import { buildVoiceDumpMessage, decodeVoiceDumpMessage } from "./sysex.js";
 
 export function hex(bytes) {
   return Array.from(bytes)
@@ -20,6 +20,13 @@ export class CzMidi {
     this.input = null;
     /** @type {(msg: string) => void} */
     this.onLog = () => {};
+    /** Fired whenever an incoming SysEx message decodes as a full CZ voice
+     * dump - e.g. the CZ-101 sending its current sound after you press SEND
+     * on the front panel with this computer wired in as its MIDI input.
+     * Not fired for other SysEx traffic (the handshake's "ready" reply,
+     * anything from a different device). Set by app.js.
+     * @type {(result: {channel:number, program:number, patch:object}) => void} */
+    this.onVoiceDump = () => {};
   }
 
   get isSupported() {
@@ -71,6 +78,14 @@ export class CzMidi {
         this._waitingResolve = null;
         resolve(data);
       }
+      // Separately from the handshake wait above, see if this is a full
+      // voice dump on its own (e.g. an unsolicited SEND from the CZ's front
+      // panel, not requested by us) and hand it off if so. Anything that
+      // isn't shaped like a voice dump (the handshake's own "ready" reply,
+      // some other device's SysEx) just gets the log line above and is
+      // otherwise ignored here.
+      const result = decodeVoiceDumpMessage(data);
+      if (!result.error) this.onVoiceDump(result);
     }
   }
 
