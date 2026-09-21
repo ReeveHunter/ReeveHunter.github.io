@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tunes</title>
+<meta name="description" content="Browse and rate Reeve's songs for the band to consider playing live.">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    html, body {
+        min-height: 100%;
+    }
+    body {
+        background: #121212;
+        color: #eee;
+        font-family: 'Montserrat', sans-serif;
+        padding: 24px 16px 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .wrap {
+        width: 100%;
+        max-width: 720px;
+    }
+    h1 {
+        font-size: clamp(32px, 8vw, 44px);
+        font-weight: 700;
+        text-align: center;
+    }
+    .subtitle {
+        color: #aaa;
+        text-align: center;
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 10px auto 24px;
+        max-width: 520px;
+    }
+    .subtitle strong {
+        color: #eee;
+    }
+
+    .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 14px;
+    }
+    .pill {
+        font-family: inherit;
+        font-size: 14px;
+        padding: 7px 14px;
+        background: #262626;
+        border: 1px solid #3a3a3a;
+        color: #ccc;
+        border-radius: 999px;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .pill:hover {
+        background: #303030;
+    }
+    .pill.active {
+        background: #e0a94e;
+        border-color: #e0a94e;
+        color: #1a1a1a;
+        font-weight: 600;
+    }
+    .filter-pill.active {
+        background: #3a7d44;
+        border-color: #3a7d44;
+        color: #fff;
+    }
+
+    .toggle-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 22px;
+        font-size: 13px;
+        color: #999;
+    }
+    .toggle-row input {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .project-heading {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #e0a94e;
+        margin: 26px 0 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #2a2a2a;
+    }
+    .project-heading:first-of-type {
+        margin-top: 0;
+    }
+
+    .song {
+        background: #1c1c1c;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 10px;
+    }
+    .song-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .song-title {
+        font-weight: 600;
+        font-size: 16px;
+        flex: 1 1 auto;
+        min-width: 140px;
+    }
+    .rate-group {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+    .rate-btn {
+        font-size: 20px;
+        line-height: 1;
+        padding: 6px 9px;
+        background: #262626;
+        border: 1px solid #3a3a3a;
+        border-radius: 8px;
+        cursor: pointer;
+        filter: grayscale(1);
+        opacity: 0.55;
+    }
+    .rate-btn:hover {
+        opacity: 0.85;
+    }
+    .rate-btn.selected {
+        filter: none;
+        opacity: 1;
+        background: #333;
+        border-color: #e0a94e;
+        box-shadow: 0 0 0 1px #e0a94e;
+    }
+    audio {
+        width: 100%;
+        margin-top: 10px;
+        height: 34px;
+    }
+    body.compact audio {
+        display: none;
+    }
+    body.compact .song {
+        padding: 10px 16px;
+    }
+
+    .state {
+        text-align: center;
+        color: #999;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-top: 40px;
+        padding: 0 10px;
+    }
+    .state code {
+        background: #262626;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    footer {
+        margin-top: 40px;
+        text-align: center;
+        color: #555;
+        font-size: 12px;
+        line-height: 1.6;
+        max-width: 480px;
+    }
+    footer code {
+        color: #777;
+    }
+    footer button {
+        margin-top: 10px;
+        font-family: inherit;
+        font-size: 12px;
+        background: none;
+        border: 1px solid #3a3a3a;
+        color: #777;
+        padding: 5px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    footer button:hover {
+        color: #aaa;
+        border-color: #555;
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Tunes</h1>
+    <p class="subtitle">
+        Listen through and mark how you feel about each one &mdash;
+        <strong>&#128169; pass</strong>,
+        <strong>&#129335;&zwj;&#9794;&#65039; maybe</strong>,
+        <strong>&#129304; let's play it</strong>.
+        Then filter down to what you want and screenshot it to send back.
+    </p>
+
+    <div id="projectBar" class="bar"></div>
+    <div class="bar">
+        <button class="pill filter-pill active" data-filter="play">&#129304; play</button>
+        <button class="pill filter-pill active" data-filter="maybe">&#129335;&zwj;&#9794;&#65039; maybe</button>
+        <button class="pill filter-pill active" data-filter="pass">&#128169; pass</button>
+        <button class="pill filter-pill active" data-filter="unrated">unrated</button>
+    </div>
+    <div class="toggle-row">
+        <input type="checkbox" id="compactToggle">
+        <label for="compactToggle">Compact list (hide players, good for screenshots)</label>
+    </div>
+
+    <div id="list"></div>
+    <div id="state" class="state"></div>
+
+    <footer id="footer"></footer>
+</div>
+
+<script>
+(function () {
+    var OWNER = 'ReeveHunter';
+    var REPO = 'ReeveHunter.github.io';
+    var BRANCH = 'main';
+    var SONGS_ROOT = 'tunes/songs/';
+    var AUDIO_EXT = /\.(mp3|wav|m4a|ogg|flac|aac)$/i;
+    var RATING_KEY = 'tunes-ratings-v1';
+    var RATINGS = ['play', 'maybe', 'pass'];
+    var EMOJI = { play: '\u{1F918}', maybe: '\u{1F937}‍♂️', pass: '\u{1F4A9}' };
+
+    var listEl = document.getElementById('list');
+    var stateEl = document.getElementById('state');
+    var projectBarEl = document.getElementById('projectBar');
+    var footerEl = document.getElementById('footer');
+    var compactToggle = document.getElementById('compactToggle');
+
+    var activeFilters = { play: true, maybe: true, pass: true, unrated: true };
+    var activeProject = 'all';
+    var songs = []; // { path, title, project }
+
+    function loadRatings() {
+        try {
+            return JSON.parse(localStorage.getItem(RATING_KEY)) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+    function saveRatings(r) {
+        try {
+            localStorage.setItem(RATING_KEY, JSON.stringify(r));
+        } catch (e) {}
+    }
+    var ratings = loadRatings();
+
+    function titleFromFilename(name) {
+        var base = name.replace(AUDIO_EXT, '');
+        base = base.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return base.replace(/\b\w/g, function (c, i, str) {
+            // capitalize a word only if it's currently all-lowercase (leaves acronyms / stylized caps alone)
+            var word = str.slice(str.lastIndexOf(' ', i) + 1).match(/^\S*/)[0];
+            return word === word.toLowerCase() ? c.toUpperCase() : c;
+        });
+    }
+
+    function audioUrlFor(path) {
+        return '/' + path.split('/').map(encodeURIComponent).join('/');
+    }
+
+    function render() {
+        listEl.innerHTML = '';
+
+        var visibleProjects = songs.reduce(function (acc, s) {
+            if (acc.indexOf(s.project) === -1) acc.push(s.project);
+            return acc;
+        }, []);
+        visibleProjects.sort(function (a, b) {
+            if (a === 'Uncategorized') return 1;
+            if (b === 'Uncategorized') return -1;
+            return a.localeCompare(b);
+        });
+
+        // project tabs
+        projectBarEl.innerHTML = '';
+        var allBtn = document.createElement('button');
+        allBtn.className = 'pill' + (activeProject === 'all' ? ' active' : '');
+        allBtn.textContent = 'All';
+        allBtn.onclick = function () { activeProject = 'all'; render(); };
+        projectBarEl.appendChild(allBtn);
+        visibleProjects.forEach(function (p) {
+            var b = document.createElement('button');
+            b.className = 'pill' + (activeProject === p ? ' active' : '');
+            b.textContent = p;
+            b.onclick = function () { activeProject = p; render(); };
+            projectBarEl.appendChild(b);
+        });
+
+        var toShow = songs.filter(function (s) {
+            if (activeProject !== 'all' && s.project !== activeProject) return false;
+            var r = ratings[s.path];
+            if (!r) return activeFilters.unrated;
+            return activeFilters[r];
+        });
+
+        toShow.sort(function (a, b) {
+            if (a.project !== b.project) return a.project.localeCompare(b.project);
+            return a.title.localeCompare(b.title);
+        });
+
+        if (songs.length === 0) {
+            return; // empty/error state already shown in stateEl
+        }
+        if (toShow.length === 0) {
+            stateEl.textContent = 'Nothing matches the current filters.';
+            return;
+        }
+        stateEl.textContent = '';
+
+        var lastProject = null;
+        toShow.forEach(function (s) {
+            if (activeProject === 'all' && s.project !== lastProject) {
+                var h = document.createElement('div');
+                h.className = 'project-heading';
+                h.textContent = s.project;
+                listEl.appendChild(h);
+                lastProject = s.project;
+            }
+
+            var row = document.createElement('div');
+            row.className = 'song';
+
+            var top = document.createElement('div');
+            top.className = 'song-top';
+
+            var title = document.createElement('div');
+            title.className = 'song-title';
+            title.textContent = s.title;
+            top.appendChild(title);
+
+            var rg = document.createElement('div');
+            rg.className = 'rate-group';
+            RATINGS.forEach(function (r) {
+                var btn = document.createElement('button');
+                btn.className = 'rate-btn' + (ratings[s.path] === r ? ' selected' : '');
+                btn.textContent = EMOJI[r];
+                btn.setAttribute('aria-label', r);
+                btn.onclick = function () {
+                    if (ratings[s.path] === r) {
+                        delete ratings[s.path];
+                    } else {
+                        ratings[s.path] = r;
+                    }
+                    saveRatings(ratings);
+                    render();
+                };
+                rg.appendChild(btn);
+            });
+            top.appendChild(rg);
+            row.appendChild(top);
+
+            var audio = document.createElement('audio');
+            audio.controls = true;
+            audio.preload = 'none';
+            audio.src = audioUrlFor(s.path);
+            row.appendChild(audio);
+
+            listEl.appendChild(row);
+        });
+    }
+
+    document.querySelectorAll('.filter-pill').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var f = btn.getAttribute('data-filter');
+            activeFilters[f] = !activeFilters[f];
+            btn.classList.toggle('active', activeFilters[f]);
+            render();
+        });
+    });
+    compactToggle.addEventListener('change', function () {
+        document.body.classList.toggle('compact', compactToggle.checked);
+    });
+
+    function showFooter() {
+        footerEl.innerHTML =
+            'Add songs by dropping audio files into <code>/tunes/songs/&lt;project name&gt;/</code> in the repo and pushing &mdash; folders show up here automatically as tabs.';
+        var clearBtn = document.createElement('button');
+        clearBtn.textContent = 'Clear my ratings';
+        clearBtn.onclick = function () {
+            ratings = {};
+            saveRatings(ratings);
+            render();
+        };
+        footerEl.appendChild(document.createElement('br'));
+        footerEl.appendChild(clearBtn);
+    }
+
+    stateEl.textContent = 'Loading songs…';
+    fetch('https://api.github.com/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1')
+        .then(function (res) {
+            if (!res.ok) throw new Error('GitHub API returned ' + res.status);
+            return res.json();
+        })
+        .then(function (data) {
+            var tree = data.tree || [];
+            tree.forEach(function (item) {
+                if (item.type !== 'blob') return;
+                if (item.path.indexOf(SONGS_ROOT) !== 0) return;
+                if (!AUDIO_EXT.test(item.path)) return;
+                var rest = item.path.slice(SONGS_ROOT.length); // "<project>/<file>" or "<file>"
+                var slash = rest.indexOf('/');
+                var project = slash === -1 ? 'Uncategorized' : rest.slice(0, slash);
+                var filename = slash === -1 ? rest : rest.slice(slash + 1);
+                songs.push({
+                    path: item.path,
+                    title: titleFromFilename(filename),
+                    project: project
+                });
+            });
+
+            if (songs.length === 0) {
+                stateEl.innerHTML = 'No songs yet.<br><br>Drop audio files into<br><code>/tunes/songs/&lt;project name&gt;/</code><br>in the repo and push &mdash; they\'ll show up here.';
+            } else {
+                stateEl.textContent = '';
+            }
+            showFooter();
+            render();
+        })
+        .catch(function (err) {
+            stateEl.innerHTML = 'Couldn\'t load the song list right now.<br><span style="color:#666;font-size:12px;">(' + err.message + ')</span>';
+            showFooter();
+        });
+})();
+</script>
+</body>
+</html>
