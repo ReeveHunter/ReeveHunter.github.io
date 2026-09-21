@@ -10,7 +10,7 @@
 // again when you're done.
 
 import { CzMidi, hex } from "./midi.js";
-import { splitSysexMessages, decodeVoiceDumpMessage } from "./sysex.js";
+import { splitSysexMessages, decodeVoiceDumpMessage, buildVoiceDumpMessage } from "./sysex.js";
 import { initPatch, clonePatch, hardwareInitVoiceBasics, hardwareInitOscillator } from "./patch.js";
 import { Knob, ChoiceGroup, Dropdown, Stepper, RateSlider } from "./knob.js";
 import { EnvelopeEditor, drawEnvelopeThumbnail } from "./envelope.js";
@@ -709,10 +709,13 @@ function buildMidiSection() {
   const modeLabel = el("label", { textContent: "Send mode" }, [modeSelect]);
 
   const sendBtn = el("button", { className: "primary-btn", textContent: "Send patch to CZ-101", disabled: true });
-  const saveBtn = el("button", { textContent: "Save patch (.json)" });
-  const loadBtn = el("button", { textContent: "Load patch (.json)" });
-  const loadInput = el("input", { type: "file", accept: "application/json", style: "display:none" });
-  const importSyxBtn = el("button", { textContent: "Import .syx" });
+  // Patches only ever leave/enter this app as SysEx now that sysex.js can
+  // both encode and decode (see decodeVoiceDumpMessage/buildVoiceDumpMessage) -
+  // one file format for saving your own work, sharing a sound with someone
+  // else, and pulling in whatever .syx files you come across, rather than a
+  // separate .json shape only this app understood. See patches/README.md.
+  const saveBtn = el("button", { textContent: "Save patch (.syx)" });
+  const importSyxBtn = el("button", { textContent: "Load patch (.syx)" });
   const importSyxInput = el("input", { type: "file", accept: ".syx,application/octet-stream", style: "display:none" });
 
   // "Live sync": every edit anywhere in the app - a knob nudge, a dragged
@@ -732,7 +735,7 @@ function buildMidiSection() {
 
   body.appendChild(row(connectBtn, outputLabel, inputLabel));
   body.appendChild(row(channelLabel, targetLabel, modeLabel));
-  body.appendChild(row(sendBtn, saveBtn, loadBtn, loadInput, importSyxBtn, importSyxInput));
+  body.appendChild(row(sendBtn, saveBtn, importSyxBtn, importSyxInput));
   body.appendChild(row(liveSyncLabel));
   body.appendChild(liveSyncHint);
 
@@ -778,25 +781,16 @@ function buildMidiSection() {
     }
   });
 
+  // Saved as a single-voice dump targeting the temporary/edit buffer (0x60) -
+  // the same shape any other CZ-101 .syx patch file uses, so it loads back
+  // in here (via "Load patch (.syx)" below) or on the hardware itself
+  // through any SysEx librarian.
   saveBtn.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(state.patch, null, 2)], { type: "application/json" });
-    const a = el("a", { href: URL.createObjectURL(blob), download: `${state.patch.name || "cz101-patch"}.json` });
+    const dump = buildVoiceDumpMessage(0, 0x60, state.patch);
+    const blob = new Blob([dump], { type: "application/octet-stream" });
+    const a = el("a", { href: URL.createObjectURL(blob), download: `${state.patch.name || "cz101-patch"}.syx` });
     a.click();
     URL.revokeObjectURL(a.href);
-  });
-
-  loadBtn.addEventListener("click", () => loadInput.click());
-  loadInput.addEventListener("change", async () => {
-    const file = loadInput.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      applyPatchToUI(JSON.parse(text));
-      log(`Loaded patch from ${file.name}`);
-    } catch (err) {
-      log(`Load failed: ${err.message}`);
-    }
-    loadInput.value = "";
   });
 
   importSyxBtn.addEventListener("click", () => importSyxInput.click());
