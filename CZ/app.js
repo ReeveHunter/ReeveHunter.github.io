@@ -378,7 +378,7 @@ function buildEnvelopeTools(container, { key, hasSustain }) {
   ]);
 
   // --- Randomize, and copy/paste between any two envelopes ---
-  const randomizeBtn = el("button", { className: "tool-btn", textContent: "Randomize" });
+  const randomizeBtn = el("button", { className: "tool-btn", textContent: "🎲", title: "Randomize" });
   randomizeBtn.addEventListener("click", () => {
     const stages = Array.from({ length: 8 }, () => ({ rate: randInt(0, 99), level: randInt(0, 99), sustain: false }));
     const endStep = randInt(1, 7);
@@ -452,7 +452,7 @@ function buildGlobalSection() {
   const vRate = new Stepper({ label: "rate", min: 0, max: 99, value: state.patch.vibrato.rate, onChange: (v) => { state.patch.vibrato.rate = v; notifyPatchChanged(); } });
   const vDepth = new Stepper({ label: "depth", min: 0, max: 99, value: state.patch.vibrato.depth, onChange: (v) => { state.patch.vibrato.depth = v; notifyPatchChanged(); } });
 
-  const randomizeVibratoBtn = el("button", { className: "panel-toggle", textContent: "Randomize" });
+  const randomizeVibratoBtn = el("button", { className: "panel-toggle", textContent: "🎲", title: "Randomize vibrato" });
   randomizeVibratoBtn.addEventListener("click", () => {
     const wave = randomChoice(VIBRATO_WAVE_NAMES);
     const delay = randInt(0, 99), rate = randInt(0, 99), depth = randInt(0, 99);
@@ -576,7 +576,7 @@ function buildOscillatorSection(oscNum) {
     });
     headerRow.appendChild(modulation.el);
   }
-  const randomizeWaveBtn = el("button", { className: "panel-toggle", textContent: "Randomize" });
+  const randomizeWaveBtn = el("button", { className: "panel-toggle", textContent: "🎲", title: "Randomize waveforms" });
   randomizeWaveBtn.addEventListener("click", () => {
     const first = randomChoice(WAVE_NAMES);
     const second = randomChoice(WAVE_NAMES);
