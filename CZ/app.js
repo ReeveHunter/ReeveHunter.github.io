@@ -658,7 +658,7 @@ function buildOscillatorSection(oscNum) {
   const dcaBlock = makeBlock("dca", `DCA${oscNum} · amplitude`);
   const dcwBlock = makeBlock("dcw", `DCW${oscNum} · tone / phase distortion`, { hasSustain: true });
   const dcoBlock = makeBlock("dco", `DCO${oscNum} · pitch`, {
-    note: "The spec doesn't say which level counts as “no pitch shift” - start near the middle and trust your ears.",
+    note: "Level 0 is the no-pitch-shift center (per the CZ-1000 manual's own INITIALIZE table) - higher levels bend away from it.",
   });
 
   s.appendChild(envRow);

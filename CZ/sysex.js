@@ -341,7 +341,7 @@ export function encodeDcoEnvelope(stages, endStep) {
   // information instead.
   const out = [clampInt(endStep, 0, 7)];
   for (let i = 0; i < 8; i++) {
-    const { rate, level } = stages[i] ?? { rate: 0, level: 50 };
+    const { rate, level } = stages[i] ?? { rate: 0, level: 0 }; // level 0 is DCO's no-shift center
     out.push(dcoRateByte(rate), dcoLevelByte(level));
   }
   return out;

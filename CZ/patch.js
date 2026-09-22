@@ -24,7 +24,7 @@ export function makeOscBundle({
     keyFollowDcw,
     dca: { keyFollow: keyFollowDca, endStep: 7, stages: dcaEnv ?? makeEightStages(40, 99) },
     dcw: { keyFollow: keyFollowDcw, endStep: 7, stages: dcwEnv ?? makeEightStages(40, 60) },
-    dco: { endStep: 7, stages: dcoEnv ?? makeEightStages(0, 50) },
+    dco: { endStep: 7, stages: dcoEnv ?? makeEightStages(0, 0) },
   };
 }
 
@@ -38,7 +38,7 @@ export function initPatch() {
     makeStage(90, 70), makeStage(50, 40), makeStage(50, 40), makeStage(50, 40),
     makeStage(50, 40), makeStage(50, 40), makeStage(50, 40), makeStage(50, 0),
   ];
-  const dcoEnv = makeEightStages(0, 50); // flat, no pitch movement
+  const dcoEnv = makeEightStages(0, 0); // flat, no pitch movement (level 0 is DCO's no-shift center - see hardwareInitPitchEnvelope() below)
 
   return {
     name: "init",
