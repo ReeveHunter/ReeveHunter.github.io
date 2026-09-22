@@ -162,7 +162,7 @@ function envelopeBlock(title, { hasSustain = false, note, onExpand, onCollapse, 
   const tools = el("div", { className: "envelope-tools" });
   const hint = el("p", {
     className: "envelope-hint",
-    textContent: "Drag a point: up/down = level, left/right = rate. Double-click a point to end the envelope there."
+    textContent: "Drag a point: up/down = level, left/right = rate. Double-click (or double-tap) a point to end the envelope there."
       + (hasSustain ? " Press and hold a point to toggle sustain on that stage." : ""),
   });
   detail.append(canvas, strip, tools, hint);
@@ -553,7 +553,10 @@ function buildOscillatorSection(oscNum) {
   const otherOscNum = oscNum === 1 ? 2 : 1;
   const titleEl = s.querySelector("h2");
   const headerRow0 = el("div", { className: "panel-header-row" });
-  const copyOtherBtn = el("button", { className: "panel-toggle", textContent: `Copy from Osc ${otherOscNum}` });
+  // 1️⃣⬅️2️⃣ / 1️⃣➡️2️⃣ show which way the copy flows - into Osc 1 from Osc 2,
+  // or into Osc 2 from Osc 1 - rather than spelling it out as text.
+  const copyArrow = oscNum === 1 ? "1️⃣⬅️2️⃣" : "1️⃣➡️2️⃣";
+  const copyOtherBtn = el("button", { className: "panel-toggle", textContent: copyArrow, title: `Copy from Osc ${otherOscNum}` });
   const initBtn = el("button", { className: "panel-toggle", textContent: "🔄", title: "Initialize" });
   // resetOscillator() and copyOtherOscillator() are defined further down
   // (they need the envelope editors/strips, which only exist once

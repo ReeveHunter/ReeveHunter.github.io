@@ -1,9 +1,15 @@
 // envelope.js
 // A small canvas-based 8-stage envelope editor: drag a point up/down to set
 // its level (0-99), drag it left/right to set its rate (0-99, i.e. how long
-// it takes to get there from the previous point). Click a stage's number
-// to mark it as the envelope's end step. For DCW envelopes, click a point's
-// small diamond marker to toggle a sustain flag on that stage.
+// it takes to get there from the previous point). Double-click (or
+// double-tap, on touch) a point to mark it as the envelope's end step -
+// handled as our own pointerup-based tap detector rather than the native
+// "dblclick" event, since a touch-friendly canvas needs `touch-action: none`
+// (see style.css) to keep single-finger drags from scrolling the page, and
+// that same property stops browsers from synthesizing click/dblclick events
+// out of touch input, so a real double-tap would otherwise go unnoticed.
+// For DCW envelopes, press and hold a point (see LONG_PRESS_MS) to toggle a
+// sustain flag on that stage.
 //
 // The x-axis is auto-scaled to the current envelope's own total rate, purely
 // for legibility - it has no absolute time units (the CZ's own rate dial
@@ -17,6 +23,8 @@ const POINT_R = 6;
 const MIN_SEGMENT = 14; // px, purely visual so rate=0 stages stay clickable
 const LONG_PRESS_MS = 500; // hold a point this long (without dragging) to toggle sustain
 const LONG_PRESS_CANCEL_PX = 6; // moving more than this cancels the long-press and starts a normal drag
+const TAP_MOVE_PX = 6; // a pointer up/down pair counts as a "tap" (not a drag) if it moved no more than this
+const DOUBLE_TAP_MS = 400; // two taps on the same point within this long count as a double-tap
 const HOLD_GAP_PX = 62; // reserved width for a sustain stage's dashed "held here" segment - inserted into the layout (not stolen from the following stage's own spacing)
 // A stage's rate contributes at least this much to the width-split math,
 // even at rate 0. Without a floor, each stage's segment width is its share
@@ -48,6 +56,7 @@ export class EnvelopeEditor {
     this.hover = -1;
     this._press = null;
     this._pressRaf = null;
+    this._lastTap = null;
     this._dpr = window.devicePixelRatio || 1;
     this._resize();
     this._bind();
@@ -114,7 +123,6 @@ export class EnvelopeEditor {
     c.addEventListener("pointerdown", (e) => this._onDown(e));
     c.addEventListener("pointermove", (e) => this._onMove(e));
     window.addEventListener("pointerup", (e) => this._onUp(e));
-    c.addEventListener("dblclick", (e) => this._onDblClick(e));
     c.tabIndex = 0;
     c.addEventListener("keydown", (e) => this._onKey(e));
     window.addEventListener("resize", () => { this._resize(); this.draw(); });
@@ -200,26 +208,41 @@ export class EnvelopeEditor {
     }
   }
 
-  _onUp() {
+  _onUp(e) {
     this._cancelLongPress();
+    const drag = this.drag;
     this.drag = null;
+    // A tap/click that barely moved is a candidate for the double-tap/
+    // double-click end-step gesture below - a long press that already fired
+    // (see _startLongPress) has nulled `drag` itself by this point, so it
+    // never reaches here as a tap.
+    if (drag && e) {
+      const { x, y } = this._mousePos(e);
+      if (Math.hypot(x - drag.startX, y - drag.startY) <= TAP_MOVE_PX) this._onTap(drag.index, e);
+    }
     this.draw();
   }
 
-  _onDblClick(e) {
-    const { x, y } = this._mousePos(e);
-    const hit = this._hitTest(x, y);
-    if (hit >= 0) {
-      // Shift+double-click is an undocumented alternate way to toggle
-      // sustain, kept around for anyone who finds it faster than the
-      // press-and-hold gesture (which is the one shown in the UI hint).
-      if (this.hasSustain && e.shiftKey) {
-        this._toggleSustain(hit);
-      } else {
-        this.endStep = hit;
-      }
-      this._emit();
+  /** Our own double-tap/double-click detector, built on the same
+   * pointerdown/pointerup this editor already tracks for dragging, rather
+   * than the browser's native "dblclick" event - see the file-header
+   * comment for why dblclick can't be relied on here. */
+  _onTap(index, e) {
+    const now = performance.now();
+    const last = this._lastTap;
+    this._lastTap = { index, time: now };
+    if (!last || last.index !== index || now - last.time > DOUBLE_TAP_MS) return;
+    this._lastTap = null; // consume it, so a third quick tap doesn't chain into another double
+    // Shift+double-click is an undocumented alternate way to toggle sustain
+    // (mouse/keyboard only - shiftKey is never true from a touch tap),
+    // kept around for anyone who finds it faster than the press-and-hold
+    // gesture (which is the one shown in the UI hint).
+    if (this.hasSustain && e.shiftKey) {
+      this._toggleSustain(index);
+    } else {
+      this.endStep = index;
     }
+    this._emit();
   }
 
   _onKey(e) {

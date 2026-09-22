@@ -380,6 +380,9 @@ button.primary-btn:hover {
   font-variant-numeric: tabular-nums;
   cursor: ns-resize;
   border-radius: 3px;
+  /* Without this, a touch drag here scrolls the page instead of reaching
+     the pointermove drag handler below (see knob-dial for the same fix). */
+  touch-action: none;
 }
 .stepper-value:focus {
   outline: 1px solid var(--accent);
