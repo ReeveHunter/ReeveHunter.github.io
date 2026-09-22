@@ -525,6 +525,29 @@
         nextBtn.disabled = false;
         playPauseBtn.innerHTML = audioEl.paused ? '&#9654;' : '&#9208;';
         playPauseBtn.title = audioEl.paused ? 'Play' : 'Pause';
+
+        updateMediaSession(song, cover);
+    }
+
+    function mimeForImage(path) {
+        if (/\.png$/i.test(path)) return 'image/png';
+        if (/\.jpe?g$/i.test(path)) return 'image/jpeg';
+        if (/\.webp$/i.test(path)) return 'image/webp';
+        if (/\.gif$/i.test(path)) return 'image/gif';
+        return 'image/png';
+    }
+
+    // lets phones/CarPlay show the track title + art on the lock screen and
+    // Now Playing screen, and turns the 10s-skip buttons into prev/next
+    function updateMediaSession(song, cover) {
+        if (!('mediaSession' in navigator)) return;
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: song.title,
+            artist: song.project,
+            album: song.project,
+            artwork: cover ? [{ src: repoFileUrl(cover), sizes: '512x512', type: mimeForImage(cover) }] : []
+        });
+        navigator.mediaSession.playbackState = audioEl.paused ? 'paused' : 'playing';
     }
 
     function step(delta) {
@@ -553,6 +576,21 @@
     prevBtn.addEventListener('click', function () { step(-1); });
     nextBtn.addEventListener('click', function () { step(1); });
 
+    // CarPlay / lock-screen controls: registering previoustrack/nexttrack
+    // is what swaps the default 10s skip-back/skip-forward buttons for
+    // real previous-track/next-track buttons
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('previoustrack', function () { step(-1); });
+        navigator.mediaSession.setActionHandler('nexttrack', function () { step(1); });
+        navigator.mediaSession.setActionHandler('play', function () { audioEl.play().catch(function () {}); });
+        navigator.mediaSession.setActionHandler('pause', function () { audioEl.pause(); });
+        try {
+            navigator.mediaSession.setActionHandler('seekto', function (details) {
+                if (details.seekTime != null) audioEl.currentTime = details.seekTime;
+            });
+        } catch (e) {} // not every browser supports 'seekto'
+    }
+
     audioEl.addEventListener('play', renderPlayerInfo);
     audioEl.addEventListener('pause', renderPlayerInfo);
     audioEl.addEventListener('ended', function () { step(1); });
@@ -560,6 +598,15 @@
         scrubEl.max = audioEl.duration || 0;
         scrubEl.disabled = false;
         durTimeEl.textContent = fmtTime(audioEl.duration);
+        if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: audioEl.duration || 0,
+                    playbackRate: audioEl.playbackRate,
+                    position: audioEl.currentTime
+                });
+            } catch (e) {}
+        }
     });
     audioEl.addEventListener('timeupdate', function () {
         if (scrubbing) return;
