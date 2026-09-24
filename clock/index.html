@@ -34,39 +34,41 @@
             user-select: none;
             -webkit-user-select: none;
             touch-action: none;
+            /* Sizes, set by the sliders in the menu */
+            --clock-size: 140px;
+            --bar-scale: 1;
+            --status-size: 36px;
         }
         #time {
-            font-size: 140px;            /* default; the Size slider overrides this */
+            font-size: var(--clock-size);
             letter-spacing: 2px;
             line-height: 1.1;
             white-space: nowrap;
         }
         #status {
-            font-size: 36px;
+            font-size: var(--status-size);
             color: #888;
-            min-height: 44px;
+            min-height: 1.22em;
             white-space: nowrap;
         }
-        #progress { width: 500px; max-width: 90vw; }
+        #progress { width: calc(500px * var(--bar-scale)); max-width: 90vw; }
         #progress-bar {
             width: 100%;
-            height: 30px;
+            height: calc(30px * var(--bar-scale));
             background: #333;
-            border-radius: 15px;
+            border-radius: calc(15px * var(--bar-scale));
             overflow: hidden;
         }
         #progress-fill {
             height: 100%;
             width: 0%;
             background: #888;
-            border-radius: 15px;
+            border-radius: calc(15px * var(--bar-scale));
             transition: width 0.3s;
         }
         #message {
             color: #ff6b6b;
             font-size: 18px;
-            margin-top: 10px;
-            min-height: 22px;
             text-align: center;
         }
 
@@ -176,7 +178,14 @@
         .switch input:focus-visible + .track { outline: 2px solid #888; outline-offset: 2px; }
         .switch.small { font-size: 12px; color: #aaa; margin-left: 6px; }
 
-        /* Size slider */
+        /* Size sliders: label | slider | value | reset, in aligned columns */
+        .sliders {
+            display: grid;
+            grid-template-columns: max-content 150px 48px 28px;
+            gap: 2px 10px;
+            align-items: center;
+        }
+        .sliders > label { color: #bbb; }
         #menu input[type="range"] {
             width: 150px;
             height: 34px;
@@ -214,9 +223,9 @@
 
                 <label for="length">Length</label>
                 <div class="row">
-                    <input type="number" id="length" min="1" disabled>
+                    <input type="number" id="length" min="1">
                     <span class="suffix">min</span>
-                    <label class="switch small" title="Set end time from length">
+                    <label class="switch small" title="On: changing Start moves End and keeps Length. Off: changing Start updates Length and keeps End.">
                         <input type="checkbox" id="length-toggle">
                         <span class="track"></span>
                         Set by length
@@ -231,9 +240,16 @@
             <h2>Display</h2>
             <div class="row">
                 <label class="switch">
-                    <input type="checkbox" id="progress-toggle">
+                    <input type="checkbox" id="progress-toggle" checked>
                     <span class="track"></span>
                     Progress bar
+                </label>
+            </div>
+            <div class="row">
+                <label class="switch">
+                    <input type="checkbox" id="end-toggle" checked>
+                    <span class="track"></span>
+                    End time
                 </label>
             </div>
             <div class="row" id="extra-row">
@@ -248,21 +264,35 @@
 
         <section class="section">
             <h2>Size &amp; Position</h2>
-            <div class="row">
-                <label for="size" style="color:#bbb">Size</label>
-                <input type="range" id="size" min="60" max="400" step="5" value="140">
-                <span class="size-value" id="size-value">140px</span>
-                <button type="button" class="icon-btn" id="reset-size" title="Reset size to default">&#8634;</button>
+            <div class="sliders">
+                <label for="clock-size">Clock</label>
+                <input type="range" id="clock-size" min="60" max="400" step="5">
+                <span class="size-value" id="clock-size-value"></span>
+                <button type="button" class="icon-btn" id="clock-size-reset" title="Reset clock size">&#8634;</button>
+
+                <label for="bar-size">Progress bar</label>
+                <input type="range" id="bar-size" min="50" max="250" step="5">
+                <span class="size-value" id="bar-size-value"></span>
+                <button type="button" class="icon-btn" id="bar-size-reset" title="Reset progress bar size">&#8634;</button>
+
+                <label for="status-size">End time</label>
+                <input type="range" id="status-size" min="16" max="120" step="2">
+                <span class="size-value" id="status-size-value"></span>
+                <button type="button" class="icon-btn" id="status-size-reset" title="Reset end time text size">&#8634;</button>
             </div>
             <div class="row">
                 <label class="switch">
-                    <input type="checkbox" id="free-toggle">
+                    <input type="checkbox" id="lock-h-toggle">
                     <span class="track"></span>
-                    Free move
+                    Lock to horizontal center
                 </label>
             </div>
             <div class="row">
-                <button type="button" id="reset-pos">Reset position</button>
+                <label class="switch">
+                    <input type="checkbox" id="lock-v-toggle">
+                    <span class="track"></span>
+                    Lock to vertical center
+                </label>
             </div>
         </section>
     </div>
@@ -270,11 +300,11 @@
     <!-- ---------- Clock display (one draggable block) ---------- -->
     <div id="display" title="Drag to move · double-click to center">
         <div id="time">12:00</div>
-        <div id="status"></div>
+        <div id="status" style="display: none;"></div>
         <div id="progress" style="display: none;">
             <div id="progress-bar"><div id="progress-fill"></div></div>
-            <div id="message"></div>
         </div>
+        <div id="message" style="display: none;"></div>
     </div>
 
     <script>
@@ -289,13 +319,18 @@
             progress: $('progress'), fill: $('progress-fill'), message: $('message'),
             start: $('start'), end: $('end'), length: $('length'),
             lengthToggle: $('length-toggle'), clear: $('clear'),
-            progressToggle: $('progress-toggle'),
+            progressToggle: $('progress-toggle'), endToggle: $('end-toggle'),
             extraToggle: $('extra-toggle'), extraMinutes: $('extra-minutes'), extraRow: $('extra-row'),
-            freeToggle: $('free-toggle'), resetPos: $('reset-pos'),
-            size: $('size'), sizeValue: $('size-value'), resetSize: $('reset-size'),
+            lockH: $('lock-h-toggle'), lockV: $('lock-v-toggle'),
         };
-        const menuInputs = [el.start, el.end, el.length, el.extraMinutes, el.size];
-        const DEFAULT_SIZE = 140;            // clock font size in px
+
+        // Size sliders: each sets a CSS variable on the display block
+        const SLIDERS = [
+            { id: 'clock-size',  def: 140, unit: 'px', cssVar: '--clock-size',  css: v => `${v}px` },
+            { id: 'bar-size',    def: 100, unit: '%',  cssVar: '--bar-scale',   css: v => v / 100 },
+            { id: 'status-size', def: 36,  unit: 'px', cssVar: '--status-size', css: v => `${v}px` },
+        ];
+        const menuInputs = [el.start, el.end, el.length, el.extraMinutes, ...SLIDERS.map(sl => $(sl.id))];
 
         // ---------- State ----------
         let startMin = null;                 // start time, minutes after midnight (or null)
@@ -323,68 +358,97 @@
             const now = new Date();
             el.time.textContent = `${now.getHours() % 12 || 12}:${pad(now.getMinutes())}`;
 
-            // Control states
-            const progressOn = el.progressToggle.checked;
-            if (!progressOn) el.extraToggle.checked = false;
-            el.extraToggle.disabled = !progressOn;
-            el.extraMinutes.disabled = !(progressOn && el.extraToggle.checked);
-            el.extraRow.classList.toggle('dimmed', !progressOn);
-            el.length.disabled = !el.lengthToggle.checked;
-            el.progress.style.display = progressOn ? 'block' : 'none';
+            // Control states (Extra Time needs the bar or the end time line to be showing)
+            const barOn = el.progressToggle.checked, endOn = el.endToggle.checked;
+            const anyOn = barOn || endOn;
+            if (!anyOn) el.extraToggle.checked = false;
+            el.extraToggle.disabled = !anyOn;
+            el.extraMinutes.disabled = !(anyOn && el.extraToggle.checked);
+            el.extraRow.classList.toggle('dimmed', !anyOn);
 
-            // Progress / status / message
-            let status = '', message = '', fill = 0;
-            if (progressOn) {
-                if (startMin === null || endMin === null) {
-                    message = startMin === null && endMin === null ? 'Please set start and end times'
-                            : startMin === null ? 'Please set start time'
-                            : 'Please set end time';
-                } else if (endMin <= startMin) {
-                    message = 'End time must be after start time';
-                } else {
-                    const nowMin = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-                    const extra = parseInt(el.extraMinutes.value, 10) || 0;
-                    const inExtra = el.extraToggle.checked && extra > 0 && nowMin >= endMin;
-                    const finalEnd = inExtra ? endMin + extra : endMin;
+            // Status line needs an End time; the bar needs Start and End. Anything unset is simply hidden.
+            let status = '', message = '', fill = null;
+            if (anyOn && startMin !== null && endMin !== null && endMin <= startMin) {
+                message = 'End time must be after start time';
+            } else if (endMin !== null) {
+                const nowMin = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+                const extra = parseInt(el.extraMinutes.value, 10) || 0;
+                const inExtra = el.extraToggle.checked && extra > 0 && nowMin >= endMin;
+                const finalEnd = inExtra ? endMin + extra : endMin;
 
-                    if (nowMin >= finalEnd) fill = 1;
-                    else if (nowMin > startMin) fill = (nowMin - startMin) / (finalEnd - startMin);
-
+                if (endOn) {
                     status = nowMin >= finalEnd ? 'Times Up!'
                            : inExtra ? `Extra Time until ${fmt12(finalEnd)}`
                            : `End Time: ${fmt12(endMin)}`;
                 }
+                if (barOn && startMin !== null) {
+                    fill = nowMin >= finalEnd ? 1
+                         : nowMin > startMin ? (nowMin - startMin) / (finalEnd - startMin)
+                         : 0;
+                }
             }
-            el.fill.style.width = `${fill * 100}%`;
             el.status.textContent = status;
+            el.status.style.display = status ? 'block' : 'none';
+            el.progress.style.display = fill === null ? 'none' : 'block';
+            if (fill !== null) el.fill.style.width = `${fill * 100}%`;
             el.message.textContent = message;
+            el.message.style.display = message ? 'block' : 'none';
+
+            saveSettings();
 
             placeBlock();
         }
 
-        // ---------- Time inputs (End is the anchor) ----------
-        // Show End − Start in the Length field when computable; blank it when not (unless the user is driving it).
+        // ---------- Time inputs ----------
+        // Length edited       → "Set by length" turns on; End = Start + Length.
+        // Start edited, on    → End = Start + Length (Length kept).
+        // End edited, on      → Start = End − Length (Length kept).
+        // Start/End edited, off → Length = End − Start.
         function syncLength() {
-            if (startMin !== null && endMin !== null && endMin > startMin) el.length.value = endMin - startMin;
-            else if (!el.lengthToggle.checked) el.length.value = '';
+            if (startMin === null || endMin === null) return;       // keep whatever Length says
+            el.length.value = endMin > startMin ? endMin - startMin : '';
         }
 
-        function onStart() { startMin = parseTime(el.start.value); syncLength(); render(); }
-        function onEnd()   { endMin = parseTime(el.end.value);     syncLength(); render(); }
+        // End = Start + Length, if both are usable and it stays on the same day
+        function endFromLength() {
+            const n = parseInt(el.length.value, 10);
+            if (startMin === null || !(n >= 1) || startMin + n >= 1440) return false;
+            endMin = startMin + n;
+            el.end.value = toInputValue(endMin);
+            return true;
+        }
+
+        function onStart() {
+            startMin = parseTime(el.start.value);
+            // Toggle on (or no End yet): move End to keep Length. Otherwise keep End and recompute Length.
+            if ((el.lengthToggle.checked || endMin === null) && endFromLength()) { render(); return; }
+            syncLength();
+            render();
+        }
+        function onEnd() {
+            endMin = parseTime(el.end.value);
+            // Toggle on: move Start to keep Length. Otherwise keep Start and recompute Length.
+            const n = parseInt(el.length.value, 10);
+            if (el.lengthToggle.checked && endMin !== null && n >= 1 && endMin - n >= 0) {
+                startMin = endMin - n;
+                el.start.value = toInputValue(startMin);
+                render();
+                return;
+            }
+            syncLength();
+            render();
+        }
 
         function onLength() {
-            if (!el.lengthToggle.checked) return;
             const n = parseInt(el.length.value, 10);
             if (n >= 1) {
+                el.lengthToggle.checked = true;       // typing a length turns on "Set by length"
                 if (startMin === null) {
                     const now = new Date();
                     startMin = Math.min(1439, Math.round(now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60));
                     el.start.value = toInputValue(startMin);
                 }
-                if (startMin + n < 1440) {            // same day only
-                    endMin = startMin + n;
-                    el.end.value = toInputValue(endMin);
-                }
+                endFromLength();
             }
             render();
         }
@@ -396,12 +460,6 @@
             el.extraMinutes.addEventListener(type, render);
         });
 
-        el.lengthToggle.addEventListener('change', () => {
-            syncLength();
-            render();
-            if (el.lengthToggle.checked) el.length.focus();
-        });
-
         el.clear.addEventListener('click', () => {
             startMin = endMin = null;
             el.start.value = el.end.value = el.length.value = '';
@@ -410,13 +468,15 @@
 
         // ---------- Display toggles ----------
         el.progressToggle.addEventListener('change', render);
+        el.endToggle.addEventListener('change', render);
         el.extraToggle.addEventListener('change', render);
 
         // ---------- Positioning & dragging ----------
         function placeBlock() {
             const W = window.innerWidth, H = window.innerHeight;
             const w = el.display.offsetWidth, h = el.display.offsetHeight;
-            if (!el.freeToggle.checked) pos.fx = 0.5;
+            if (el.lockH.checked) pos.fx = 0.5;        // locked to horizontal center
+            if (el.lockV.checked) pos.fy = 0.5;        // locked to vertical center
             const x = clamp(pos.fx * W, w / 2, W - w / 2);
             const y = clamp(pos.fy * H, h / 2, H - h / 2);
             pos.fx = x / W; pos.fy = y / H;   // keep stored position inside the viewport
@@ -453,19 +513,24 @@
         el.display.addEventListener('pointercancel', endDrag);
 
         function resetPosition() { pos = { fx: 0.5, fy: 0.5 }; placeBlock(); }
-        el.display.addEventListener('dblclick', resetPosition);
-        el.resetPos.addEventListener('click', resetPosition);
-        el.freeToggle.addEventListener('change', placeBlock);   // off → snaps to horizontal center
+        el.display.addEventListener('dblclick', resetPosition);   // double-click the clock to re-center
+        el.lockH.addEventListener('change', placeBlock);   // on → snaps to horizontal center
+        el.lockV.addEventListener('change', placeBlock);   // on → snaps to vertical center
         window.addEventListener('resize', placeBlock);
 
-        // ---------- Clock size ----------
-        function applySize() {
-            el.time.style.fontSize = `${el.size.value}px`;
-            el.sizeValue.textContent = `${el.size.value}px`;
-            placeBlock();                    // re-clamp: a bigger clock may now overflow an edge
-        }
-        el.size.addEventListener('input', applySize);
-        el.resetSize.addEventListener('click', () => { el.size.value = DEFAULT_SIZE; applySize(); });
+        // ---------- Sizes ----------
+        SLIDERS.forEach(sl => {
+            const input = $(sl.id), label = $(`${sl.id}-value`);
+            const apply = () => {
+                el.display.style.setProperty(sl.cssVar, sl.css(input.value));
+                label.textContent = `${input.value}${sl.unit}`;
+                placeBlock();                // re-clamp: a bigger block may now overflow an edge
+            };
+            input.addEventListener('input', apply);
+            $(`${sl.id}-reset`).addEventListener('click', () => { input.value = sl.def; apply(); });
+            input.value = sl.def;            // fresh start on every load (ignore browser form restore)
+            apply();
+        });
 
         // ---------- Menu visibility ----------
         const MENU_ZONE = 100;     // px from top that reveals the menu
@@ -489,8 +554,29 @@
         document.addEventListener('mousemove', e => {
             if (!drag && e.clientY < MENU_ZONE) showMenu();
         });
-        document.addEventListener('pointerdown', e => {   // tap at the top on touch screens
-            if (e.pointerType !== 'mouse' && !el.display.contains(e.target) && e.clientY < MENU_ZONE) showMenu();
+        // Close right away (blurring any menu input), e.g. on Escape or a click outside the menu
+        function closeMenuNow() {
+            if (el.menu.contains(document.activeElement)) document.activeElement.blur();
+            menu.hovered = false;
+            menu.lastTyped = 0;
+            hideMenu();
+        }
+
+        // Click outside the open menu closes it. On the clock itself, only a click
+        // (press + release without moving) closes it, so dragging never does.
+        let clickOffStart = null;
+        document.addEventListener('pointerdown', e => {
+            if (menu.visible) {
+                if (el.menu.contains(e.target)) return;
+                if (el.display.contains(e.target)) clickOffStart = { x: e.clientX, y: e.clientY };
+                else closeMenuNow();
+            } else if (e.pointerType !== 'mouse' && !el.display.contains(e.target) && e.clientY < MENU_ZONE) {
+                showMenu();                                // tap at the top on touch screens
+            }
+        });
+        document.addEventListener('pointerup', e => {
+            if (clickOffStart && Math.hypot(e.clientX - clickOffStart.x, e.clientY - clickOffStart.y) < 5) closeMenuNow();
+            clickOffStart = null;
         });
         el.menu.addEventListener('pointerenter', () => { menu.hovered = true; });
         el.menu.addEventListener('pointerleave', () => { menu.hovered = false; menu.lastActive = Date.now(); });
@@ -507,20 +593,50 @@
         }, 200);
 
         document.addEventListener('keydown', e => {
-            if (e.key !== 'Escape') return;
-            if (el.menu.contains(document.activeElement)) document.activeElement.blur();
-            menu.hovered = false;
-            menu.lastTyped = 0;
-            hideMenu();
+            if (e.key === 'Escape') closeMenuNow();
         });
+
+        // ---------- Remembered settings (Start, End and Extra Time persist between loads) ----------
+        const STORAGE_KEY = 'classroomClock.times';
+        let savedJSON = '';
+        function saveSettings() {
+            const value = JSON.stringify({
+                start: startMin,
+                end: endMin,
+                extraOn: el.extraToggle.checked,
+                extraMins: parseInt(el.extraMinutes.value, 10) || null,
+            });
+            if (value === savedJSON) return;           // only write when something changed
+            savedJSON = value;
+            try { localStorage.setItem(STORAGE_KEY, value); } catch (e) { /* storage unavailable */ }
+        }
+        function loadSettings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+                if (!saved) return;
+                const validTime = v => Number.isInteger(v) && v >= 0 && v < 1440 ? v : null;
+                startMin = validTime(saved.start);
+                endMin = validTime(saved.end);
+                el.extraToggle.checked = saved.extraOn === true;
+                if (Number.isInteger(saved.extraMins) && saved.extraMins >= 1) el.extraMinutes.value = saved.extraMins;
+            } catch (e) { /* storage unavailable or corrupt: keep defaults */ }
+        }
+
+        // ---------- Start fresh: everything else back to defaults ----------
+        el.progressToggle.checked = el.endToggle.checked = true;
+        el.lengthToggle.checked = el.extraToggle.checked = el.lockH.checked = el.lockV.checked = false;
+        el.extraMinutes.value = 5;
+        loadSettings();
+        el.start.value = startMin === null ? '' : toInputValue(startMin);
+        el.end.value = endMin === null ? '' : toInputValue(endMin);
+        el.length.value = '';
+        syncLength();
 
         // ---------- Tick (aligned to the second) ----------
         function tick() {
             render();
             setTimeout(tick, 1000 - (Date.now() % 1000) + 10);
         }
-        el.size.value = DEFAULT_SIZE;        // fresh start on every load (ignore browser form restore)
-        applySize();
         tick();
     })();
     </script>
