@@ -177,7 +177,6 @@
     .transport #playPauseBtn:hover:not(:disabled) {
         background: #4ef06f;
     }
-
     .list {
         flex: 1 1 auto;
         min-width: 0;
@@ -488,10 +487,18 @@
         return visibleSongs();
     }
 
+    function songUrl(song) {
+        var url = new URL(location.href);
+        url.search = '?song=' + encodeURIComponent(song.path);
+        url.hash = '';
+        return url.toString();
+    }
+
     function playSong(song) {
         currentPath = song.path;
         audioEl.src = repoFileUrl(song.path);
         audioEl.play().catch(function () {});
+        try { history.replaceState(null, '', songUrl(song)); } catch (e) {}
         renderPlayerInfo();
         renderList();
     }
@@ -816,8 +823,16 @@
             picks.forEach(function (p) { picksByName[p.name] = p; });
 
             stateEl.textContent = songs.length === 0 ? 'No songs yet.' : '';
-            renderPlayerInfo();
-            renderList();
+
+            // a shared link (?song=<path>) selects and loads that song
+            var songParam = new URLSearchParams(location.search).get('song');
+            var sharedSong = songParam ? songByPath(songParam) : null;
+            if (sharedSong) {
+                playSong(sharedSong);
+            } else {
+                renderPlayerInfo();
+                renderList();
+            }
         })
         .catch(function () {
             stateEl.textContent = 'Couldn\'t load the song list right now.';
