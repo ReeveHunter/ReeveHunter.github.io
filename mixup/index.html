@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Group Shuffler</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -304,10 +305,6 @@
     height: 16px;
   }
 
-  body.focus-mode #viewFullscreenBtn {
-    display: none;
-  }
-
   .results-head h2 {
     font-family: "Zilla Slab", serif;
     font-size: 1.25rem;
@@ -492,16 +489,7 @@
   }
 
   body.focus-mode .results-head {
-    margin-bottom: 12px;
-    flex: 0 0 auto;
-  }
-
-  body.focus-mode .results-head h2 {
-    font-size: 1.15rem;
-  }
-
-  body.focus-mode .results-meta {
-    font-size: 0.85rem;
+    display: none;
   }
 
   body.focus-mode footer.hint {
@@ -565,7 +553,7 @@
       <div class="setup-grid">
         <div class="field">
           <label for="names">Student names</label>
-          <textarea id="names" placeholder="Paste names here — one per line, or separated by commas.&#10;&#10;Lily B&#10;Johanna&#10;Andrew&#10;John"></textarea>
+          <textarea id="names" placeholder="Paste names here — one per line, or separated by commas.&#10;&#10;Avery&#10;Jordan&#10;Priya&#10;Sam"></textarea>
           <p class="hint">One name per line, or a comma-separated list — either works.</p>
         </div>
         <div class="side-stack">
@@ -576,7 +564,16 @@
               <input type="number" id="groupSize" value="4" min="2" max="12" inputmode="numeric" />
               <button type="button" id="sizeUp" aria-label="Increase group size">+</button>
             </div>
-            <p class="hint">Groups are kept as close to your chosen size as possible.</p>
+            <p class="hint">Groups will be this size when possible.</p>
+          </div>
+          <div class="field">
+            <label for="minGroupSize">Smallest allowed group</label>
+            <div class="stepper">
+              <button type="button" id="minSizeDown" aria-label="Decrease smallest allowed group">–</button>
+              <input type="number" id="minGroupSize" value="3" min="1" max="3" inputmode="numeric" />
+              <button type="button" id="minSizeUp" aria-label="Increase smallest allowed group">+</button>
+            </div>
+            <p class="hint">If names don't divide evenly, we'll keep every group at least this big — combining a small leftover instead of leaving it short.</p>
           </div>
           <div>
             <button class="btn btn-primary" id="shuffleBtn" type="button">Shuffle into groups</button>
@@ -634,6 +631,9 @@
     var groupSizeEl = document.getElementById("groupSize");
     var sizeDownBtn = document.getElementById("sizeDown");
     var sizeUpBtn = document.getElementById("sizeUp");
+    var minGroupSizeEl = document.getElementById("minGroupSize");
+    var minSizeDownBtn = document.getElementById("minSizeDown");
+    var minSizeUpBtn = document.getElementById("minSizeUp");
     var shuffleBtn = document.getElementById("shuffleBtn");
     var reshuffleBtn = document.getElementById("reshuffleBtn");
     var statusLine = document.getElementById("statusLine");
@@ -643,6 +643,7 @@
     var emptyState = document.getElementById("emptyState");
 
     var currentGroups = [];
+    var minManuallySet = false;
 
     function parseNames(raw) {
       return raw
@@ -662,11 +663,11 @@
       return a;
     }
 
-    function computeGroupSizes(n, target) {
+    function computeGroupSizes(n, target, minSize) {
       if (n <= 0) return [];
       target = Math.max(1, target);
+      var threshold = Math.max(1, Math.min(minSize || target, target));
       var g = Math.max(1, Math.ceil(n / target));
-      var threshold = Math.min(3, target);
 
       function sizesFor(groupCount) {
         var base = Math.floor(n / groupCount);
@@ -684,6 +685,25 @@
         sizes = sizesFor(g);
       }
       return sizes;
+    }
+
+    // Keep "smallest allowed group" in sync with "students per group": it
+    // can never reach or exceed the target, and by default it trails the
+    // target by one. Once the person edits it directly, it locks in place
+    // (minManuallySet) and from then on we only clamp it down if the
+    // target shrinks past it — we never snap it back up automatically.
+    function syncMinWithTarget() {
+      var target = Math.max(2, parseInt(groupSizeEl.value, 10) || 4);
+      var maxMin = Math.max(1, target - 1);
+      minGroupSizeEl.max = String(maxMin);
+      if (!minManuallySet) {
+        minGroupSizeEl.value = maxMin;
+        return;
+      }
+      var v = parseInt(minGroupSizeEl.value, 10);
+      if (isNaN(v)) v = maxMin;
+      v = Math.max(1, Math.min(v, maxMin));
+      minGroupSizeEl.value = v;
     }
 
     function updateStatus() {
@@ -709,8 +729,10 @@
       var names = parseNames(namesEl.value);
       if (names.length < 2) return;
       var target = parseInt(groupSizeEl.value, 10) || 4;
+      var minSize = parseInt(minGroupSizeEl.value, 10);
+      if (isNaN(minSize)) minSize = Math.max(1, target - 1);
       var shuffled = shuffle(names);
-      var sizes = computeGroupSizes(shuffled.length, target);
+      var sizes = computeGroupSizes(shuffled.length, target, minSize);
 
       var groups = [];
       var cursor = 0;
@@ -780,53 +802,85 @@
     }
 
     // --- Drag & swap (pointer events; works for mouse + touch) ---
+    //
+    // Listeners live on `document`, not on the chip itself, and we don't
+    // rely on setPointerCapture. That avoids the main way this kind of
+    // drag silently breaks: capture being lost or never granted (e.g. the
+    // pointer wanders over a scrollable area) leaves the chip's own
+    // pointerup/pointercancel listeners never firing, which both strands
+    // the floating "ghost" copy on screen and eats the next drag attempt.
+    // Document-level listeners keep receiving events regardless of what's
+    // under the cursor. `activeDrag` is a second safety net: if a drag
+    // ever does end up abandoned anyway, the next pointerdown (or a
+    // window blur) cleans it up before starting anything new.
 
     var DRAG_THRESHOLD = 5;
+    var activeDrag = null;
+
+    function forceCleanupDrag() {
+      var d = activeDrag;
+      if (!d) return;
+      document.removeEventListener("pointermove", d.onMove);
+      document.removeEventListener("pointerup", d.onUp);
+      document.removeEventListener("pointercancel", d.onUp);
+      if (d.ghost) { d.ghost.remove(); }
+      if (d.chip) { d.chip.classList.remove("is-dragging"); }
+      if (d.currentTargetCardEl) { d.currentTargetCardEl.classList.remove("is-drop-target"); }
+      if (d.currentTargetChipEl) { d.currentTargetChipEl.classList.remove("is-target"); }
+      activeDrag = null;
+    }
 
     function attachDrag(chip) {
       chip.addEventListener("pointerdown", function (e) {
         if (e.button !== undefined && e.button !== 0) return;
-        var startX = e.clientX;
-        var startY = e.clientY;
-        var pointerId = e.pointerId;
-        var sourceGroup = parseInt(chip.dataset.group, 10);
-        var sourceIndex = parseInt(chip.dataset.index, 10);
-        var dragging = false;
-        var ghost = null;
-        var currentTargetCardEl = null;
-        var currentTargetChipEl = null;
+        if (activeDrag) forceCleanupDrag();
+
+        var drag = {
+          chip: chip,
+          pointerId: e.pointerId,
+          sourceGroup: parseInt(chip.dataset.group, 10),
+          sourceIndex: parseInt(chip.dataset.index, 10),
+          startX: e.clientX,
+          startY: e.clientY,
+          dragging: false,
+          ghost: null,
+          currentTargetCardEl: null,
+          currentTargetChipEl: null,
+          onMove: null,
+          onUp: null
+        };
 
         function clearHighlights() {
-          if (currentTargetCardEl) {
-            currentTargetCardEl.classList.remove("is-drop-target");
-            currentTargetCardEl = null;
+          if (drag.currentTargetCardEl) {
+            drag.currentTargetCardEl.classList.remove("is-drop-target");
+            drag.currentTargetCardEl = null;
           }
-          if (currentTargetChipEl) {
-            currentTargetChipEl.classList.remove("is-target");
-            currentTargetChipEl = null;
+          if (drag.currentTargetChipEl) {
+            drag.currentTargetChipEl.classList.remove("is-target");
+            drag.currentTargetChipEl = null;
           }
         }
 
         function startDrag() {
-          dragging = true;
+          drag.dragging = true;
           chip.classList.add("is-dragging");
-          ghost = document.createElement("div");
-          ghost.className = "chip-ghost";
-          ghost.style.setProperty("--tag-color", chip.style.getPropertyValue("--tag-color"));
-          ghost.textContent = chip.textContent;
-          document.body.appendChild(ghost);
+          drag.ghost = document.createElement("div");
+          drag.ghost.className = "chip-ghost";
+          drag.ghost.style.setProperty("--tag-color", chip.style.getPropertyValue("--tag-color"));
+          drag.ghost.textContent = chip.textContent;
+          document.body.appendChild(drag.ghost);
           positionGhost(e.clientX, e.clientY);
         }
 
         function positionGhost(x, y) {
-          if (!ghost) return;
-          ghost.style.transform = "translate(" + (x + 12) + "px, " + (y + 12) + "px)";
+          if (!drag.ghost) return;
+          drag.ghost.style.transform = "translate(" + (x + 12) + "px, " + (y + 12) + "px)";
         }
 
         function findDropTarget(x, y) {
-          if (ghost) ghost.style.display = "none";
+          if (drag.ghost) drag.ghost.style.display = "none";
           var el = document.elementFromPoint(x, y);
-          if (ghost) ghost.style.display = "";
+          if (drag.ghost) drag.ghost.style.display = "";
           if (!el) return null;
           var chipEl = el.closest(".chip");
           if (chipEl && chipEl !== chip) {
@@ -840,9 +894,9 @@
         }
 
         function onMove(ev) {
-          if (ev.pointerId !== pointerId) return;
-          if (!dragging) {
-            if (Math.abs(ev.clientX - startX) < DRAG_THRESHOLD && Math.abs(ev.clientY - startY) < DRAG_THRESHOLD) {
+          if (ev.pointerId !== drag.pointerId) return;
+          if (!drag.dragging) {
+            if (Math.abs(ev.clientX - drag.startX) < DRAG_THRESHOLD && Math.abs(ev.clientY - drag.startY) < DRAG_THRESHOLD) {
               return;
             }
             startDrag();
@@ -855,37 +909,44 @@
             var cardEl = document.querySelector('.group-card[data-group-card="' + target.group + '"]');
             if (cardEl) {
               cardEl.classList.add("is-drop-target");
-              currentTargetCardEl = cardEl;
+              drag.currentTargetCardEl = cardEl;
             }
             if (target.type === "chip") {
               target.el.classList.add("is-target");
-              currentTargetChipEl = target.el;
+              drag.currentTargetChipEl = target.el;
             }
           }
         }
 
         function onUp(ev) {
-          if (ev.pointerId !== pointerId) return;
-          chip.releasePointerCapture(pointerId);
-          chip.removeEventListener("pointermove", onMove);
-          chip.removeEventListener("pointerup", onUp);
-          chip.removeEventListener("pointercancel", onUp);
+          if (ev.pointerId !== drag.pointerId) return;
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          document.removeEventListener("pointercancel", onUp);
 
-          if (dragging) {
-            var target = findDropTarget(ev.clientX, ev.clientY);
-            clearHighlights();
-            chip.classList.remove("is-dragging");
-            if (ghost) { ghost.remove(); ghost = null; }
-            applyMove({ group: sourceGroup, index: sourceIndex }, target);
+          var wasDragging = drag.dragging;
+          var target = wasDragging ? findDropTarget(ev.clientX, ev.clientY) : null;
+          clearHighlights();
+          chip.classList.remove("is-dragging");
+          if (drag.ghost) { drag.ghost.remove(); drag.ghost = null; }
+          if (activeDrag === drag) activeDrag = null;
+
+          if (wasDragging) {
+            applyMove({ group: drag.sourceGroup, index: drag.sourceIndex }, target);
           }
         }
 
-        chip.setPointerCapture(pointerId);
-        chip.addEventListener("pointermove", onMove);
-        chip.addEventListener("pointerup", onUp);
-        chip.addEventListener("pointercancel", onUp);
+        drag.onMove = onMove;
+        drag.onUp = onUp;
+        activeDrag = drag;
+
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp);
+        document.addEventListener("pointercancel", onUp);
       });
     }
+
+    window.addEventListener("blur", forceCleanupDrag);
 
     function applyMove(source, target) {
       if (!target) return;
@@ -1023,21 +1084,49 @@
     sizeDownBtn.addEventListener("click", function () {
       var v = Math.max(2, (parseInt(groupSizeEl.value, 10) || 4) - 1);
       groupSizeEl.value = v;
+      syncMinWithTarget();
     });
     sizeUpBtn.addEventListener("click", function () {
       var v = Math.min(12, (parseInt(groupSizeEl.value, 10) || 4) + 1);
       groupSizeEl.value = v;
+      syncMinWithTarget();
     });
     groupSizeEl.addEventListener("change", function () {
       var v = parseInt(groupSizeEl.value, 10);
       if (isNaN(v)) v = 4;
       v = Math.max(2, Math.min(12, v));
       groupSizeEl.value = v;
+      syncMinWithTarget();
+    });
+
+    minSizeDownBtn.addEventListener("click", function () {
+      minManuallySet = true;
+      var target = Math.max(2, parseInt(groupSizeEl.value, 10) || 4);
+      var maxMin = Math.max(1, target - 1);
+      var v = Math.max(1, (parseInt(minGroupSizeEl.value, 10) || maxMin) - 1);
+      minGroupSizeEl.value = Math.min(v, maxMin);
+    });
+    minSizeUpBtn.addEventListener("click", function () {
+      minManuallySet = true;
+      var target = Math.max(2, parseInt(groupSizeEl.value, 10) || 4);
+      var maxMin = Math.max(1, target - 1);
+      var v = Math.min(maxMin, (parseInt(minGroupSizeEl.value, 10) || 1) + 1);
+      minGroupSizeEl.value = v;
+    });
+    minGroupSizeEl.addEventListener("change", function () {
+      minManuallySet = true;
+      syncMinWithTarget();
+    });
+    minGroupSizeEl.addEventListener("input", function () {
+      minManuallySet = true;
     });
 
     shuffleBtn.addEventListener("click", buildGroups);
     reshuffleBtn.addEventListener("click", buildGroups);
 
+    syncMinWithTarget();
     updateStatus();
   })();
 </script>
+
+</body></html>
