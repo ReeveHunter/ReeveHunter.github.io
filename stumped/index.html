@@ -131,14 +131,18 @@
   /* keyboard: keys name actions; the game turns each into the right button for the screen
      (indexes match KA_* in src/main.c) */
   var KA = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, OK: 4, ESC: 5, BACK: 6, UNDO: 7, REDO: 8, RESTART: 9, MAP: 10,
-             ZOOM_OUT: 11, ZOOM_IN: 12, PREV: 13, NEXT: 14, PAUSE: 15, LEVELS: 16, CLEAR: 17 };
+             ZOOM_OUT: 11, ZOOM_IN: 12, PREV: 13, NEXT: 14, PAUSE: 15, LEVELS: 16, CLEAR: 17,
+             D0: 18, D1: 19, D2: 20, D3: 21, D4: 22, D5: 23, D6: 24, D7: 25, D8: 26, D9: 27, RIM: 28, NEW: 29 };
   var KEYS = {
     ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', KeyW: 'UP', KeyS: 'DOWN', KeyA: 'LEFT', KeyD: 'RIGHT',
     Enter: 'OK', NumpadEnter: 'OK', Space: 'OK', Escape: 'ESC', Backspace: 'BACK',
     KeyZ: 'UNDO', KeyU: 'UNDO', KeyY: 'REDO', KeyR: 'RESTART', KeyM: 'MAP', Tab: 'MAP',
     Minus: 'ZOOM_OUT', NumpadSubtract: 'ZOOM_OUT', Equal: 'ZOOM_IN', NumpadAdd: 'ZOOM_IN',
-    BracketLeft: 'PREV', BracketRight: 'NEXT', KeyP: 'PAUSE', KeyL: 'LEVELS', Delete: 'CLEAR'
+    BracketLeft: 'PREV', BracketRight: 'NEXT', KeyP: 'PAUSE', KeyL: 'LEVELS', Delete: 'CLEAR',
+    /* Listen plays along on the number keys (top row or ten-key) */
+    Backquote: 'RIM', Period: 'RIM', NumpadDecimal: 'RIM', KeyN: 'NEW'
   };
+  for (var d = 0; d <= 9; d++) { KEYS['Digit' + d] = 'D' + d; KEYS['Numpad' + d] = 'D' + d; }
   /* prompts in the game follow the last thing used: keyboard, or buttons (touch / controller) */
   var kbdMode = -1;
   function setMode(kbd) {
@@ -628,7 +632,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261006090210'; },
+    locateFile: function (path) { return path + '?v=20261006103909'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -660,6 +664,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261006090210" async></script>
+<script src="stumped.js?v=20261006103909" async></script>
 </body>
 </html>
