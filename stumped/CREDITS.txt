@@ -1,0 +1,11 @@
+Sokoban puzzle sets by David W. Skinner, Grandview, Washington, USA
+  Microban, Microban II, Microban III, Microban IV
+  Sasquatch (revised 2010), Sasquatch II - XII
+
+"My sets are in two groups: Sasquatch and Microban.
+ These sets may be freely distributed provided they remain properly credited."
+                                                   - David W. Skinner
+
+Text files from the Sokoban4J collection (https://github.com/medovina/Sokoban4J),
+published there with the author's permission.
+Sokoban (c) 1982 Thinking Rabbit Inc.

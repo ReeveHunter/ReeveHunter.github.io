@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Stumped</title>
+<meta name="description" content="A Game Boy–style Sokoban in a forest at night, with 1,093 puzzles by David W. Skinner.">
+<meta name="theme-color" content="#0C1028">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stumped">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  /* the four shades follow the in-game palette (Night until the game says otherwise) */
+  :root { --c0: #9AA8D8; --c1: #5C6CA8; --c2: #2E3868; --c3: #0C1028; --pad: 168px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--c3); color: var(--c0); }
+  body {
+    font-family: "Press Start 2P", ui-monospace, monospace; font-size: 10px; line-height: 1.8;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; overflow: hidden;
+  }
+  a { color: var(--c0); }
+  #app {
+    min-height: 100%; height: 100dvh; display: grid; justify-content: center; align-content: center;
+    gap: 16px; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    grid-template-areas: "head" "screen" "help";
+  }
+  header { grid-area: head; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  header h1 { font-size: 16px; margin: 0; font-weight: normal; letter-spacing: 1px; }
+  header span { color: var(--c1); }
+  #screen-wrap { grid-area: screen; position: relative; justify-self: center; line-height: 0; }
+  canvas {
+    display: block; width: 640px; height: 480px; image-rendering: pixelated; image-rendering: crisp-edges;
+    background: var(--c3); outline: 4px solid var(--c2);
+  }
+  #start {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; background: color-mix(in srgb, var(--c3) 78%, transparent); cursor: pointer; line-height: 1.8;
+    text-align: center; padding: 16px;
+  }
+  #start b { font-size: 24px; font-weight: normal; }
+  #start .go { background: var(--c0); color: var(--c3); padding: 8px 16px; animation: blink 1.2s steps(2) infinite; }
+  #start.hidden { display: none; }
+  @keyframes blink { 50% { opacity: .55; } }
+  #help { grid-area: help; color: var(--c1); max-width: 640px; justify-self: center; }
+  #help kbd { color: var(--c0); font-family: inherit; }
+  #help p { margin: 0 0 8px; }
+  .pad { display: none; }
+
+  /* ---------- touch controls ---------- */
+  .touch #help { display: none; }
+  .touch header { display: none; }
+  .touch .pad { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .touch #app { grid-template-areas: "screen screen" "left right"; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; align-content: stretch; }
+  .touch #pad-left { grid-area: left; } .touch #pad-right { grid-area: right; }
+  @media (orientation: landscape) {
+    .touch #app { grid-template-areas: "left screen right"; grid-template-columns: var(--pad) auto var(--pad); grid-template-rows: auto; align-content: center; }
+  }
+  .row { display: flex; gap: 12px; }
+  button {
+    font: inherit; color: var(--c3); background: var(--c1); border: 0; border-radius: 6px; padding: 0;
+    touch-action: none; -webkit-user-select: none; user-select: none; box-shadow: 0 4px 0 var(--c2);
+  }
+  button.on { background: var(--c0); transform: translateY(3px); box-shadow: 0 1px 0 var(--c2); }
+  .sh { width: 64px; height: 32px; }
+  .pill { width: 72px; height: 24px; border-radius: 12px; font-size: 8px; }
+  #abxy { position: relative; width: 156px; height: 156px; }
+  #abxy button { position: absolute; width: 56px; height: 56px; border-radius: 50%; font-size: 14px; }
+  #abxy [data-b="X"] { left: 50px; top: 0; } #abxy [data-b="B"] { left: 50px; bottom: 4px; }
+  #abxy [data-b="Y"] { left: 0; top: 48px; } #abxy [data-b="A"] { right: 0; top: 48px; }
+  #dpad { position: relative; width: 156px; height: 156px; touch-action: none; }
+  #dpad div { position: absolute; background: var(--c1); box-shadow: 0 4px 0 var(--c2); }
+  #dpad .h { left: 4px; right: 4px; top: 52px; height: 52px; border-radius: 6px; }
+  #dpad .v { top: 4px; bottom: 4px; left: 52px; width: 52px; border-radius: 6px; }
+  #dpad .hub { left: 52px; top: 52px; width: 52px; height: 52px; box-shadow: none; }
+  #dpad .arrow { background: none; box-shadow: none; width: 0; height: 0; border: 9px solid transparent; }
+  #dpad .arrow.on { filter: brightness(1.8); }
+  #dpad .up    { left: 69px; top: 10px; border-bottom-color: var(--c3); }
+  #dpad .down  { left: 69px; bottom: 10px; border-top-color: var(--c3); }
+  #dpad .left  { top: 69px; left: 10px; border-right-color: var(--c3); }
+  #dpad .right { top: 69px; right: 10px; border-left-color: var(--c3); }
+  #dpad.d-up .v, #dpad.d-down .v, #dpad.d-left .h, #dpad.d-right .h { background: var(--c0); }
+  #dpad.d-up .hub, #dpad.d-down .hub, #dpad.d-left .hub, #dpad.d-right .hub { background: var(--c0); }
+  #touch-toggle { color: var(--c1); }
+  noscript, .err { display: block; padding: 16px; color: var(--c0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header><h1>STUMPED</h1><span>v0.1</span></header>
+
+  <div id="screen-wrap">
+    <canvas id="screen" width="640" height="480" aria-label="Stumped game screen"></canvas>
+    <div id="start"><b>STUMPED</b><span class="go" id="go">Loading…</span><span id="start-hint"></span></div>
+  </div>
+
+  <div class="pad" id="pad-left">
+    <div class="row"><button class="sh" data-b="L2">L2</button><button class="sh" data-b="L1">L1</button></div>
+    <div id="dpad" aria-label="D-pad">
+      <div class="h"></div><div class="v"></div><div class="hub"></div>
+      <div class="arrow up"></div><div class="arrow down"></div><div class="arrow left"></div><div class="arrow right"></div>
+    </div>
+    <button class="pill" data-b="SELECT">SELECT</button>
+  </div>
+
+  <div class="pad" id="pad-right">
+    <div class="row"><button class="sh" data-b="R1">R1</button><button class="sh" data-b="R2">R2</button></div>
+    <div id="abxy">
+      <button data-b="X">X</button><button data-b="Y">Y</button><button data-b="A">A</button><button data-b="B">B</button>
+    </div>
+    <button class="pill" data-b="START">START</button>
+  </div>
+
+  <div id="help">
+    <p><kbd>Arrows</kbd> walk / push &nbsp; <kbd>Z</kbd> B: undo, back &nbsp; <kbd>X</kbd> A: redo, choose</p>
+    <p><kbd>S</kbd> X: hold to restart &nbsp; <kbd>A</kbd> Y: hold for map &nbsp; <kbd>1</kbd>/<kbd>2</kbd> zoom</p>
+    <p><kbd>Q</kbd>/<kbd>W</kbd> previous / next level &nbsp; <kbd>Enter</kbd> Start: pause &nbsp; <kbd>Shift</kbd> Select: levels</p>
+    <p>Puzzles by David W. Skinner. Progress is saved in this browser. Also plays on the Miyoo Mini.
+       <a href="#" id="touch-toggle">Touch controls</a></p>
+  </div>
+</div>
+<noscript>Stumped needs JavaScript.</noscript>
+
+<script>
+(function () {
+  'use strict';
+  /* button indexes match WEB_BTN in src/main.c */
+  var BTN = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, A: 4, B: 5, X: 6, Y: 7, L1: 8, R1: 9, L2: 10, R2: 11, SELECT: 12, START: 13, MENU: 14 };
+  /* keyboard: RetroArch-style letters (Z/X = B/A, A/S = Y/X) plus a few extras */
+  var KEYS = {
+    ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT',
+    KeyX: 'A', Space: 'A', KeyZ: 'B', Backspace: 'B', KeyS: 'X', KeyA: 'Y',
+    KeyQ: 'L1', KeyW: 'R1', Digit1: 'L2', Minus: 'L2', Digit2: 'R2', Equal: 'R2',
+    Enter: 'START', NumpadEnter: 'START', ShiftLeft: 'SELECT', ShiftRight: 'SELECT', Escape: 'MENU'
+  };
+  var SAVE_KEY = 'stumped-save';
+  var canvas = document.getElementById('screen'), ctx = canvas.getContext('2d');
+  var image = ctx.createImageData(640, 480);
+  var start = document.getElementById('start'), go = document.getElementById('go');
+  var ready = false, started = false;
+
+  /* ---------- buttons: keyboard and touch can hold the same button; count holders ---------- */
+  var holders = {};
+  function press(name, down) {
+    var b = BTN[name]; if (b === undefined) return;
+    var n = holders[name] || 0;
+    holders[name] = n = Math.max(0, n + (down ? 1 : -1));
+    if (!ready) return;
+    if (down && n === 1) Module._web_key(b, 1);
+    else if (!down && n === 0) Module._web_key(b, 0);
+  }
+  function releaseAll() {
+    for (var k in holders) if (holders[k] > 0) { holders[k] = 1; press(k, false); }
+    document.querySelectorAll('.on').forEach(function (e) { e.classList.remove('on'); });
+    dpadSet(null);
+  }
+
+  /* ---------- start overlay: the first click/tap/key unlocks audio ---------- */
+  function begin() {
+    if (!ready || started) return false;
+    started = true;
+    start.classList.add('hidden');
+    startAudio();
+    return true;
+  }
+  start.addEventListener('pointerdown', function (e) { e.preventDefault(); begin(); });
+
+  window.addEventListener('keydown', function (e) {
+    var name = KEYS[e.code];
+    if (!name || e.metaKey || e.ctrlKey || e.altKey) return;
+    e.preventDefault();
+    if (begin()) return;             /* the key that starts the game doesn't also press a button */
+    if (e.repeat) return;            /* the game does its own hold-to-repeat */
+    press(name, true);
+  });
+  window.addEventListener('keyup', function (e) {
+    var name = KEYS[e.code];
+    if (!name) return;
+    e.preventDefault();
+    if (holders[name] > 0) press(name, false);
+  });
+  window.addEventListener('blur', releaseAll);
+
+  /* ---------- touch buttons ---------- */
+  var buzz = function () { if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} };
+  document.querySelectorAll('button[data-b]').forEach(function (el) {
+    var name = el.getAttribute('data-b'), held = false;
+    function up() { if (held) { held = false; el.classList.remove('on'); press(name, false); } }
+    el.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); begin();
+      try { el.setPointerCapture(e.pointerId); } catch (err) {}
+      if (!held) { held = true; el.classList.add('on'); buzz(); press(name, true); }
+    });
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('lostpointercapture', up);
+    el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  });
+
+  /* the D-pad is one surface: the direction follows the finger, so you can roll between arrows */
+  var dpad = document.getElementById('dpad'), dpadDir = null, dpadPointer = null;
+  var ARROWS = { UP: 'up', DOWN: 'down', LEFT: 'left', RIGHT: 'right' };
+  function dpadSet(dir) {
+    if (dir === dpadDir) return;
+    if (dpadDir) { press(dpadDir, false); dpad.classList.remove('d-' + ARROWS[dpadDir]); }
+    dpadDir = dir;
+    if (dir) { press(dir, true); dpad.classList.add('d-' + ARROWS[dir]); buzz(); }
+  }
+  function dpadAt(e) {
+    var r = dpad.getBoundingClientRect();
+    var x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
+    if (Math.hypot(x, y) < r.width * 0.12) return dpadDir;   /* small dead zone in the middle */
+    return Math.abs(x) > Math.abs(y) ? (x < 0 ? 'LEFT' : 'RIGHT') : (y < 0 ? 'UP' : 'DOWN');
+  }
+  dpad.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); begin();
+    dpadPointer = e.pointerId;
+    try { dpad.setPointerCapture(e.pointerId); } catch (err) {}
+    dpadSet(dpadAt(e) || 'UP');
+  });
+  dpad.addEventListener('pointermove', function (e) { if (e.pointerId === dpadPointer) dpadSet(dpadAt(e)); });
+  function dpadUp(e) { if (e.pointerId === dpadPointer) { dpadPointer = null; dpadSet(null); } }
+  dpad.addEventListener('pointerup', dpadUp);
+  dpad.addEventListener('pointercancel', dpadUp);
+  dpad.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  /* show the touch controls on touch screens (or when asked) */
+  var touchPref = null;
+  try { touchPref = localStorage.getItem('stumped-touch'); } catch (e) {}
+  function setTouch(on) { document.body.classList.toggle('touch', on); layout(); }
+  var coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  window.addEventListener('touchstart', function () { if (touchPref === null) setTouch(true); }, { once: true, passive: true });
+  document.getElementById('touch-toggle').addEventListener('click', function (e) {
+    e.preventDefault();
+    var on = !document.body.classList.contains('touch');
+    touchPref = on ? '1' : '0';
+    try { localStorage.setItem('stumped-touch', touchPref); } catch (err) {}
+    setTouch(on);
+  });
+
+  /* ---------- canvas size: as big as fits; whole-pixel steps on desktop screens ---------- */
+  function layout() {
+    var touch = document.body.classList.contains('touch');
+    var vw = window.innerWidth, vh = window.innerHeight, w;
+    if (!touch) w = Math.min(vw - 32, (vh - 200) * 4 / 3);
+    else if (vw > vh) w = Math.min(vw - 2 * 168 - 64, (vh - 24) * 4 / 3);
+    else w = Math.min(vw - 16, (vh - 300) * 4 / 3);
+    w = Math.max(160, w);
+    var dpr = window.devicePixelRatio || 1, dev = w * dpr / 640;
+    if (dev >= 1 && Math.floor(dev) / dev > 0.8) w = Math.floor(dev) * 640 / dpr;   /* crisp, even pixels */
+    canvas.style.width = Math.round(w) + 'px';
+    canvas.style.height = Math.round(w * 3 / 4) + 'px';
+  }
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', function () { setTimeout(layout, 200); });
+  setTouch(touchPref !== null ? touchPref === '1' : coarse);
+
+  /* ---------- audio: Web Audio pulls samples from the game's mixer (48 kHz stereo) ---------- */
+  var actx = null;
+  function startAudio() {
+    if (actx) { if (actx.state !== 'running') actx.resume(); return; }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { actx = new AC({ sampleRate: 48000, latencyHint: 'interactive' }); } catch (e) { actx = new AC(); }
+    var ratio = 48000 / actx.sampleRate;            /* game frames per output frame */
+    var node = actx.createScriptProcessor(2048, 0, 2);
+    var qL = new Float32Array(16384), qR = new Float32Array(16384), qn = 0, pos = 0;
+    function pull(frames) {                           /* append frames from the game to the queue */
+      while (frames > 0) {
+        var n = Math.min(frames, 4096), p = Module._web_audio_fill(n) >> 1, h = Module.HEAP16;
+        for (var i = 0; i < n; i++) { qL[qn] = h[p + 2 * i] / 32768; qR[qn] = h[p + 2 * i + 1] / 32768; qn++; }
+        frames -= n;
+      }
+    }
+    node.onaudioprocess = function (e) {
+      var L = e.outputBuffer.getChannelData(0), R = e.outputBuffer.getChannelData(1), n = L.length, i;
+      if (!ready) { L.fill(0); R.fill(0); return; }
+      if (ratio === 1) {
+        var p = Module._web_audio_fill(n) >> 1, h = Module.HEAP16;
+        for (i = 0; i < n; i++) { L[i] = h[p + 2 * i] / 32768; R[i] = h[p + 2 * i + 1] / 32768; }
+        return;
+      }
+      var need = Math.floor(pos + (n - 1) * ratio) + 2;   /* linear resampling for other rates */
+      if (qn < need) pull(need - qn);
+      for (i = 0; i < n; i++) {
+        var x = pos + i * ratio, k = Math.floor(x), f = x - k;
+        L[i] = qL[k] + (qL[k + 1] - qL[k]) * f;
+        R[i] = qR[k] + (qR[k + 1] - qR[k]) * f;
+      }
+      var used = Math.floor(pos + n * ratio);
+      pos = pos + n * ratio - used;
+      qL.copyWithin(0, used, qn); qR.copyWithin(0, used, qn); qn -= used;
+    };
+    node.connect(actx.destination);
+    if (actx.state !== 'running') actx.resume();
+  }
+
+  /* keep the exact position when the tab is hidden or closed, and rest the audio */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { releaseAll(); if (ready) Module._web_save(); if (actx) actx.suspend(); }
+    else if (actx && started) actx.resume();
+  });
+  window.addEventListener('pagehide', function () { if (ready) Module._web_save(); });
+
+  /* ---------- the game module ---------- */
+  window.Module = {
+    canvas: canvas,
+    print: function (t) { console.log(t); },
+    printErr: function (t) { console.warn(t); },
+    locateFile: function (path) { return path + '?v=20261005215436'; },
+    stumpedPresent: function (heap, ptr) {
+      image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
+      ctx.putImageData(image, 0, 0);
+    },
+    stumpedLoad: function () {
+      try { var s = localStorage.getItem(SAVE_KEY); if (s) Module.FS.writeFile('save.txt', s); } catch (e) {}
+    },
+    stumpedStore: function () {
+      try { localStorage.setItem(SAVE_KEY, Module.FS.readFile('save.txt', { encoding: 'utf8' })); } catch (e) {}
+    },
+    stumpedPalette: function (a, b, c, d) {
+      var r = document.documentElement.style, hex = function (v) { return '#' + ('00000' + (v >>> 0).toString(16)).slice(-6); };
+      r.setProperty('--c0', hex(a)); r.setProperty('--c1', hex(b)); r.setProperty('--c2', hex(c)); r.setProperty('--c3', hex(d));
+      var m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = hex(d);
+    },
+    onRuntimeInitialized: function () {
+      ready = true;
+      go.textContent = coarse ? 'Tap to start' : 'Click or press a key';
+    },
+    onAbort: function (what) {
+      go.textContent = 'Something went wrong'; go.style.animation = 'none';
+      document.getElementById('start-hint').textContent = String(what || '');
+      start.classList.remove('hidden');
+    }
+  };
+})();
+</script>
+<script src="stumped.js?v=20261005215436" async></script>
+</body>
+</html>
