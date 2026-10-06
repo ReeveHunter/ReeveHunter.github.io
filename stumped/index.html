@@ -36,7 +36,7 @@
   header h1 { font-size: 16px; margin: 0; font-weight: normal; letter-spacing: 1px; }
   header span { color: var(--c1); }
   #screen-wrap { grid-area: screen; position: relative; justify-self: center; line-height: 0; }
-  canvas {
+  #screen {
     display: block; width: 640px; height: 480px; image-rendering: pixelated; image-rendering: crisp-edges;
     background: var(--c3); outline: 4px solid var(--c2);
   }
@@ -54,40 +54,24 @@
   #help p { margin: 0 0 8px; }
   .pad { display: none; }
 
-  /* ---------- touch controls ---------- */
+  /* ---------- touch controls: pixel art drawn in the palette (see drawControls) ---------- */
   .touch #help { display: none; }
   .touch header { display: none; }
-  .touch .pad { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .touch .pad { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--art) * 6px); }
   .touch #app { grid-template-areas: "screen screen" "left right"; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; align-content: stretch; }
   .touch #pad-left { grid-area: left; } .touch #pad-right { grid-area: right; }
   @media (orientation: landscape) {
     .touch #app { grid-template-areas: "left screen right"; grid-template-columns: var(--pad) auto var(--pad); grid-template-rows: auto; align-content: center; }
   }
-  .row { display: flex; gap: 12px; }
-  button {
-    font: inherit; color: var(--c3); background: var(--c1); border: 0; border-radius: 6px; padding: 0;
-    touch-action: none; -webkit-user-select: none; user-select: none; box-shadow: 0 4px 0 var(--c2);
+  :root { --art: 3; }
+  .row { display: flex; gap: calc(var(--art) * 4px); }
+  button[data-b], #dpad {
+    display: block; position: relative; background: none; border: 0; padding: 0; margin: 0; line-height: 0;
+    touch-action: none; -webkit-user-select: none; user-select: none; cursor: pointer;
   }
-  button.on { background: var(--c0); transform: translateY(3px); box-shadow: 0 1px 0 var(--c2); }
-  .sh { width: 64px; height: 32px; }
-  .pill { width: 72px; height: 24px; border-radius: 12px; font-size: 8px; }
-  #abxy { position: relative; width: 156px; height: 156px; }
-  #abxy button { position: absolute; width: 56px; height: 56px; border-radius: 50%; font-size: 14px; }
-  #abxy [data-b="X"] { left: 50px; top: 0; } #abxy [data-b="B"] { left: 50px; bottom: 4px; }
-  #abxy [data-b="Y"] { left: 0; top: 48px; } #abxy [data-b="A"] { right: 0; top: 48px; }
-  #dpad { position: relative; width: 156px; height: 156px; touch-action: none; }
-  #dpad div { position: absolute; background: var(--c1); box-shadow: 0 4px 0 var(--c2); }
-  #dpad .h { left: 4px; right: 4px; top: 52px; height: 52px; border-radius: 6px; }
-  #dpad .v { top: 4px; bottom: 4px; left: 52px; width: 52px; border-radius: 6px; }
-  #dpad .hub { left: 52px; top: 52px; width: 52px; height: 52px; box-shadow: none; }
-  #dpad .arrow { background: none; box-shadow: none; width: 0; height: 0; border: 9px solid transparent; }
-  #dpad .arrow.on { filter: brightness(1.8); }
-  #dpad .up    { left: 69px; top: 10px; border-bottom-color: var(--c3); }
-  #dpad .down  { left: 69px; bottom: 10px; border-top-color: var(--c3); }
-  #dpad .left  { top: 69px; left: 10px; border-right-color: var(--c3); }
-  #dpad .right { top: 69px; right: 10px; border-left-color: var(--c3); }
-  #dpad.d-up .v, #dpad.d-down .v, #dpad.d-left .h, #dpad.d-right .h { background: var(--c0); }
-  #dpad.d-up .hub, #dpad.d-down .hub, #dpad.d-left .hub, #dpad.d-right .hub { background: var(--c0); }
+  canvas.art { display: block; image-rendering: pixelated; image-rendering: crisp-edges; pointer-events: none; }
+  #abxy { position: relative; }
+  #abxy button { position: absolute; }
   #touch-toggle { color: var(--c1); }
   noscript, .err { display: block; padding: 16px; color: var(--c0); }
 </style>
@@ -102,20 +86,18 @@
   </div>
 
   <div class="pad" id="pad-left">
-    <div class="row"><button class="sh" data-b="L2">L2</button><button class="sh" data-b="L1">L1</button></div>
-    <div id="dpad" aria-label="D-pad">
-      <div class="h"></div><div class="v"></div><div class="hub"></div>
-      <div class="arrow up"></div><div class="arrow down"></div><div class="arrow left"></div><div class="arrow right"></div>
-    </div>
-    <button class="pill" data-b="SELECT">SELECT</button>
+    <div class="row"><button data-b="L2" aria-label="L2"></button><button data-b="L1" aria-label="L1"></button></div>
+    <div id="dpad" aria-label="D-pad"></div>
+    <button data-b="SELECT" aria-label="Select"></button>
   </div>
 
   <div class="pad" id="pad-right">
-    <div class="row"><button class="sh" data-b="R1">R1</button><button class="sh" data-b="R2">R2</button></div>
+    <div class="row"><button data-b="R1" aria-label="R1"></button><button data-b="R2" aria-label="R2"></button></div>
     <div id="abxy">
-      <button data-b="X">X</button><button data-b="Y">Y</button><button data-b="A">A</button><button data-b="B">B</button>
+      <button data-b="X" aria-label="X"></button><button data-b="Y" aria-label="Y"></button>
+      <button data-b="A" aria-label="A"></button><button data-b="B" aria-label="B"></button>
     </div>
-    <button class="pill" data-b="START">START</button>
+    <button data-b="START" aria-label="Start"></button>
   </div>
 
   <div id="help">
@@ -152,14 +134,14 @@
     var b = BTN[name]; if (b === undefined) return;
     var n = holders[name] || 0;
     holders[name] = n = Math.max(0, n + (down ? 1 : -1));
-    if (!ready) return;
-    if (down && n === 1) Module._web_key(b, 1);
-    else if (!down && n === 0) Module._web_key(b, 0);
+    if ((down && n === 1) || (!down && n === 0)) {
+      if (ready) Module._web_key(b, down ? 1 : 0);
+      drawControl(name);              /* keys light up the on-screen buttons too */
+    }
   }
   function releaseAll() {
-    for (var k in holders) if (holders[k] > 0) { holders[k] = 1; press(k, false); }
-    document.querySelectorAll('.on').forEach(function (e) { e.classList.remove('on'); });
     dpadSet(null);
+    for (var k in holders) if (holders[k] > 0) { holders[k] = 1; press(k, false); }
   }
 
   /* ---------- start overlay: the first click/tap/key unlocks audio ---------- */
@@ -188,15 +170,148 @@
   });
   window.addEventListener('blur', releaseAll);
 
-  /* ---------- touch buttons ---------- */
+  /* ---------- touch controls, drawn as pixel art in the game's four shades ----------
+     Each control is a tiny canvas (sizes in art pixels) blown up with crisp square pixels.
+     Buttons the current screen doesn't use are drawn as dim outlines (the game tells us which). */
+  var pal = ['#9AA8D8', '#5C6CA8', '#2E3868', '#0C1028'];
+  var enabled = 0x3FFF, ART = 3;
   var buzz = function () { if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} };
+  /* the game's 8×8 font (font8x8, bit 0 = left) for the big labels, and a 3×5 one for the small ones */
+  var F8 = { A: [12, 30, 51, 51, 63, 51, 51], B: [63, 102, 102, 62, 102, 102, 63], X: [99, 99, 54, 28, 28, 54, 99],
+             Y: [51, 51, 51, 30, 12, 12, 30], L: [15, 6, 6, 6, 70, 102, 127], R: [63, 102, 102, 62, 54, 102, 103],
+             1: [12, 14, 12, 12, 12, 12, 63], 2: [30, 51, 48, 28, 6, 51, 63] };
+  var F3 = { S: ['111', '100', '111', '001', '111'], E: ['111', '100', '110', '100', '111'], L: ['100', '100', '100', '100', '111'],
+             C: ['111', '100', '100', '100', '111'], T: ['111', '010', '010', '010', '010'], A: ['010', '101', '111', '101', '101'],
+             R: ['110', '101', '110', '101', '101'] };
+  function glyph8(ch) {                     /* -> {w, px(x,y)} trimmed to its ink */
+    var rows = F8[ch], lo = 8, hi = -1;
+    rows.forEach(function (r) { for (var b = 0; b < 8; b++) if (r >> b & 1) { lo = Math.min(lo, b); hi = Math.max(hi, b); } });
+    return { w: hi - lo + 1, h: 7, on: function (x, y) { return rows[y] >> (x + lo) & 1; } };
+  }
+  function label8(text) {                   /* glyphs side by side, 1 px apart */
+    var gs = text.split('').map(glyph8), w = gs.reduce(function (a, g) { return a + g.w; }, 0) + gs.length - 1;
+    return { w: w, h: 7, on: function (x, y) {
+      for (var i = 0; i < gs.length; i++) { if (x < gs[i].w) return gs[i].on(x, y); x -= gs[i].w + 1; if (x < 0) return 0; }
+      return 0; } };
+  }
+  function label3(text) {
+    return { w: text.length * 4 - 1, h: 5, on: function (x, y) {
+      var i = Math.floor(x / 4), cx = x % 4; return cx < 3 && F3[text[i]][y][cx] === '1'; } };
+  }
+  /* shapes: a 20 px circle, rounded boxes (cut corners) */
+  function circle(d) { return function (x, y) { var r = d / 2; return (x + .5 - r) * (x + .5 - r) + (y + .5 - r) * (y + .5 - r) <= r * r; }; }
+  function rounded(w, h, r) { return function (x, y) { return x >= 0 && y >= 0 && x < w && y < h && Math.min(x, w - 1 - x) + Math.min(y, h - 1 - y) >= r; }; }
+
+  var KINDS = {   /* body w×h (+2 rows of shadow), shape, label */
+    A: { w: 20, h: 20, shape: circle(20), label: label8('A') }, B: { w: 20, h: 20, shape: circle(20), label: label8('B') },
+    X: { w: 20, h: 20, shape: circle(20), label: label8('X') }, Y: { w: 20, h: 20, shape: circle(20), label: label8('Y') },
+    L1: { w: 24, h: 12, shape: rounded(24, 12, 2), label: label8('L1') }, L2: { w: 24, h: 12, shape: rounded(24, 12, 2), label: label8('L2') },
+    R1: { w: 24, h: 12, shape: rounded(24, 12, 2), label: label8('R1') }, R2: { w: 24, h: 12, shape: rounded(24, 12, 2), label: label8('R2') },
+    SELECT: { w: 29, h: 9, shape: rounded(29, 9, 3), label: label3('SELECT') },
+    START: { w: 29, h: 9, shape: rounded(29, 9, 3), label: label3('START') }
+  };
+  var ABXY_AT = { X: [18, 0], Y: [0, 17], A: [36, 17], B: [18, 34] };   /* a diamond, 56×56 */
+  var controls = {};
   document.querySelectorAll('button[data-b]').forEach(function (el) {
-    var name = el.getAttribute('data-b'), held = false;
-    function up() { if (held) { held = false; el.classList.remove('on'); press(name, false); } }
+    var name = el.getAttribute('data-b'), k = KINDS[name], c = document.createElement('canvas');
+    c.className = 'art'; c.width = k.w; c.height = k.h + 2; el.appendChild(c);
+    controls[name] = { el: el, cv: c, k: k };
+  });
+  function isOn(name) { return enabled >> BTN[name] & 1; }
+  function held(name) { return (holders[name] || 0) > 0; }
+
+  function drawControl(name) {
+    if (name in ARROWS) { drawDpad(); return; }
+    var ct = controls[name]; if (!ct) return;
+    var k = ct.k, g = ct.cv.getContext('2d'), on = isOn(name), down = held(name);
+    g.clearRect(0, 0, k.w, k.h + 2);
+    var dy = on && !down ? 0 : 2, x, y;
+    function dot(x, y, c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); }
+    for (y = 0; y < k.h; y++) for (x = 0; x < k.w; x++) {
+      if (!k.shape(x, y)) continue;
+      if (!on) {                                   /* a dim outline */
+        if (!k.shape(x - 1, y) || !k.shape(x + 1, y) || !k.shape(x, y - 1) || !k.shape(x, y + 1)) dot(x, y + dy, pal[2]);
+        continue;
+      }
+      if (!down) dot(x, y + 2, pal[2]);            /* shadow under a raised button */
+    }
+    if (on) for (y = 0; y < k.h; y++) for (x = 0; x < k.w; x++) if (k.shape(x, y)) {
+      var c = down ? pal[0] : pal[1];
+      if (!down && y < k.h / 2 && !k.shape(x, y - 2)) c = pal[0];   /* a light rim along the top */
+      dot(x, y + dy, c);
+    }
+    var L = k.label, lx = Math.floor((k.w - L.w) / 2), ly = Math.floor((k.h - L.h) / 2);
+    for (y = 0; y < L.h; y++) for (x = 0; x < L.w; x++) if (L.on(x, y)) dot(lx + x, ly + y + dy, on ? pal[3] : pal[2]);
+  }
+
+  /* the D-pad is one surface: the direction follows the finger, so you can roll between arrows */
+  var dpad = document.getElementById('dpad'), dpadDir = null, dpadPointer = null;
+  var ARROWS = { UP: 1, DOWN: 1, LEFT: 1, RIGHT: 1 };
+  var dcv = document.createElement('canvas'); dcv.className = 'art'; dcv.width = 48; dcv.height = 50; dpad.appendChild(dcv);
+  function dpadRegion(x, y) {
+    var inH = y >= 16 && y < 32, inV = x >= 16 && x < 32;
+    if (!inH && !inV) return null;
+    if ((x < 2 || x > 45) && (y < 17 || y > 30)) return null;   /* rounded arm ends */
+    if ((y < 2 || y > 45) && (x < 17 || x > 30)) return null;
+    return y < 16 ? 'UP' : y >= 32 ? 'DOWN' : x < 16 ? 'LEFT' : x >= 32 ? 'RIGHT' : 'C';
+  }
+  function arrowPx(dir, x, y) {             /* a small solid triangle near each tip */
+    var a, b;
+    if (dir === 'UP') { a = y - 4; b = x - 23.5; } else if (dir === 'DOWN') { a = 43 - y; b = x - 23.5; }
+    else if (dir === 'LEFT') { a = x - 4; b = y - 23.5; } else { a = 43 - x; b = y - 23.5; }
+    return a >= 0 && a < 5 && Math.abs(b) < a + 1;
+  }
+  function drawDpad() {
+    var g = dcv.getContext('2d'), x, y, any = enabled & 15;
+    g.clearRect(0, 0, 48, 50);
+    function st(r) {                           /* 'up' raised, 'down' pressed, 'off' dim */
+      if (r === 'C') return any ? 'up' : 'off';
+      return !isOn(r) ? 'off' : held(r) ? 'down' : 'up';
+    }
+    for (y = 0; y < 48; y++) for (x = 0; x < 48; x++) {
+      var r = dpadRegion(x, y); if (!r) continue;
+      var s = st(r);
+      g.fillStyle = pal[2]; g.fillRect(x, y + 2, 1, 1);        /* shadow / sunken base */
+      if (s === 'off') continue;
+      var c = s === 'down' ? pal[0] : pal[1];
+      if (s === 'up' && !dpadRegion(x, y - 2)) c = pal[0];     /* light rim */
+      g.fillStyle = c; g.fillRect(x, y + (s === 'down' ? 2 : 0), 1, 1);
+    }
+    for (var d in ARROWS) {
+      var s2 = st(d), dy = s2 === 'up' ? 0 : 2;
+      for (y = 0; y < 48; y++) for (x = 0; x < 48; x++) if (arrowPx(d, x, y)) {
+        g.fillStyle = s2 === 'off' ? pal[1] : pal[3]; g.fillRect(x, y + dy, 1, 1);
+      }
+    }
+    /* a dimple in the middle */
+    g.fillStyle = pal[2];
+    var cy = any ? 0 : 2;
+    g.fillRect(22, 21 + cy, 4, 6); g.fillRect(21, 22 + cy, 6, 4);
+  }
+  function drawControls() { for (var n in controls) drawControl(n); drawDpad(); }
+
+  /* sizes: ART css px per art pixel, snapped so each art pixel is a whole number of device pixels */
+  function sizeControls(target) {
+    var dpr = window.devicePixelRatio || 1;
+    ART = Math.max(1, Math.floor(target * dpr)) / dpr;
+    document.documentElement.style.setProperty('--art', ART);
+    for (var n in controls) {
+      var ct = controls[n];
+      ct.cv.style.width = ct.cv.width * ART + 'px'; ct.cv.style.height = ct.cv.height * ART + 'px';
+      if (ABXY_AT[n]) { ct.el.style.left = ABXY_AT[n][0] * ART + 'px'; ct.el.style.top = ABXY_AT[n][1] * ART + 'px'; }
+    }
+    var ab = document.getElementById('abxy');
+    ab.style.width = 56 * ART + 'px'; ab.style.height = 56 * ART + 'px';
+    dcv.style.width = 48 * ART + 'px'; dcv.style.height = 50 * ART + 'px';
+  }
+
+  Object.keys(controls).forEach(function (name) {
+    var el = controls[name].el, mine = false;
+    function up() { if (mine) { mine = false; press(name, false); } }
     el.addEventListener('pointerdown', function (e) {
       e.preventDefault(); begin();
       try { el.setPointerCapture(e.pointerId); } catch (err) {}
-      if (!held) { held = true; el.classList.add('on'); buzz(); press(name, true); }
+      if (!mine) { mine = true; if (isOn(name)) buzz(); press(name, true); }
     });
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
@@ -204,18 +319,15 @@
     el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   });
 
-  /* the D-pad is one surface: the direction follows the finger, so you can roll between arrows */
-  var dpad = document.getElementById('dpad'), dpadDir = null, dpadPointer = null;
-  var ARROWS = { UP: 'up', DOWN: 'down', LEFT: 'left', RIGHT: 'right' };
   function dpadSet(dir) {
     if (dir === dpadDir) return;
-    if (dpadDir) { press(dpadDir, false); dpad.classList.remove('d-' + ARROWS[dpadDir]); }
-    dpadDir = dir;
-    if (dir) { press(dir, true); dpad.classList.add('d-' + ARROWS[dir]); buzz(); }
+    var old = dpadDir; dpadDir = dir;
+    if (old) press(old, false);
+    if (dir) { if (isOn(dir)) buzz(); press(dir, true); }
   }
   function dpadAt(e) {
-    var r = dpad.getBoundingClientRect();
-    var x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
+    var r = dcv.getBoundingClientRect();
+    var x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.width / 2);
     if (Math.hypot(x, y) < r.width * 0.12) return dpadDir;   /* small dead zone in the middle */
     return Math.abs(x) > Math.abs(y) ? (x < 0 ? 'LEFT' : 'RIGHT') : (y < 0 ? 'UP' : 'DOWN');
   }
@@ -245,10 +357,11 @@
     setTouch(on);
   });
 
-  /* ---------- canvas size: as big as fits; whole-pixel steps on desktop screens ---------- */
+  /* ---------- sizes: the screen as big as fits (whole-pixel steps where possible), then the pads ---------- */
+  var PAD_W = 56, PAD_H = 14 + 6 + 56 + 6 + 11;     /* the right-hand pad, the bigger one, in art pixels */
   function layout() {
     var touch = document.body.classList.contains('touch');
-    var vw = window.innerWidth, vh = window.innerHeight, w;
+    var vw = window.innerWidth, vh = window.innerHeight, w, art = 3;
     if (!touch) w = Math.min(vw - 32, (vh - 200) * 4 / 3);
     else if (vw > vh) w = Math.min(vw - 2 * 168 - 64, (vh - 24) * 4 / 3);
     else w = Math.min(vw - 16, (vh - 300) * 4 / 3);
@@ -257,10 +370,16 @@
     if (dev >= 1 && Math.floor(dev) / dev > 0.8) w = Math.floor(dev) * 640 / dpr;   /* crisp, even pixels */
     canvas.style.width = Math.round(w) + 'px';
     canvas.style.height = Math.round(w * 3 / 4) + 'px';
+    if (touch) {
+      if (vw > vh) art = Math.min(3, 160 / PAD_W, (vh - 32) / PAD_H);
+      else art = Math.min(3, (vw / 2 - 24) / PAD_W, (vh - w * 3 / 4 - 56) / PAD_H);
+    }
+    sizeControls(art);
   }
   window.addEventListener('resize', layout);
   window.addEventListener('orientationchange', function () { setTimeout(layout, 200); });
   setTouch(touchPref !== null ? touchPref === '1' : coarse);
+  drawControls();
 
   /* ---------- audio: Web Audio pulls samples from the game's mixer (48 kHz stereo) ---------- */
   var actx = null;
@@ -314,7 +433,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261005215436'; },
+    locateFile: function (path) { return path + '?v=20261005220124'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -329,7 +448,10 @@
       var r = document.documentElement.style, hex = function (v) { return '#' + ('00000' + (v >>> 0).toString(16)).slice(-6); };
       r.setProperty('--c0', hex(a)); r.setProperty('--c1', hex(b)); r.setProperty('--c2', hex(c)); r.setProperty('--c3', hex(d));
       var m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = hex(d);
+      pal = [hex(a), hex(b), hex(c), hex(d)];
+      drawControls();
     },
+    stumpedButtons: function (mask) { enabled = mask; drawControls(); },
     onRuntimeInitialized: function () {
       ready = true;
       go.textContent = coarse ? 'Tap to start' : 'Click or press a key';
@@ -342,6 +464,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261005215436" async></script>
+<script src="stumped.js?v=20261005220124" async></script>
 </body>
 </html>
