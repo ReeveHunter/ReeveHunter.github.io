@@ -19,6 +19,7 @@
   /* the four shades follow the in-game palette (Night until the game says otherwise) */
   :root { --c0: #9AA8D8; --c1: #5C6CA8; --c2: #2E3868; --c3: #0C1028; --pad: 168px; }
   * { box-sizing: border-box; }
+  * { touch-action: manipulation; }
   html, body { margin: 0; height: 100%; background: var(--c3); color: var(--c0); }
   body {
     font-family: "Press Start 2P", ui-monospace, monospace; font-size: 10px; line-height: 1.8;
@@ -101,10 +102,9 @@
   </div>
 
   <div id="help">
-    <p><kbd>Arrows</kbd> walk / push &nbsp; <kbd>Z</kbd> B: undo, back &nbsp; <kbd>X</kbd> A: redo, choose</p>
-    <p><kbd>S</kbd> X: hold to restart &nbsp; <kbd>A</kbd> Y: hold for map &nbsp; <kbd>1</kbd>/<kbd>2</kbd> zoom</p>
-    <p><kbd>Q</kbd>/<kbd>W</kbd> previous / next level &nbsp; <kbd>Enter</kbd> Start: pause &nbsp; <kbd>Shift</kbd> Select: levels</p>
-    <p>Puzzles by David W. Skinner. Progress is saved in this browser. Also plays on the Miyoo Mini.
+    <p><kbd>Arrows</kbd>/<kbd>WASD</kbd> move &nbsp; <kbd>Enter</kbd> choose &nbsp; <kbd>Esc</kbd> back, pause &nbsp; <kbd>Z</kbd> undo &nbsp; <kbd>Y</kbd> redo</p>
+    <p>hold <kbd>R</kbd> restart &nbsp; hold <kbd>M</kbd> map &nbsp; <kbd>-</kbd>/<kbd>=</kbd> zoom &nbsp; <kbd>[</kbd>/<kbd>]</kbd> level &nbsp; <kbd>L</kbd> level list</p>
+    <p>Game controllers work too. Puzzles by David W. Skinner. Progress is saved in this browser. Also plays on the Miyoo Mini.
        <a href="#" id="touch-toggle">Touch controls</a></p>
   </div>
 </div>
@@ -115,13 +115,24 @@
   'use strict';
   /* button indexes match WEB_BTN in src/main.c */
   var BTN = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, A: 4, B: 5, X: 6, Y: 7, L1: 8, R1: 9, L2: 10, R2: 11, SELECT: 12, START: 13, MENU: 14 };
-  /* keyboard: RetroArch-style letters (Z/X = B/A, A/S = Y/X) plus a few extras */
+  /* keyboard: keys name actions; the game turns each into the right button for the screen
+     (indexes match KA_* in src/main.c) */
+  var KA = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, OK: 4, ESC: 5, BACK: 6, UNDO: 7, REDO: 8, RESTART: 9, MAP: 10,
+             ZOOM_OUT: 11, ZOOM_IN: 12, PREV: 13, NEXT: 14, PAUSE: 15, LEVELS: 16, CLEAR: 17 };
   var KEYS = {
-    ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT',
-    KeyX: 'A', Space: 'A', KeyZ: 'B', Backspace: 'B', KeyS: 'X', KeyA: 'Y',
-    KeyQ: 'L1', KeyW: 'R1', Digit1: 'L2', Minus: 'L2', Digit2: 'R2', Equal: 'R2',
-    Enter: 'START', NumpadEnter: 'START', ShiftLeft: 'SELECT', ShiftRight: 'SELECT', Escape: 'MENU'
+    ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', KeyW: 'UP', KeyS: 'DOWN', KeyA: 'LEFT', KeyD: 'RIGHT',
+    Enter: 'OK', NumpadEnter: 'OK', Space: 'OK', Escape: 'ESC', Backspace: 'BACK',
+    KeyZ: 'UNDO', KeyU: 'UNDO', KeyY: 'REDO', KeyR: 'RESTART', KeyM: 'MAP', Tab: 'MAP',
+    Minus: 'ZOOM_OUT', NumpadSubtract: 'ZOOM_OUT', Equal: 'ZOOM_IN', NumpadAdd: 'ZOOM_IN',
+    BracketLeft: 'PREV', BracketRight: 'NEXT', KeyP: 'PAUSE', KeyL: 'LEVELS', Delete: 'CLEAR'
   };
+  /* prompts in the game follow the last thing used: keyboard, or buttons (touch / controller) */
+  var kbdMode = -1;
+  function setMode(kbd) {
+    if (kbd === kbdMode) return;
+    kbdMode = kbd;
+    if (ready) Module._web_input_mode(kbd);
+  }
   var SAVE_KEY = 'stumped-save';
   var canvas = document.getElementById('screen'), ctx = canvas.getContext('2d');
   var image = ctx.createImageData(640, 480);
@@ -154,21 +165,79 @@
   }
   start.addEventListener('pointerdown', function (e) { e.preventDefault(); begin(); });
 
+  var keyHeld = {};                  /* key code -> the action it pressed */
   window.addEventListener('keydown', function (e) {
-    var name = KEYS[e.code];
-    if (!name || e.metaKey || e.ctrlKey || e.altKey) return;
+    var act = KEYS[e.code];
+    if (!act || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (act === 'UNDO' && e.shiftKey && e.code === 'KeyZ') act = 'REDO';      /* Shift+Z redoes */
     e.preventDefault();
+    setMode(1);
     if (begin()) return;             /* the key that starts the game doesn't also press a button */
-    if (e.repeat) return;            /* the game does its own hold-to-repeat */
-    press(name, true);
+    if (e.repeat || keyHeld[e.code]) return;   /* the game does its own hold-to-repeat */
+    keyHeld[e.code] = act;
+    if (ready) Module._web_kbd(KA[act], 1);
   });
   window.addEventListener('keyup', function (e) {
-    var name = KEYS[e.code];
-    if (!name) return;
+    var act = keyHeld[e.code];
+    if (!act) return;
     e.preventDefault();
-    if (holders[name] > 0) press(name, false);
+    delete keyHeld[e.code];
+    if (ready) Module._web_kbd(KA[act], 0);
   });
-  window.addEventListener('blur', releaseAll);
+  function releaseKeys() {
+    for (var c in keyHeld) { if (ready) Module._web_kbd(KA[keyHeld[c]], 0); }
+    keyHeld = {};
+  }
+  window.addEventListener('blur', function () { releaseKeys(); releaseAll(); });
+
+  /* ---------- game controllers (standard layout, by position like the Miyoo: A right, B bottom) ---------- */
+  var PAD_MAP = { 0: 'B', 1: 'A', 2: 'Y', 3: 'X', 4: 'L1', 5: 'R1', 6: 'L2', 7: 'R2', 8: 'SELECT', 9: 'START',
+                  12: 'UP', 13: 'DOWN', 14: 'LEFT', 15: 'RIGHT' };
+  var padHeld = {};
+  function padRelease(i) { var h = padHeld[i] || {}; for (var n in h) if (h[n] === 2) press(n, false); delete padHeld[i]; }
+  function pollPads() {
+    var pads = navigator.getGamepads ? navigator.getGamepads() : [], fresh = false, live = started;
+    for (var p = 0; p < pads.length; p++) {
+      var pad = pads[p]; if (!pad || !pad.connected) continue;
+      var now = {}, i;
+      for (i in PAD_MAP) { var bt = pad.buttons[i]; if (bt && (bt.pressed || bt.value > 0.5)) now[PAD_MAP[i]] = 1; }
+      var ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;               /* the left stick works as a D-pad */
+      if (Math.hypot(ax, ay) > 0.55) now[Math.abs(ax) > Math.abs(ay) ? (ax < 0 ? 'LEFT' : 'RIGHT') : (ay < 0 ? 'UP' : 'DOWN')] = 1;
+      var prev = padHeld[pad.index] || {};
+      for (var n in prev) if (!now[n] && prev[n] === 2) press(n, false);
+      for (n in now) {
+        if (!prev[n]) { fresh = true; now[n] = live ? 2 : 1; if (live) press(n, true); }   /* the press that starts the game is swallowed */
+        else now[n] = prev[n];
+      }
+      padHeld[pad.index] = now;
+    }
+    if (fresh) { setMode(0); padStart(); }
+    requestAnimationFrame(pollPads);
+  }
+  window.addEventListener('gamepaddisconnected', function (e) { padRelease(e.gamepad.index); });
+  requestAnimationFrame(pollPads);
+  /* browsers may not count a controller button as permission to play sound; if so, ask for a click */
+  var padTried = false;
+  function padStart() {
+    if (!ready || started || padTried) return;
+    padTried = true;
+    begin();
+    setTimeout(function () {
+      if (actx && actx.state === 'running') return;
+      started = false; start.classList.remove('hidden');
+      go.textContent = 'Click for sound';
+      document.getElementById('start-hint').textContent = 'or press a key';
+    }, 300);
+  }
+
+  /* ---------- no double-tap zoom (pinch still zooms) ---------- */
+  var lastTouchEnd = 0;
+  document.addEventListener('touchend', function (e) {
+    var t = Date.now();
+    if (t - lastTouchEnd < 400) e.preventDefault();
+    lastTouchEnd = t;
+  }, { passive: false });
+  document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
 
   /* ---------- touch controls, drawn as pixel art in the game's four shades ----------
      Each control is a tiny canvas (sizes in art pixels) blown up with crisp square pixels.
@@ -309,7 +378,7 @@
     var el = controls[name].el, mine = false;
     function up() { if (mine) { mine = false; press(name, false); } }
     el.addEventListener('pointerdown', function (e) {
-      e.preventDefault(); begin();
+      e.preventDefault(); begin(); setMode(0);
       try { el.setPointerCapture(e.pointerId); } catch (err) {}
       if (!mine) { mine = true; if (isOn(name)) buzz(); press(name, true); }
     });
@@ -332,7 +401,7 @@
     return Math.abs(x) > Math.abs(y) ? (x < 0 ? 'LEFT' : 'RIGHT') : (y < 0 ? 'UP' : 'DOWN');
   }
   dpad.addEventListener('pointerdown', function (e) {
-    e.preventDefault(); begin();
+    e.preventDefault(); begin(); setMode(0);
     dpadPointer = e.pointerId;
     try { dpad.setPointerCapture(e.pointerId); } catch (err) {}
     dpadSet(dpadAt(e) || 'UP');
@@ -383,7 +452,35 @@
 
   /* ---------- audio: Web Audio pulls samples from the game's mixer (48 kHz stereo) ---------- */
   var actx = null;
+  /* iPhone: Safari treats Web Audio as "ambient" sound, which the ring/silent switch mutes. Ask for
+     "playback" instead (iOS 17+), or on older iOS keep a silent <audio> element looping, which
+     switches the page to playback sound. Both have to happen during a tap. */
+  var silentEl = null;
+  function iosPlayback() {
+    try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; return; } } catch (e) {}
+    if (!/iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent))) return;
+    if (!silentEl) {
+      var n = 4000, buf = new ArrayBuffer(44 + n), v = new DataView(buf), w = function (o, t) { for (var i = 0; i < 4; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+      w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true);
+      v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true);
+      v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
+      for (var i = 0; i < n; i++) v.setUint8(44 + i, 128);              /* half a second of 8-bit silence */
+      silentEl = document.createElement('audio');
+      silentEl.src = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+      silentEl.loop = true; silentEl.setAttribute('playsinline', ''); silentEl.setAttribute('x-webkit-airplay', 'deny');
+    }
+    var pr = silentEl.play(); if (pr && pr.catch) pr.catch(function () {});
+  }
+  /* Safari only lets sound start or resume from certain gestures, so every tap and click tries again */
+  function wake() {
+    if (!started) return;
+    iosPlayback();
+    if (actx && actx.state !== 'running') actx.resume();
+  }
+  ['touchend', 'click', 'keydown'].forEach(function (t) { document.addEventListener(t, wake, { passive: true, capture: true }); });
+
   function startAudio() {
+    iosPlayback();
     if (actx) { if (actx.state !== 'running') actx.resume(); return; }
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -423,8 +520,8 @@
 
   /* keep the exact position when the tab is hidden or closed, and rest the audio */
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) { releaseAll(); if (ready) Module._web_save(); if (actx) actx.suspend(); }
-    else if (actx && started) actx.resume();
+    if (document.hidden) { releaseAll(); if (ready) Module._web_save(); if (actx) actx.suspend(); if (silentEl) silentEl.pause(); }
+    else if (actx && started) { actx.resume(); if (silentEl) { var pr = silentEl.play(); if (pr && pr.catch) pr.catch(function () {}); } }
   });
   window.addEventListener('pagehide', function () { if (ready) Module._web_save(); });
 
@@ -433,7 +530,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261005220124'; },
+    locateFile: function (path) { return path + '?v=20261005222916'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -454,6 +551,7 @@
     stumpedButtons: function (mask) { enabled = mask; drawControls(); },
     onRuntimeInitialized: function () {
       ready = true;
+      var m = kbdMode < 0 ? (coarse ? 0 : 1) : kbdMode; kbdMode = -1; setMode(m);
       go.textContent = coarse ? 'Tap to start' : 'Click or press a key';
     },
     onAbort: function (what) {
@@ -464,6 +562,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261005220124" async></script>
+<script src="stumped.js?v=20261005222916" async></script>
 </body>
 </html>
