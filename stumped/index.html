@@ -132,15 +132,16 @@
      (indexes match KA_* in src/main.c) */
   var KA = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, OK: 4, ESC: 5, BACK: 6, UNDO: 7, REDO: 8, RESTART: 9, MAP: 10,
              ZOOM_OUT: 11, ZOOM_IN: 12, PREV: 13, NEXT: 14, PAUSE: 15, LEVELS: 16, CLEAR: 17,
-             D0: 18, D1: 19, D2: 20, D3: 21, D4: 22, D5: 23, D6: 24, D7: 25, D8: 26, D9: 27, RIM: 28, NEW: 29 };
+             D0: 18, D1: 19, D2: 20, D3: 21, D4: 22, D5: 23, D6: 24, D7: 25, D8: 26, D9: 27, RIM: 28, NEW: 29,
+             KX: 30, KC: 31, KV: 32 };
   var KEYS = {
     ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', KeyW: 'UP', KeyS: 'DOWN', KeyA: 'LEFT', KeyD: 'RIGHT',
     Enter: 'OK', NumpadEnter: 'OK', Space: 'OK', Escape: 'ESC', Backspace: 'BACK',
     KeyZ: 'UNDO', KeyU: 'UNDO', KeyY: 'REDO', KeyR: 'RESTART', KeyM: 'MAP', Tab: 'MAP',
     Minus: 'ZOOM_OUT', NumpadSubtract: 'ZOOM_OUT', Equal: 'ZOOM_IN', NumpadAdd: 'ZOOM_IN',
     BracketLeft: 'PREV', BracketRight: 'NEXT', KeyP: 'PAUSE', KeyL: 'LEVELS', Delete: 'CLEAR',
-    /* Listen plays along on the number keys (top row or ten-key) */
-    Backquote: 'RIM', Period: 'RIM', NumpadDecimal: 'RIM', KeyN: 'NEW'
+    /* Listen plays along on the number keys (top row or ten-key); Z X C V are its A B X Y */
+    KeyX: 'KX', KeyC: 'KC', KeyV: 'KV'
   };
   for (var d = 0; d <= 9; d++) { KEYS['Digit' + d] = 'D' + d; KEYS['Numpad' + d] = 'D' + d; }
   /* prompts in the game follow the last thing used: keyboard, or buttons (touch / controller) */
@@ -405,16 +406,22 @@
     el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   });
 
+  /* a direction is one button name, or two ('UP RIGHT') for Listen's in-between notes */
+  function dirParts(d) { return d ? d.split(' ') : []; }
   function dpadSet(dir) {
     if (dir === dpadDir) return;
-    var old = dpadDir; dpadDir = dir;
-    if (old) press(old, false);
-    if (dir) { if (isOn(dir)) buzz(); press(dir, true); }
+    var old = dirParts(dpadDir), nw = dirParts(dir), fresh = false;
+    dpadDir = dir;
+    old.forEach(function (o) { if (nw.indexOf(o) < 0) press(o, false); });
+    nw.forEach(function (n) { if (old.indexOf(n) < 0) { press(n, true); fresh = true; } });
+    if (fresh && isOn(nw[0])) buzz();
   }
+  var DIR8 = ['RIGHT', 'UP RIGHT', 'UP', 'UP LEFT', 'LEFT', 'DOWN LEFT', 'DOWN', 'DOWN RIGHT'];
   function dpadAt(e) {
     var r = dcv.getBoundingClientRect();
     var x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.width / 2);
     if (Math.hypot(x, y) < r.width * 0.12) return dpadDir;   /* small dead zone in the middle */
+    if (ready && Module._web_dpad8()) return DIR8[(Math.round(Math.atan2(-y, x) / (Math.PI / 4)) + 8) % 8];
     return Math.abs(x) > Math.abs(y) ? (x < 0 ? 'LEFT' : 'RIGHT') : (y < 0 ? 'UP' : 'DOWN');
   }
   dpad.addEventListener('pointerdown', function (e) {
@@ -458,7 +465,7 @@
      tap: step toward it (menus: choose what you tap) · swipe: walk, and keep walking while you hold ·
      two-finger tap: undo · touch and hold: map · pinch: zoom. Menus: swipe up/down to move, right to go back. */
   function gestOn() { return ctlMode === 'g'; }
-  var pts = {}, gs = null, SWIPE = 18;
+  var pts = {}, gs = null, SWIPE = 18, raw = {};
   function gameXY(cx, cy) {
     var r = canvas.getBoundingClientRect();
     return [Math.round((cx - r.left) * 640 / r.width), Math.round((cy - r.top) * 480 / r.height)];
@@ -471,6 +478,11 @@
     if (begin()) return;                         /* the tap that starts the game doesn't also play */
     setMode(2);
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    if (Module._web_listen_raw()) {               /* Listen: every finger plays, no gestures */
+      raw[e.pointerId] = true;
+      var q = gameXY(e.clientX, e.clientY); Module._web_ltouch(e.pointerId, q[0], q[1], 0);
+      return;
+    }
     pts[e.pointerId] = { x: e.clientX, y: e.clientY };
     if (npts() === 1) {
       gs = { kind: 1, id: e.pointerId, x0: e.clientX, y0: e.clientY, px: e.clientX, py: e.clientY, t0: Date.now(), moved: false, dir: -1, long: false };
@@ -490,6 +502,7 @@
     }
   });
   canvas.addEventListener('pointermove', function (e) {
+    if (raw[e.pointerId]) { var q = gameXY(e.clientX, e.clientY); Module._web_ltouch(e.pointerId, q[0], q[1], 1); return; }
     if (!gestOn() || !pts[e.pointerId]) return;
     pts[e.pointerId].x = e.clientX; pts[e.pointerId].y = e.clientY;
     if (!gs) return;
@@ -509,6 +522,7 @@
     }
   });
   function gestEnd(e) {
+    if (raw[e.pointerId]) { delete raw[e.pointerId]; var q = gameXY(e.clientX, e.clientY); Module._web_ltouch(e.pointerId, q[0], q[1], 2); return; }
     if (!pts[e.pointerId]) return;
     delete pts[e.pointerId];
     if (!gs) return;
@@ -632,7 +646,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261007143016'; },
+    locateFile: function (path) { return path + '?v=20261008121654'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -664,6 +678,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261007143016" async></script>
+<script src="stumped.js?v=20261008121654" async></script>
 </body>
 </html>
