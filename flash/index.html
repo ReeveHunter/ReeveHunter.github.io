@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kerberos Flash</title>
+<meta name="description" content="Flash PRGs and EasyFlash CRTs to the Kerberos C64/C128 MIDI cartridge from the browser, over Web MIDI.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>Kerberos Flash</h1>
+    <p class="sub">PRG &amp; EasyFlash CRT transfer for the Kerberos C64/C128 MIDI cartridge</p>
+  </div>
+</header>
+
+<main>
+  <div id="unsupported" class="banner danger" hidden>
+    <strong>This browser can't talk to MIDI devices.</strong>
+    Open this page in Chrome, Edge or Opera (Safari doesn't support Web MIDI; Firefox needs a site-permission add-on).
+  </div>
+
+  <!-- Connection -->
+  <section class="card" id="connection">
+    <div class="card-head">
+      <h2><span class="dot" id="statusDot"></span>MIDI connection</h2>
+      <button id="connectBtn" class="btn primary">Connect MIDI</button>
+    </div>
+    <div class="grid3" id="portControls">
+      <label class="field">
+        <span>MIDI out <em>→ Kerberos MIDI in</em></span>
+        <select id="outSelect" disabled><option>—</option></select>
+      </label>
+      <label class="field">
+        <span>MIDI in <em>← Kerberos MIDI out (optional)</em></span>
+        <select id="inSelect" disabled><option value="">None</option></select>
+      </label>
+      <label class="field">
+        <span>Send pacing</span>
+        <select id="pacingSelect">
+          <option value="1">Standard · 1 ms per message</option>
+          <option value="2">Careful · 2 ms per message</option>
+          <option value="4">Slow · 4 ms per message</option>
+        </select>
+      </label>
+    </div>
+    <div class="row-actions">
+      <button id="pingBtn" class="btn ghost" disabled title="Needs MIDI in and out connected">Test connection</button>
+      <span class="hint">Start the C64 in the Kerberos menu before sending anything.</span>
+    </div>
+  </section>
+
+  <div class="columns">
+    <!-- File -->
+    <section class="card" id="fileCard">
+      <h2>File</h2>
+      <label id="dropZone" class="drop" tabindex="0">
+        <input type="file" id="fileInput" accept=".prg,.crt,.PRG,.CRT" hidden>
+        <span class="drop-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="drop-text"><strong>Drop a .prg or .crt</strong> or click to choose</span>
+      </label>
+
+      <div id="fileInfo" class="file-info" hidden>
+        <div class="file-name"><span id="fileType" class="tag"></span><span id="fileName"></span></div>
+        <dl id="fileFacts" class="facts"></dl>
+        <div id="fileNotice" class="notice" hidden></div>
+      </div>
+
+      <!-- PRG actions -->
+      <div id="prgActions" class="actions" hidden>
+        <div class="action-row">
+          <button id="runBtn" class="btn primary">Send &amp; run</button>
+          <span class="hint">Loads into cartridge RAM and starts it. Nothing is flashed.</span>
+        </div>
+        <div class="action-row">
+          <button id="flashPrgBtn" class="btn">Flash to slot <span id="flashSlotLabel">1</span></button>
+          <span class="hint">Pick the slot in the slot list.</span>
+        </div>
+
+        <details id="startSettings" class="settings">
+          <summary>Start settings</summary>
+          <div class="grid2">
+            <div class="field">
+              <span>Reset mode</span>
+              <div class="seg" role="radiogroup">
+                <label><input type="radio" name="machine" value="c64" checked> C64</label>
+                <label><input type="radio" name="machine" value="c128"> C128</label>
+              </div>
+            </div>
+            <label class="field">
+              <span>MIDI emulation</span>
+              <select id="emuSelect"></select>
+            </label>
+            <label class="field">
+              <span>Load address (hex)</span>
+              <input id="loadAddr" class="mono" maxlength="4" value="0801" spellcheck="false">
+            </label>
+            <label class="field">
+              <span>Start address (hex, 0000 = RUN)</span>
+              <input id="startAddr" class="mono" maxlength="4" value="0000" spellcheck="false">
+            </label>
+          </div>
+          <label class="check"><input type="checkbox" id="cartDisks"> Enable cartridge disks (experimental)</label>
+        </details>
+      </div>
+
+      <!-- CRT actions -->
+      <div id="crtActions" class="actions" hidden>
+        <div class="action-row">
+          <button id="flashCrtBtn" class="btn primary">Flash EasyFlash CRT</button>
+        </div>
+        <p class="hint">The CRT goes into the cartridge's upper 1 MB, which is the same flash as <strong>slots 10–25</strong>. Anything in those slots will be replaced.</p>
+      </div>
+    </section>
+
+    <!-- Slots -->
+    <section class="card" id="slotCard">
+      <div class="card-head">
+        <h2>Slots</h2>
+        <button id="readSlotsBtn" class="btn ghost small" disabled title="Needs MIDI in connected">Read names</button>
+      </div>
+      <ol id="slotList" class="slots"></ol>
+      <p class="hint" id="slotsNote">Names are read from the cartridge over MIDI in. Slots 10–25 share space with the EasyFlash image.</p>
+      <div class="slot-actions">
+        <button id="startSlotBtn" class="btn">Start slot <span class="slotNum">1</span></button>
+        <button id="deleteSlotBtn" class="btn danger-ghost">Delete slot <span class="slotNum">1</span></button>
+        <button id="listSlotsBtn" class="btn ghost">Show list on C64</button>
+        <button id="basicBtn" class="btn ghost">Back to BASIC</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Log -->
+  <section class="card" id="logCard">
+    <div class="card-head">
+      <h2>Log</h2>
+      <div class="head-actions">
+        <button id="downloadLogBtn" class="btn ghost small" disabled title="Every MIDI message of the last transfer, one per line">Download last transfer (hex)</button>
+        <button id="clearLogBtn" class="btn ghost small">Clear</button>
+      </div>
+    </div>
+    <pre id="log" class="log" aria-live="polite"></pre>
+  </section>
+
+  <footer class="foot">
+    A browser port of the <a href="https://frank-buss.de/kerberos/">Kerberos App</a> by Frank Buß.
+    Disk (D64) tools and BASIC/KERNAL expert options aren't included.
+  </footer>
+</main>
+
+<!-- Transfer progress dock -->
+<div id="progressDock" class="dock" hidden>
+  <div class="dock-inner">
+    <div class="dock-text">
+      <strong id="progStage">Preparing…</strong>
+      <span id="progDetail" class="mono"></span>
+    </div>
+    <div class="bar"><div id="progBar"></div></div>
+    <button id="cancelBtn" class="btn danger-ghost small">Cancel</button>
+  </div>
+</div>
+
+<dialog id="confirmDialog">
+  <form method="dialog">
+    <h3 id="confirmTitle"></h3>
+    <p id="confirmBody"></p>
+    <div class="dialog-actions">
+      <button value="cancel" class="btn ghost">Cancel</button>
+      <button value="ok" id="confirmOk" class="btn primary">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
