@@ -230,10 +230,40 @@ input:focus-visible, select:focus-visible, button:focus-visible, .slider:focus-v
 .icon-btn.del:hover { color: var(--danger); }
 
 /* ---------- control grid ---------- */
-.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 14px; }
-.grid .voices { grid-column: 1 / -1; }
-@media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas: "sys mod flt flt" "amp mod flt flt" "voi voi voi voi";
+  grid-template-rows: auto 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+}
+.a-sys { grid-area: sys; } .a-mod { grid-area: mod; align-self: stretch; } .a-flt { grid-area: flt; align-self: stretch; } .a-amp { grid-area: amp; }
+.grid .voices { grid-area: voi; }
+@media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "sys mod" "amp mod" "flt flt" "voi voi"; grid-template-rows: auto; } }
+@media (max-width: 620px) { .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sys" "mod" "flt" "amp" "voi"; } }
+
+/* filter graph */
+.fgraph-wrap { margin: 0 0 14px; }
+.fgraph { width: 100%; height: auto; display: block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.fgraph .grid line { stroke: var(--border); stroke-width: 1; }
+.fgraph .grid line.minor { stroke-dasharray: 2 4; opacity: .6; }
+.fgraph .grid line.zero { stroke: var(--muted); opacity: .5; }
+.fgraph .lbl { fill: var(--muted); font: 11px var(--mono); }
+.fgraph .steps line { stroke: var(--c-flt); stroke-width: 1; opacity: .55; }
+.fgraph .steps line.jump { stroke: var(--danger); opacity: 1; stroke-width: 1.5; }
+.fgraph .band { fill: var(--c-flt); opacity: .12; }
+.fgraph .dry { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.fgraph .fill { fill: var(--c-flt); opacity: .18; }
+.fgraph .curve { fill: none; stroke: var(--c-flt); stroke-width: 2.5; stroke-linejoin: round; }
+.fgraph .marker { stroke: var(--text); stroke-width: 1; stroke-dasharray: 3 3; opacity: .6; }
+.fgraph .readout { fill: var(--text); font: 700 13px var(--mono); }
+.fgraph .note { fill: var(--warn); font: 12px "Inter", sans-serif; }
+.fgraph.unused .curve, .fgraph.unused .fill { opacity: .25; }
+.fgraph-wrap .hint { margin-top: 6px; font-size: 12px; }
+.a-flt .ctl-list { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.a-flt .ctl-list .ctl:last-child { grid-column: 1 / -1; }
+@media (max-width: 620px) { .a-flt .ctl-list { grid-template-columns: 1fr; } }
 
 .g-sys { --g: var(--c-sys); }
 .g-mod { --g: var(--c-mod); }

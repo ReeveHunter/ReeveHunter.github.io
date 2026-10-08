@@ -93,19 +93,23 @@
 
   <div class="grid">
     <!-- global -->
-    <section class="card g-sys">
+    <section class="card g-sys a-sys">
       <h2>Sound</h2>
       <div class="ctl-list" id="sysCtls"></div>
     </section>
-    <section class="card g-mod">
+    <section class="card g-mod a-mod">
       <h2>Modulation</h2>
       <div class="ctl-list" id="modCtls"></div>
     </section>
-    <section class="card g-flt">
+    <section class="card g-flt a-flt">
       <h2>Filter</h2>
+      <figure class="fgraph-wrap">
+        <div id="fgraph"></div>
+        <figcaption class="hint">6581 response (reSID's measurements; real chips vary). Ticks mark every cutoff step Cynthcart can set; the red one is 64, where the 6581's curve jumps back down. Filter FX animate as the C64 runs them; FILT2 and FILT3 follow notes played from this page.</figcaption>
+      </figure>
       <div class="ctl-list" id="fltCtls"></div>
     </section>
-    <section class="card g-amp">
+    <section class="card g-amp a-amp">
       <h2>Amplitude</h2>
       <div class="ctl-list" id="ampCtls"></div>
     </section>

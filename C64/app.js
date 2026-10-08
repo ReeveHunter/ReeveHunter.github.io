@@ -6,6 +6,7 @@ import {
 } from "./engine.js";
 import { PRESETS } from "./presets.js";
 import { Midi, hex } from "./midi.js";
+import { FilterGraph } from "./filtergraph.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => {
@@ -172,6 +173,24 @@ globalCtl($("fltCtls"), "res", "slider");
 globalCtl($("fltCtls"), "fType", "seg", { options: ["LP", "BP", "HP"], multi: true, set: (i) => setParam("fType", patch.fType ^ (1 << i)) });
 
 globalCtl($("ampCtls"), "vol", "slider");
+
+const fgraph = new FilterGraph($("fgraph"));
+controls.push({
+  update() {
+    fgraph.set({
+      cut: patch.cut, res: patch.res, fType: patch.fType, fx: patch.fx,
+      routed: patch.voices.map((v) => !!v.flt),
+      resCap: settings.target === "v20" ? 7 : 15, // stock 2.0's CC 0 stops at 7
+    });
+  },
+});
+// notes the C64 is playing, as far as this page knows (FILT2 / FILT3 follow them)
+const inputHeld = new Set();
+function notesChanged(isOn) {
+  const n = Math.min(6, held.size + inputHeld.size);
+  const mono = patch.mode === 6 || patch.mode === 7; // MONO1/MONO2 restart FILT3 on a new note only
+  fgraph.notes(n, mono ? isOn : true);
+}
 
 // ---- voice grid
 const vg = $("voiceGrid");
@@ -379,6 +398,8 @@ midi.onInput = (data) => {
   if (st < 0x80 || st >= 0xf0) return; // channel messages only
   const type = st & 0xf0;
   midi.send([type | chan(), ...data.slice(1)]);
+  if (type === 0x90 && data[2] > 0) { inputHeld.add(data[1]); notesChanged(true); }
+  else if (type === 0x80 || type === 0x90) { if (inputHeld.delete(data[1])) notesChanged(false); }
 };
 
 // ------------------------------------------------------------ patch bar
@@ -512,8 +533,8 @@ function download(name, obj) {
 
 // ------------------------------------------------------------ keyboard
 const held = new Set();
-const noteOn = (n) => { held.add(n); midi.send([0x90 | chan(), n, 100]); keyEl(n)?.classList.add("on"); };
-const noteOff = (n) => { held.delete(n); midi.send([0x80 | chan(), n, 0]); keyEl(n)?.classList.remove("on"); };
+const noteOn = (n) => { held.add(n); midi.send([0x90 | chan(), n, 100]); keyEl(n)?.classList.add("on"); notesChanged(true); };
+const noteOff = (n) => { held.delete(n); midi.send([0x80 | chan(), n, 0]); keyEl(n)?.classList.remove("on"); notesChanged(false); };
 const keyEls = new Map();
 const keyEl = (n) => keyEls.get(n - settings.kbdBase);
 function buildPiano() {
