@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cynthcart Controller</title>
+<meta name="description" content="Control Cynthcart on a Commodore 64 over MIDI: every sound parameter, saved patches, Cynthcart 2.0 or the Kerberos custom build.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>Cynthcart Controller</h1>
+    <p class="sub">Sound editing and patches for Cynthcart on the C64, over MIDI</p>
+  </div>
+  <div class="conn" id="conn">
+    <button id="connectBtn" class="btn primary">Connect MIDI</button>
+    <label class="field">
+      <span><i class="dot" id="statusDot"></i>MIDI out</span>
+      <select id="outSelect" disabled><option>—</option></select>
+    </label>
+    <label class="field narrow">
+      <span>Channel</span>
+      <select id="chSelect"></select>
+    </label>
+    <label class="field">
+      <span>Cynthcart</span>
+      <select id="targetSelect"></select>
+    </label>
+    <label class="field">
+      <span>Keyboard in <em>(optional)</em></span>
+      <select id="inSelect" disabled><option value="">None</option></select>
+    </label>
+  </div>
+</header>
+
+<main>
+  <div id="unsupported" class="banner danger" hidden>
+    <strong>This browser can't talk to MIDI devices.</strong>
+    Use Chrome, Edge or Opera on a computer, or Chrome on Android. Safari (Mac, iPad, iPhone) has no Web MIDI;
+    on an iPad, a browser app with Web MIDI support works.
+  </div>
+  <div id="sysexNote" class="banner warn" hidden>
+    MIDI access was granted without SysEx, so the <strong>Custom build + SysEx</strong> target can't send its
+    messages. Allow SysEx for this site in the browser's settings and reconnect.
+  </div>
+
+  <!-- the C64 header, as Cynthcart will show it -->
+  <section class="screen-wrap" aria-label="Cynthcart header preview">
+    <pre class="screen" id="screen"></pre>
+  </section>
+
+  <!-- patch bar -->
+  <section class="card patchbar">
+    <label class="field grow">
+      <span>Patch name</span>
+      <input id="nameInput" maxlength="16" spellcheck="false" autocomplete="off">
+    </label>
+    <label class="field grow">
+      <span>Base preset</span>
+      <select id="baseSelect"></select>
+    </label>
+    <div class="btns">
+      <button id="sendBtn" class="btn primary" title="Send the whole patch to Cynthcart">Send patch</button>
+      <button id="saveBtn" class="btn">Save</button>
+      <button id="libraryBtn" class="btn" aria-expanded="false" aria-controls="library">Patches <span id="libCount" class="count"></span></button>
+      <button id="randomBtn" class="btn ghost" title="Random sound (keeps the base preset)">Randomize</button>
+    </div>
+    <label class="switch" title="Send each change as you make it">
+      <input type="checkbox" id="liveToggle" checked>
+      <span>Live</span>
+    </label>
+    <p class="status" id="patchStatus" aria-live="polite"></p>
+  </section>
+
+  <section class="card library" id="library" hidden>
+    <div class="card-head">
+      <h2>Saved patches</h2>
+      <div class="head-actions">
+        <button id="importBtn" class="btn ghost small">Import…</button>
+        <button id="exportAllBtn" class="btn ghost small">Export all</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden multiple>
+      </div>
+    </div>
+    <ul id="libList" class="lib-list"></ul>
+    <p class="hint" id="libEmpty">No saved patches yet. <strong>Save</strong> stores the current sound in this browser; export them to move them to another device.</p>
+  </section>
+
+  <div class="grid">
+    <!-- global -->
+    <section class="card g-sys">
+      <h2>Sound</h2>
+      <div class="ctl-list" id="sysCtls"></div>
+    </section>
+    <section class="card g-mod">
+      <h2>Modulation</h2>
+      <div class="ctl-list" id="modCtls"></div>
+    </section>
+    <section class="card g-flt">
+      <h2>Filter</h2>
+      <div class="ctl-list" id="fltCtls"></div>
+    </section>
+    <section class="card g-amp">
+      <h2>Amplitude</h2>
+      <div class="ctl-list" id="ampCtls"></div>
+    </section>
+
+    <!-- voices -->
+    <section class="card voices">
+      <div class="card-head">
+        <h2>Voices</h2>
+        <label class="switch" title="Edit all three voices together">
+          <input type="checkbox" id="linkToggle" checked>
+          <span>Link voices</span>
+        </label>
+      </div>
+      <div class="voice-grid" id="voiceGrid"></div>
+    </section>
+  </div>
+
+  <!-- audition -->
+  <section class="card keys-card">
+    <div class="card-head">
+      <h2>Play</h2>
+      <div class="head-actions">
+        <button id="octDown" class="btn ghost small" aria-label="Octave down">◀</button>
+        <span class="mono" id="octLabel">C3</span>
+        <button id="octUp" class="btn ghost small" aria-label="Octave up">▶</button>
+        <button id="panicBtn" class="btn danger-ghost small" title="Note off for every note, then load the base preset and resend the patch">Panic</button>
+      </div>
+    </div>
+    <div class="piano" id="piano" aria-label="Keyboard"></div>
+    <p class="hint">Computer keys A W S E D F T G Y H U J K play the lower octave.</p>
+  </section>
+
+  <details class="card about">
+    <summary>How it works</summary>
+    <ul>
+      <li><strong>Targets.</strong> <em>Cynthcart 2.0</em> uses the original MIDI map. <em>Custom build (CC only)</em> is the Kerberos build before SysEx; <em>Custom build + SysEx</em> sets everything exactly, including octave, tuning, filter type and per-voice filter routing, and shows the patch name on the C64.</li>
+      <li><strong>Greyed-out controls</strong> can't be reached on the chosen target; their value comes from the base preset.</li>
+      <li><strong>Sending a patch</strong> loads the base preset first, then sets every value on top. On 2.0, only values that differ from the base preset are sent.</li>
+      <li>The page is the source of truth: Cynthcart can't send its state back, so changes made on the C64 keyboard aren't shown here.</li>
+      <li>Patches are kept in this browser. Export them to back them up or move them to another device.</li>
+    </ul>
+  </details>
+
+  <details class="card about">
+    <summary>MIDI log</summary>
+    <pre class="log" id="log"></pre>
+  </details>
+
+  <footer class="foot">
+    For <a href="https://github.com/PaulSlocum/cynthcart">Cynthcart</a> by Paul Slocum. Needs Web MIDI (Chrome, Edge, Opera).
+  </footer>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
