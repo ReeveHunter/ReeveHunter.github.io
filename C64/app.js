@@ -2,7 +2,7 @@
 import {
   MODES, FX, WAVES, MODS, FILTER_TYPES, TUNINGS, VIB_LEVELS, TARGETS, GLOBAL_PARAMS, VOICE_PARAMS,
   supports, why, patchFromPreset, normalizePatch, patchToFile, randomPatch,
-  editMessages, patchMessages, voiceSelectCC, headerRows,
+  editMessages, patchMessages, voiceSelectCC, headerRows, isV20,
 } from "./engine.js";
 import { PRESETS } from "./presets.js";
 import { Midi, hex } from "./midi.js";
@@ -300,7 +300,7 @@ function renderScreen() {
 
 function renderAll() {
   for (const c of controls) c.update();
-  const v20 = settings.target === "v20";
+  const v20 = isV20(settings.target);
   vibSlider.box.hidden = v20;
   vibLevels.box.hidden = !v20;
   document.body.classList.toggle("linked", settings.link);

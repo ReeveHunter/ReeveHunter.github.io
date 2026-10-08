@@ -19,8 +19,12 @@ export const VIB_LEVELS = [0, 2, 5, 15]; // 2.0's vibrato depths (and the custom
 export const TARGETS = {
   sx: { label: "Custom build + SysEx", short: "Custom + SysEx", sysex: true, custom: true },
   cc: { label: "Custom build (CC only)", short: "Custom (CC)", sysex: false, custom: true },
+  v20f: { label: "Cynthcart 2.0.1F (bug fixes)", short: "2.0.1F", sysex: false, custom: false },
   v20: { label: "Cynthcart 2.0", short: "2.0", sysex: false, custom: false },
 };
+
+/** 2.0 and 2.0.1F share a MIDI map (2.0.1F fixes PW, resonance range and PULS3). */
+export const isV20 = (t) => t === "v20" || t === "v20f";
 
 // SysEx parameter indexes (header order, cynthparam.asm paramTable)
 const P = { CH: 0, PRESET: 1, MODE: 2, FX: 3, OSC: 6, PW: 7, OCT: 8, TUN: 9, VIB: 10, FLT: 11,
@@ -55,11 +59,13 @@ export const VOICE_PARAMS = {
 
 // What each target can reach over MIDI. "voice1" = one value for all voices
 // (2.0 only has global envelope / pulse width CCs).
+const V20_SUPPORT = { oct: false, tune: false, fType: false, flt: false, trmD: false, trmS: false, mod: false,
+  d: "fixed", s: "fixed", a: "voice1", r: "voice1", pw: "voice1" };
 const SUPPORT = {
+  v20f: V20_SUPPORT,
   sx: { all: true },
   cc: { oct: false, tune: false, fType: false, flt: false },
-  v20: { oct: false, tune: false, fType: false, flt: false, trmD: false, trmS: false, mod: false,
-    d: "fixed", s: "fixed", a: "voice1", r: "voice1", pw: "voice1" },
+  v20: V20_SUPPORT,
 };
 /** true, false, "voice1" (only voice 1's control is used, for all voices) or "fixed" */
 export function supports(target, key) {
@@ -70,7 +76,7 @@ export function supports(target, key) {
 export function why(target, key) {
   const s = supports(target, key);
   if (s === true) return "";
-  if (target === "v20") {
+  if (isV20(target)) {
     if (s === "voice1") return "Cynthcart 2.0 sets this for all voices at once (voice 1's value is sent).";
     if (key === "d") return "On 2.0, sending attack sets decay to 0; otherwise decay comes from the base preset.";
     if (key === "s") return "On 2.0, sending release sets sustain to 15; otherwise sustain comes from the base preset.";
@@ -144,7 +150,7 @@ const band8 = (v) => clamp(v, 0, 15) * 8 + 4; // middle of a 0-15 band of 0-127
 const ccMsg = (ch, cc, val) => [0xb0 | ch, cc, clamp(val, 0, 127)];
 const sxMsg = (...data) => [0xf0, 0x7d, 0x43, ...data.map((b) => clamp(b, 0, 127)), 0xf7];
 const fxCC = (target, fx) => {
-  if (target === "v20") return clamp(fx, 0, 7) * 16 + 8;
+  if (target === "v20") return clamp(fx, 0, 7) * 16 + 8; // (2.0.1F reaches PULS3 like the custom build)
   if (fx === 7) return 116;
   if (fx === 8) return 124;
   return fx * 16 + 8;
@@ -174,10 +180,11 @@ export function editMessages(target, ch, p, key, voices = [0, 1, 2]) {
       case "mode": return { msgs: [ccMsg(ch, 2, p.mode * 8 + 4)] };
       case "fx": return { msgs: [ccMsg(ch, 3, fxCC(target, p.fx))] };
       case "cut": return { msgs: [ccMsg(ch, 1, p.cut >> 1)] };
-      case "res": return { msgs: [ccMsg(ch, 0, band8(p.res))] };
+      case "res": // stock 2.0 only reaches 0-7 (value / 16)
+        return { msgs: [ccMsg(ch, 0, target === "v20" ? Math.min(p.res, 7) * 16 + 8 : band8(p.res))] };
       case "vol": return { msgs: [ccMsg(ch, 7, band8(p.vol))] };
       case "vibD": case "vibS":
-        if (target === "v20") {
+        if (isV20(target)) {
           return key === "vibD"
             ? { msgs: [ccMsg(ch, 8, vibLevel(p.vibD) * 16 + 8)] }
             : { msgs: [ccMsg(ch, 9, p.vibS * 16 + 8)] };
@@ -191,7 +198,7 @@ export function editMessages(target, ch, p, key, voices = [0, 1, 2]) {
     }
   }
   // per-voice
-  if (target === "v20") {
+  if (isV20(target)) {
     switch (key) {
       case "wave": // CC 13 sets all three, CC 14/15 voices 2 and 3
         if (voices.includes(0)) {
@@ -246,13 +253,15 @@ export function patchMessages(target, ch, p) {
   for (const k of Object.keys(GLOBAL_PARAMS)) {
     const s = supports(target, k);
     if (s === false) { if (differs(k)) unreachable.push(GLOBAL_PARAMS[k].label); continue; }
-    if (target === "v20" && !differs(k)) continue; // 2.0: leave the preset's values alone
-    if (k === "vibS" && target !== "v20") continue; // sent with vibD (same CC)
+    if (isV20(target) && !differs(k)) continue; // 2.0: leave the preset's values alone
+    if (k === "vibS" && !isV20(target)) continue; // sent with vibD (same CC)
     const e = editMessages(target, ch, p, k);
     if (e) send(e.msgs);
   }
 
-  if (target === "v20") {
+  if (target === "v20" && p.res > 7) unreachable.push("Resonance above 7 (2.0's CC 0 stops at 7)");
+  if (target === "v20" && p.fx === 8) unreachable.push("FX PULS3");
+  if (isV20(target)) {
     const vd = (k, i = 0) => p.voices[i][k] !== base.voices[i][k];
     if ([0, 1, 2].some((i) => vd("wave", i))) send(editMessages(target, ch, p, "wave", [0]).msgs);
     for (const k of ["pw", "a", "r"]) if (vd(k)) send(editMessages(target, ch, p, k).msgs);
