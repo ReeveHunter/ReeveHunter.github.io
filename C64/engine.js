@@ -23,7 +23,7 @@ export const TARGETS = {
   v20: { label: "Cynthcart 2.0", short: "2.0", sysex: false, custom: false },
 };
 
-/** 2.0 and 2.0.1F share a MIDI map (2.0.1F fixes PW, resonance range and PULS3). */
+/** 2.0 and 2.0.1F share a MIDI map (2.0.1F fixes the PW CC and the resonance range). */
 export const isV20 = (t) => t === "v20" || t === "v20f";
 
 // SysEx parameter indexes (header order, cynthparam.asm paramTable)
@@ -150,7 +150,7 @@ const band8 = (v) => clamp(v, 0, 15) * 8 + 4; // middle of a 0-15 band of 0-127
 const ccMsg = (ch, cc, val) => [0xb0 | ch, cc, clamp(val, 0, 127)];
 const sxMsg = (...data) => [0xf0, 0x7d, 0x43, ...data.map((b) => clamp(b, 0, 127)), 0xf7];
 const fxCC = (target, fx) => {
-  if (target === "v20") return clamp(fx, 0, 7) * 16 + 8; // (2.0.1F reaches PULS3 like the custom build)
+  if (isV20(target)) return clamp(fx, 0, 7) * 16 + 8; // 2.0 and 2.0.1F: no PULS3 over MIDI
   if (fx === 7) return 116;
   if (fx === 8) return 124;
   return fx * 16 + 8;
@@ -260,7 +260,7 @@ export function patchMessages(target, ch, p) {
   }
 
   if (target === "v20" && p.res > 7) unreachable.push("Resonance above 7 (2.0's CC 0 stops at 7)");
-  if (target === "v20" && p.fx === 8) unreachable.push("FX PULS3");
+  if (isV20(target) && p.fx === 8) unreachable.push("FX PULS3");
   if (isV20(target)) {
     const vd = (k, i = 0) => p.voices[i][k] !== base.voices[i][k];
     if ([0, 1, 2].some((i) => vd("wave", i))) send(editMessages(target, ch, p, "wave", [0]).msgs);

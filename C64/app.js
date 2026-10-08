@@ -150,7 +150,7 @@ function globalCtl(container, key, kind = "slider", extra = {}) {
 globalCtl($("sysCtls"), "mode", "select", { options: MODES });
 const fxCtl = globalCtl($("sysCtls"), "fx", "select", {
   options: FX,
-  after: (c) => { c.el.querySelector('option[value="8"]').disabled = settings.target === "v20"; },
+  after: (c) => { c.el.querySelector('option[value="8"]').disabled = isV20(settings.target); },
 });
 globalCtl($("sysCtls"), "oct", "seg", { options: ["0", "1", "2", "3"] });
 globalCtl($("sysCtls"), "tune", "slider");
