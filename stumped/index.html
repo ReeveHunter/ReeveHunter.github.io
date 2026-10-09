@@ -151,7 +151,34 @@
     kbdMode = kbd;
     if (ready) Module._web_input_mode(kbd);
   }
-  var SAVE_KEY = 'stumped-save';
+  var SAVE_KEY = 'stumped-save', SETS_KEY = 'stumped-sets';
+  function openHashCode() {
+    var c = '';
+    try { c = decodeURIComponent((location.hash || '').slice(1)); } catch (e) {}
+    if (!ready || !/^[0-9A-Za-z -]{5,400}$/.test(c)) return;
+    Module._web_code_link(1);
+    for (var i = 0; i < c.length; i++) Module._web_code_char(c.charCodeAt(i));
+    Module._web_code_char(13);
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  }
+  /* level set files you add: kept in the browser as { "name.txt": text } */
+  function loadSetStore() { try { return JSON.parse(localStorage.getItem(SETS_KEY) || '{}'); } catch (e) { return {}; } }
+  var fileIn = document.createElement('input');
+  fileIn.type = 'file'; fileIn.accept = '.txt,.sok,.xsb,text/plain'; fileIn.style.display = 'none';
+  document.body.appendChild(fileIn);
+  fileIn.addEventListener('change', function () {
+    var f = fileIn.files && fileIn.files[0];
+    if (!f || !ready) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var text = String(rd.result || ''), name = f.name.replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9 _()'-]/g, '_').slice(0, 60) + '.txt', kept = 1;
+      try { var all = loadSetStore(); all[name] = text; localStorage.setItem(SETS_KEY, JSON.stringify(all)); } catch (e) { kept = -1; }
+      try { Module.FS.mkdir('imported'); } catch (e) {}
+      Module.FS.writeFile('imported/' + name, text);
+      Module._web_sets_reload(kept);
+    };
+    rd.readAsText(f);
+  });
   var canvas = document.getElementById('screen'), ctx = canvas.getContext('2d');
   var image = ctx.createImageData(640, 480);
   var start = document.getElementById('start'), go = document.getElementById('go');
@@ -185,6 +212,13 @@
 
   var keyHeld = {};                  /* key code -> the action it pressed */
   window.addEventListener('keydown', function (e) {
+    /* typing a level code: letters and digits go straight in */
+    if (ready && started && !e.metaKey && !e.ctrlKey && !e.altKey && Module._web_text_mode()) {
+      var ch = e.key.length === 1 && /[0-9A-Za-z]/.test(e.key) ? e.key.charCodeAt(0)
+             : e.key === 'Backspace' ? 8 : e.key === 'Enter' ? 13 : e.key === 'Escape' ? 27 : 0;
+      if (ch) { e.preventDefault(); setMode(1); Module._web_code_char(ch); return; }
+      if (e.key === ' ' || e.key === '-') { e.preventDefault(); return; }   /* the gaps are put in for you */
+    }
     var act = KEYS[e.code];
     if (!act || e.metaKey || e.ctrlKey || e.altKey) return;
     if (act === 'UNDO' && e.shiftKey && e.code === 'KeyZ') act = 'REDO';      /* Shift+Z redoes */
@@ -194,6 +228,12 @@
     if (e.repeat || keyHeld[e.code]) return;   /* the game does its own hold-to-repeat */
     keyHeld[e.code] = act;
     if (ready) Module._web_kbd(KA[act], 1);
+  });
+  window.addEventListener('paste', function (e) {
+    if (!ready || !Module._web_text_mode()) return;
+    var t = (e.clipboardData || window.clipboardData).getData('text') || '';
+    e.preventDefault();
+    for (var i = 0; i < t.length; i++) Module._web_code_char(t.charCodeAt(i));
   });
   window.addEventListener('keyup', function (e) {
     var act = keyHeld[e.code];
@@ -646,13 +686,24 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261008121654'; },
+    locateFile: function (path) { return path + '?v=20261008190854'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
     },
     stumpedLoad: function () {
       try { var s = localStorage.getItem(SAVE_KEY); if (s) Module.FS.writeFile('save.txt', s); } catch (e) {}
+    },
+    stumpedLoadSets: function () {
+      var all = loadSetStore();
+      try { Module.FS.mkdir('imported'); } catch (e) {}
+      for (var n in all) { try { Module.FS.writeFile('imported/' + n, all[n]); } catch (e) {} }
+    },
+    stumpedImport: function () { fileIn.value = ''; fileIn.click(); },
+    stumpedRemoveSet: function (file) {
+      try { var all = loadSetStore(); delete all[file]; localStorage.setItem(SETS_KEY, JSON.stringify(all)); } catch (e) {}
+      try { Module.FS.unlink('imported/' + file); } catch (e) {}
+      Module._web_sets_reload(0);
     },
     stumpedStore: function () {
       try { localStorage.setItem(SAVE_KEY, Module.FS.readFile('save.txt', { encoding: 'utf8' })); } catch (e) {}
@@ -669,6 +720,9 @@
       ready = true;
       var m = kbdMode >= 0 ? kbdMode : ctlMode === 'g' ? 2 : coarse ? 0 : 1; kbdMode = -1; setMode(m);
       go.textContent = coarse ? 'Tap to start' : 'Click or press a key';
+      /* a link with a level code after the # adds that level to My levels */
+      setTimeout(openHashCode, 0);
+      window.addEventListener('hashchange', openHashCode);
     },
     onAbort: function (what) {
       go.textContent = 'Something went wrong'; go.style.animation = 'none';
@@ -678,6 +732,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261008121654" async></script>
+<script src="stumped.js?v=20261008190854" async></script>
 </body>
 </html>
