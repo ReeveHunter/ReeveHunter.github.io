@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sight Reading</title>
+<meta name="description" content="Learn to sight-read piano music with a MIDI keyboard: adaptive note, interval, key, chord and melody practice, like a touch-typing course for the staff.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="./" id="brandLink">
+    <span class="brand-mark" aria-hidden="true">&#x1D11E;</span>
+    <span class="brand-name">Sight Reading</span>
+  </a>
+  <nav class="nav">
+    <button class="navbtn" data-view="home">Practice</button>
+    <button class="navbtn" data-view="stats">Progress</button>
+    <button class="navbtn" id="settingsBtn">Settings</button>
+  </nav>
+  <div class="top-right">
+    <button id="midiPill" class="pill" title="MIDI status">
+      <span class="dot"></span><span class="txt">Connect piano</span>
+    </button>
+    <div class="profile">
+      <button id="profileBtn" class="pill profile-btn" aria-haspopup="true" aria-expanded="false">
+        <span class="avatar" id="profileAvatar">P</span>
+        <span id="profileName">Player 1</span>
+        <span class="caret">▾</span>
+      </button>
+      <div id="profileMenu" class="menu" hidden></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="unsupported" class="banner" hidden>
+    <strong>This browser can't read MIDI keyboards.</strong>
+    Use Chrome, Edge or Opera to connect your piano. You can still practice with the computer keyboard or by clicking the on-screen keys.
+  </div>
+
+  <!-- HOME -->
+  <section id="view-home" class="view"></section>
+
+  <!-- PRACTICE -->
+  <section id="view-practice" class="view" hidden>
+    <div class="pbar">
+      <button id="backBtn" class="btn ghost">← Done</button>
+      <div class="ptitle">
+        <h2 id="pTitle">Notes</h2>
+        <p id="pSub"></p>
+      </div>
+      <div class="seg" id="modeSeg" role="tablist">
+        <button data-mode="wait" title="Waits for each note. Measures how quickly you recognize it.">Wait</button>
+        <button data-mode="flow" title="A playhead moves at a steady tempo and never stops.">Flow</button>
+      </div>
+      <div class="tempo" id="tempoBox" hidden>
+        <button id="tDown" class="btn small" aria-label="Slower">−</button>
+        <span><b id="tVal">60</b> bpm</span>
+        <button id="tUp" class="btn small" aria-label="Faster">+</button>
+      </div>
+      <div class="live">
+        <div><b id="lAcc">—</b><span>accuracy</span></div>
+        <div id="lSpeedBox"><b id="lSpeed">—</b><span>notes / min</span></div>
+        <div id="lStreakBox"><b id="lStreak">0</b><span>streak</span></div>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="stagewrap">
+      <div id="stage" class="stage"></div>
+      <div id="overlay" class="overlay" hidden></div>
+    </div>
+    <div class="msg" id="msg">&nbsp;</div>
+    <div class="pianowrap" id="pianoWrap">
+      <div class="pianohead"><span id="kbHelp"></span></div>
+      <div id="piano" class="piano"></div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="view-stats" class="view" hidden></section>
+</main>
+
+<dialog id="dlg" class="dlg"></dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
