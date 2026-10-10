@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects</title>
+<meta name="description" content="Projects in progress and ideas for future builds, from Reeve Hunter.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="crumbs"><a href="../">reevehunter.com</a> / projects</div>
+  <h1>Projects</h1>
+  <p class="lede">Things I'm building that haven't reached version 1.0 yet, plus ideas for what comes next.</p>
+
+  <p class="section-label">In progress</p>
+
+  <h2 class="group" style="border:0;padding:0">Music and synths</h2>
+  <div class="cards">
+    <a class="card" href="../sightreading/">
+      <h3>Sight Reading</h3>
+      <p>Learn to sight-read piano music with a MIDI keyboard: adaptive note, interval, key, chord and melody practice, like a touch-typing course for the staff.</p>
+      <span class="where">Web app &middot; reevehunter.com/sightreading</span>
+    </a>
+    <a class="card" href="../C64/">
+      <h3>Cynthcart Controller</h3>
+      <p>Control Cynthcart on a Commodore 64 over MIDI: every sound parameter, saved patches, for Cynthcart 2.0 or the Kerberos custom build.</p>
+      <span class="where">Web app &middot; reevehunter.com/C64</span>
+    </a>
+    <div class="card">
+      <h3>Cynthcart Kerberos Build</h3>
+      <p>A personal modification of Paul Slocum's Cynthcart synth for the C64 with a Kerberos MIDI cartridge: redesigned parameter display, per-voice editing, true tremolo, deeper vibrato and more. Not distributed, out of respect for Cynthcart's license.</p>
+      <span class="where">Commodore 64 &middot; private</span>
+    </div>
+    <a class="card" href="../flash/">
+      <h3>Kerberos Flash</h3>
+      <p>Flash PRGs and EasyFlash CRTs to the Kerberos C64/C128 MIDI cartridge from the browser, over Web MIDI.</p>
+      <span class="where">Web app &middot; reevehunter.com/flash</span>
+    </a>
+    <a class="card" href="../CZ/">
+      <h3>CZ-101 Patch Editor</h3>
+      <p>A browser-based SysEx patch editor for the Casio CZ-101, CZ-1000 and CZ-5000.</p>
+      <span class="where">Web app &middot; reevehunter.com/CZ</span>
+    </a>
+    <div class="card">
+      <h3>gbmidi</h3>
+      <p>A MIDI sound module for the original Game Boy, in the spirit of mGB. Every channel is played live from a DAW, and the wave channel adds a morphing wavetable synth, chord waves, a sampled drum kit and singable allophone speech. Name to be decided.</p>
+      <span class="where">Game Boy</span>
+    </div>
+    <a class="card" href="../tunes/">
+      <h3>Tunes</h3>
+      <p>Browse and play my songs.</p>
+      <span class="where">Web app &middot; reevehunter.com/tunes</span>
+    </a>
+  </div>
+
+  <h2 class="group" style="border:0;padding:0;margin-top:36px">Games and handhelds</h2>
+  <div class="cards">
+    <a class="card" href="../stumped/">
+      <h3>Stumped</h3>
+      <p>A Game Boy&ndash;style Sokoban set in a forest at night, with 1,093 puzzles by David W. Skinner and a generative soundtrack your moves play along with. Plays in the browser and on the Miyoo Mini.</p>
+      <span class="where">Browser and Miyoo Mini &middot; reevehunter.com/stumped</span>
+    </a>
+    <div class="card">
+      <h3>Beanbag</h3>
+      <p>A small audiobook and podcast player for the Miyoo Mini Plus running Onion OS. It remembers your place in every file, turns the screen off while you listen, and stays out of the way.</p>
+      <span class="where">Miyoo Mini Plus</span>
+    </div>
+  </div>
+
+  <h2 class="group" style="border:0;padding:0;margin-top:36px">Teaching</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>Canvas Quiz Generator</h3>
+      <p>Author randomized math questions with a SymPy generator and a text template, preview them live, and export graded numeric-answer variants as a Canvas quiz package. Inspired by CheckIt.</p>
+      <span class="where">Prototype</span>
+    </div>
+    <div class="card">
+      <h3>Precalculus Workbook with Connections to Calculus</h3>
+      <p>An open educational resource workbook for precalculus, from functions and how they change through trigonometric equations and inverses.</p>
+      <span class="where">LaTeX book</span>
+    </div>
+  </div>
+
+  <p class="section-label">Ideas</p>
+  <div class="cards">
+    <a class="card" href="fat-nes.html">
+      <h3>Fat NES</h3>
+      <p>Play chords on one MIDI channel and get a big, gnarly instrument spread across all five NES channels, with DPCM intervals, noise layers, detune tricks and a pedal steel mode.</p>
+      <span class="status">Lead idea</span>
+    </a>
+    <a class="card" href="nes-usb-midi.html">
+      <h3>NES USB MIDI Synth</h3>
+      <p>A MidiNES-style sound module for the Everdrive N8 Pro, fed from Logic through a Web MIDI + Web Serial page. Proper pitch bend, built-in vibrato, arpeggiator, echo, curated drum kits. The shared engine under Fat NES.</p>
+      <span class="status">Shared engine</span>
+    </a>
+  </div>
+
+  <footer><a href="../">reevehunter.com</a></footer>
+</div>
+</body>
+</html>

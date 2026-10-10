@@ -41,3 +41,9 @@ th{font-weight:600;color:var(--muted);font-size:13px;text-transform:uppercase;le
 .card .status{margin-top:10px}
 .phase{counter-reset:p}
 footer{margin-top:60px;font-size:14px;color:var(--muted)}
+.section-label{font:600 13px "Inter",sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:44px 0 0}
+.group{font:600 1.15rem "Fraunces",Georgia,serif;margin:26px 0 -10px}
+.card .where{display:block;margin-top:10px;font-size:13px;color:var(--muted)}
+.card .status.wip{background:var(--code);color:var(--muted)}
+div.card{cursor:default}
+div.card:hover{border-color:var(--rule)}

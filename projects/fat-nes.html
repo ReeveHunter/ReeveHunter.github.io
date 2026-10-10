@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fat NES</title>
+<meta name="description" content="A NES build that turns all five channels into one big polyphonic instrument played from a single MIDI channel.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<div class="crumbs"><a href="../">reevehunter.com</a> / <a href="./">projects</a> / fat-nes</div>
+
+<h1>Fat NES</h1>
+<p class="lede">Play chords on one MIDI channel; get a big, gnarly instrument spread across all five NES channels.</p>
+<p class="meta"><span class="status">Lead idea</span> &nbsp;Last updated October 10, 2026 &middot; Shares its engine with <a href="nes-usb-midi.html">NES USB MIDI Synth</a></p>
+
+<h2>The idea</h2>
+<p>Most NES MIDI builds give you one MIDI channel per NES voice: five monophonic voices you sequence separately. Fat NES flips that. You play one part, normally on one MIDI channel, and the ROM decides how to spread it across the hardware: bass on the triangle, chord tones on the pulses, extra intervals baked into DPCM loops, and noise for attack and grit. The aim is more apparent polyphony and more character than the five channels usually give.</p>
+
+<h2>Why a separate build</h2>
+<ul>
+<li><strong>Different voice model.</strong> The main build maps MIDI channels to NES voices. Fat NES uses a voice allocator that owns all five channels. Mixing the two in one ROM makes both harder to reason about.</li>
+<li><strong>Different ROM budget.</strong> Fat NES spends its sample space on chord and interval loops rather than drum kits.</li>
+<li><strong>Different hardware needs.</strong> It benefits most from writable sample RAM (see below), which the main build only needs later.</li>
+<li><strong>Different presets.</strong> A patch here is a recipe for how the channels work together, not settings for one channel.</li>
+</ul>
+<p><strong>Plan:</strong> one shared engine (USB input, cents-based pitch, period tables, envelopes, LFOs, DMC playback), two ROM targets. Everything built for the main synth carries over, and Fat NES adds the allocator and layering on top. A program-change switch between the two modes could come later if it seems useful.</p>
+
+<h2>Voice roles in chord mode</h2>
+<table>
+<tr><th>Channel</th><th>Role</th><th>Notes</th></tr>
+<tr><td>Triangle</td><td>Bass</td><td>Takes the lowest held note, optionally an octave down. No volume control, so it's gated; the <code>$4011</code> trick below gives it crude dynamics.</td></tr>
+<tr><td>Pulse 1 and 2</td><td>Chord tones</td><td>Take the next notes up. With few notes held, they double a note with detune instead.</td></tr>
+<tr><td>DMC</td><td>Extra intervals</td><td>A looped sample holding a dyad or triad, covering the notes the pulses can't. One channel, several pitches.</td></tr>
+<tr><td>Noise</td><td>Texture</td><td>Attack transient, breath, grit, or tuned short-mode noise for metallic overtones. Velocity-driven.</td></tr>
+</table>
+<p>That gives roughly five or six sounding pitches from one keyboard part, before tricks.</p>
+
+<h2>Modes</h2>
+<h3>Chord split</h3>
+<p>As above: lowest note to bass, the rest distributed upward.</p>
+<h3>Stack (unison)</h3>
+<p>One note fattens into everything: pulses detuned a few cents apart and beating, triangle as a sub-octave, DMC loop an octave or fifth above, noise on the attack. A mono lead or bass that sounds much bigger than one channel.</p>
+<h3>Poly with overflow</h3>
+<p>Notes are allocated to channels until they run out. Extra notes either arpeggiate on one pulse (the classic chip way of faking polyphony) or get folded into the DMC loop.</p>
+<h3>Chord memory and strum</h3>
+<p>One key plays a stored chord shape, transposed. Optional strum staggers the channel note-ons by a few milliseconds, low to high or high to low.</p>
+
+<h2>Pedal steel mode</h2>
+<p>The channels that can't bend become a feature. On a pedal steel some strings bend while others ring at fixed pitch underneath; here the pulses bend and the DMC loop and triangle hold still. Everything is driven by the two controls every keyboard has, the <strong>pitch bend wheel</strong> and the <strong>mod wheel</strong>, with no expression pedals required.</p>
+<h3>Roles</h3>
+<ul>
+<li><strong>Fixed strings:</strong> DMC loop (root and fifth, or a drone) and triangle bass. They ignore bends.</li>
+<li><strong>Pedaled strings:</strong> the two pulses. Each one bends by its own amount.</li>
+</ul>
+<h3>The wheels as pedals</h3>
+<ul>
+<li><strong>Pitch bend up = pedal A.</strong> Instead of bending every voice by the same amount, each pulse moves by an interval set by the patch. With the wheel fully up, one pulse might rise a whole step while the other rises a half step; partway up gives the in-between bend, exactly like half-pressing a pedal.</li>
+<li><strong>Pitch bend down = knee lever.</strong> A second set of per-voice intervals, usually lowering, so one wheel gives two different chord changes.</li>
+<li><strong>Mod wheel = pedal B.</strong> A third set of intervals, stackable with the bend wheel, so pedal combinations are possible (wheel up plus mod wheel gives A+B).</li>
+<li><strong>Chord-aware bends (optional).</strong> Rather than fixed per-channel amounts, the bend depends on which chord tone a pulse is holding: a pulse on the 2nd rises to the 3rd, a pulse on the 3rd rises to the 4th, a pulse on the root stays put. One wheel move turns sus2 into major, or major into sus4, whatever notes you're holding. Factory presets can borrow classic E9 steel pedal changes.</li>
+<li><strong>Normal mode</strong> is still available: the bend wheel bends the pulses together by the RPN range, and the fixed channels stay fixed.</li>
+</ul>
+<h3>Automatic steel moves (no controller needed)</h3>
+<ul>
+<li><strong>Bend into the note:</strong> pulses start below the played pitch and glide up into it, with interval, time and curve set per patch. Can be limited to certain voices, or to notes played above a velocity.</li>
+<li><strong>Volume swell:</strong> a slow attack envelope on the pulses so notes fade in without a pick attack, while the drone keeps its level.</li>
+<li><strong>Resolution beating:</strong> the DMC loop sits slightly off equal temperament, so a pulse resolving onto a chord tone beats against it briefly as it lands, like a steel settling in.</li>
+<li><strong>Bar slide</strong> (legato mode): all pulses glide together to the new chord while the DMC either holds or steps through its 16 rates for a crunchy, stair-stepped slide.</li>
+</ul>
+
+<h2>Smart voice allocation</h2>
+<ul>
+<li><strong>Voice leading:</strong> when the chord changes, keep common tones on the same channel and move the others the shortest distance, so channels don't retrigger unnecessarily.</li>
+<li><strong>Priority rules:</strong> bass and top note are protected; inner voices get dropped into the DMC layer or the arpeggiator first.</li>
+<li><strong>Velocity spreads across layers:</strong> harder playing brings in more noise, a brighter duty, a louder DMC velocity layer.</li>
+</ul>
+
+<h2>Character tricks</h2>
+<ul>
+<li><strong>Detune beating</strong> between the two pulses, and between pulses and the DMC loop. Because the DMC only has 16 rates, its pitch lands near the pulses but rarely on them, which gives a chorus-like wobble for free.</li>
+<li><strong>The <code>$4011</code> pump.</strong> The DMC output level changes how loud the triangle and noise channels are, through the NES's nonlinear mixer. Writing to it gives the triangle crude volume control, or a rhythmic ducking effect. It clicks, which is part of the appeal.</li>
+<li><strong>Duty sweeps</strong> on the pulses for PWM-like movement.</li>
+<li><strong>Sweep unit</strong> for slow pitch drift or dive-bomb attacks.</li>
+<li><strong>Phase-reset clicks</strong> as a deliberate attack transient (clicky mode).</li>
+<li><strong>Short-mode noise</strong> for pitched metallic tones that sit on top of a chord.</li>
+<li><strong>Natural compression:</strong> the NES mixes channels nonlinearly, so big chords squash together in a pleasing way.</li>
+</ul>
+
+<h2>Where the DMC loops come from</h2>
+<h3>Option A: baked</h3>
+<p>Pre-rendered loops for intervals and chord shapes in every key, built by the ROM builder web app and bank-switched in. Works on any mapper. Limited to the shapes you bake, and each costs ROM.</p>
+<h3>Option B: synthesized on the NES</h3>
+<p>If a mapper provides writable RAM at <code>$C000&ndash;$DFFF</code>, where the DMC can read it, the ROM renders loops on demand:</p>
+<ul>
+<li>Any interval, any chord shape, any volume, from a sine or other wave table.</li>
+<li>Encoding is cheap per bit, but a loop takes a few frames to render, so common shapes get cached and new ones are built just ahead of when they're needed.</li>
+<li>Rewriting the loop while it plays changes the timbre live, like a crude wavetable.</li>
+<li>The slew limit (output moves 2 steps per bit) rounds off loud, high waves into something triangle-ish and gritty. Fine for this sound.</li>
+</ul>
+<p>Candidates: MMC5 (may allow PRG-RAM in that range) or FDS mode (32 KB of RAM at <code>$6000&ndash;$DFFF</code>). Both need checking on the N8 Pro.</p>
+
+<h2>Honest limits</h2>
+<ul>
+<li><strong>DMC loops don't bend smoothly.</strong> This is the basis of pedal steel mode, where they deliberately stay fixed. Other options per patch: step through the 16 rates, or re-render the loop (option B only).</li>
+<li><strong>Triangle has no real volume,</strong> beyond the <code>$4011</code> trick.</li>
+<li><strong>Chord changes cost time</strong> when a new DMC loop has to be rendered. Caching and predicting help; a brief glitch on a surprise chord is acceptable.</li>
+<li><strong>It's still five channels.</strong> Dense voicings will get arpeggiated or thinned.</li>
+</ul>
+
+<h2>Example patches</h2>
+<table>
+<tr><th>Patch</th><th>Recipe</th></tr>
+<tr><td>Gnarl Pad</td><td>Chord split; pulses at 12.5% duty with slow duty sweep; DMC drifting chord loop; noise breath at low volume.</td></tr>
+<tr><td>Organ</td><td>Chord split; pulses at 50% duty; triangle sub; DMC fifth-and-octave loop; no noise.</td></tr>
+<tr><td>Brass Stab</td><td>Stack; detuned pulses with a fast pitch envelope up into the note; noise burst attack; <code>$4011</code> pump on release.</td></tr>
+<tr><td>Steel</td><td>Pedal steel mode; DMC root-fifth drone; pulses at 25% duty with bend-into-note and slow swell; chord-aware bends on both wheels.</td></tr>
+<tr><td>Bass + Chord</td><td>Split point on the keyboard: below it, triangle plus pulse bass; above it, pulse and DMC chords.</td></tr>
+</table>
+
+<h2>Phases</h2>
+<ol>
+<li>Requires phases 1&ndash;3 of the <a href="nes-usb-midi.html#phases">main build</a> (link, core synth, expression).</li>
+<li>Voice allocator: chord split and stack modes using pulses and triangle only.</li>
+<li>Noise layer and the <code>$4011</code> pump.</li>
+<li>Baked DMC interval loops (option A).</li>
+<li>Pedal steel mode: per-voice bend intervals on both wheels, bend-into-note, swell, then chord-aware bends.</li>
+<li>Poly overflow into the arpeggiator, chord memory, strum.</li>
+<li>Synthesized loops in RAM (option B), once the mapper question is answered.</li>
+</ol>
+
+<footer>Back to <a href="./">projects</a> &middot; <a href="https://www.nesdev.org/wiki/APU_Mixer">APU mixer on NESdev</a> &middot; <a href="https://www.nesdev.org/wiki/APU_DMC">APU DMC on NESdev</a></footer>
+</div>
+</body>
+</html>
