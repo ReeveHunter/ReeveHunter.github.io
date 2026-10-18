@@ -130,14 +130,14 @@ export function patchToFile(p) {
   return { format: "cynthcart-patch", version: 1, ...structuredClone(p) };
 }
 
-/** Random patch with the firmware's guards (no 6CHAN, no silent PW, VOL 8-15, a real filter type). */
+/** Random patch with the firmware's guards (no 6CHAN, no silent PW, a real filter type). Volume is kept, as in the firmware's "randomize all". */
 export function randomPatch(from, rnd = Math.random) {
   const r = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
   const p = structuredClone(from);
   p.name = "Random";
   p.mode = r(0, 14); p.fx = r(0, 8);
   p.vibD = r(0, 31); p.vibS = r(0, 3); p.trmD = r(0, 15); p.trmS = r(0, 31);
-  p.fType = r(1, 7); p.cut = r(0, 127) * 2; p.res = r(0, 15); p.vol = r(8, 15);
+  p.fType = r(1, 7); p.cut = r(0, 127) * 2; p.res = r(0, 15);
   for (const v of p.voices) {
     v.wave = r(0, 3); v.mod = r(0, 3); v.pw = r(12, 115) * 2; v.flt = r(0, 1);
     v.a = r(0, 15); v.d = r(0, 15); v.s = r(0, 15); v.r = r(0, 15);
