@@ -216,7 +216,7 @@ p.hint { margin: 10px 0 0; }
 /* slots */
 .slots {
   list-style: none; margin: 0; padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px;
   max-height: 410px; overflow-y: auto;
 }
 .slots button {
@@ -290,3 +290,52 @@ dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 dialog h3 { margin: 0 0 8px; font-family: var(--display); font-size: 19px; }
 dialog p { margin: 0 0 18px; color: var(--muted); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+kbd {
+  font: 600 12px var(--mono);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.ef-status { margin: -2px 0 12px; font-size: 14px; font-weight: 500; }
+.ef-status.unknown { color: var(--muted); font-weight: 400; }
+.ef-status.present::before {
+  content: "CRT";
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.06em;
+  padding: 3px 6px;
+  border-radius: 4px;
+  margin-right: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  vertical-align: 1px;
+}
+.ef-status .warn { color: var(--warn); font-weight: 400; }
+
+.slots .nm.efdata { color: var(--muted); }
+.slots button[draggable="true"] { cursor: grab; }
+.slots li.dragging-src button { opacity: 0.45; }
+.slots li.drop-target button {
+  border-color: var(--accent);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
+}
+.ef-status .note { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+.emu-field { margin-bottom: 14px; max-width: 360px; }
+.slots .emu {
+  flex: none;
+  font: 600 10px/1 var(--mono);
+  letter-spacing: 0.03em;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  align-self: center;
+}
+.slots .emu.off { color: var(--warn); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 55%, transparent); }
+.slots button[aria-pressed="true"] .emu { background: color-mix(in srgb, var(--surface) 70%, transparent); }

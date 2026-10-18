@@ -52,7 +52,7 @@
     </div>
     <div class="row-actions">
       <button id="pingBtn" class="btn ghost" disabled title="Needs MIDI in and out connected">Test connection</button>
-      <span class="hint">Start the C64 in the Kerberos menu before sending anything.</span>
+      <span class="hint">On the C64, open the Kerberos menu and press <kbd>T</kbd> (Transfer from PC/Mac) before sending anything.</span>
     </div>
   </section>
 
@@ -76,6 +76,10 @@
 
       <!-- PRG actions -->
       <div id="prgActions" class="actions" hidden>
+        <label class="field emu-field">
+          <span>MIDI emulation <em>— what the program expects (most MIDI programs: DATEL)</em></span>
+          <select id="emuSelect"></select>
+        </label>
         <div class="action-row">
           <button id="runBtn" class="btn primary">Send &amp; run</button>
           <span class="hint">Loads into cartridge RAM and starts it. Nothing is flashed.</span>
@@ -95,10 +99,6 @@
                 <label><input type="radio" name="machine" value="c128"> C128</label>
               </div>
             </div>
-            <label class="field">
-              <span>MIDI emulation</span>
-              <select id="emuSelect"></select>
-            </label>
             <label class="field">
               <span>Load address (hex)</span>
               <input id="loadAddr" class="mono" maxlength="4" value="0801" spellcheck="false">
@@ -125,12 +125,18 @@
     <section class="card" id="slotCard">
       <div class="card-head">
         <h2>Slots</h2>
-        <button id="readSlotsBtn" class="btn ghost small" disabled title="Needs MIDI in connected">Read names</button>
+        <div class="head-actions">
+          <button id="readSlotsBtn" class="btn ghost small" disabled title="Needs MIDI in connected">Read slots</button>
+          <button id="downloadAllBtn" class="btn ghost small" disabled title="Reads every program and saves them as one .zip">Download all</button>
+        </div>
       </div>
+      <p id="efStatus" class="ef-status unknown">EasyFlash CRT: not read yet</p>
       <ol id="slotList" class="slots"></ol>
-      <p class="hint" id="slotsNote">Names are read from the cartridge over MIDI in. Slots 10–25 share space with the EasyFlash image.</p>
+      <p class="hint" id="slotsNote"></p>
       <div class="slot-actions">
         <button id="startSlotBtn" class="btn">Start slot <span class="slotNum">1</span></button>
+        <button id="downloadSlotBtn" class="btn">Download slot <span class="slotNum">1</span></button>
+        <button id="changeEmuBtn" class="btn" title="Rewrite the slot's stored MIDI emulation without re-flashing the program">Change MIDI…</button>
         <button id="deleteSlotBtn" class="btn danger-ghost">Delete slot <span class="slotNum">1</span></button>
         <button id="listSlotsBtn" class="btn ghost">Show list on C64</button>
         <button id="basicBtn" class="btn ghost">Back to BASIC</button>
@@ -172,10 +178,7 @@
   <form method="dialog">
     <h3 id="confirmTitle"></h3>
     <p id="confirmBody"></p>
-    <div class="dialog-actions">
-      <button value="cancel" class="btn ghost">Cancel</button>
-      <button value="ok" id="confirmOk" class="btn primary">OK</button>
-    </div>
+    <div class="dialog-actions" id="dialogActions"></div>
   </form>
 </dialog>
 

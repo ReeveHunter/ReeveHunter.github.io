@@ -20,7 +20,9 @@ const state = {
   input: null,
   file: null,          // { name, bytes, kind: "prg" | "crt", crt? }
   slot: store.get("slot", 1),
-  slotNames: store.get("slotNames", {}),
+  // slots[n] = { kind: "prg" | "empty" | "ef" | "data", name?, length? }
+  slots: store.get("slots", {}),
+  ef: store.get("ef", null), // { present, name, overlapping } once read
   busy: false,
   abort: null,
   lastMessages: null,
@@ -118,14 +120,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Streams a MessageBuilder's messages at a fixed pace. The cartridge has no
 // flow control, so pacing at (or below) MIDI wire speed is what keeps the
 // C64 in step — the same job the 31250-baud cable did for the original app.
-async function stream(builder, { title, signal }) {
+async function stream(builder, { title, signal, quiet = false }) {
   const out = state.out;
   if (!out) throw new Error("No MIDI output selected.");
   const bytes = builder.bytes(), marks = builder.marks, n = builder.length;
   const interval = Number($("pacingSelect").value) || 1;
-  state.lastMessages = bytes;
-  $("downloadLogBtn").disabled = false;
-  showDock(title, n * interval);
+  if (!quiet) {
+    state.lastMessages = bytes;
+    $("downloadLogBtn").disabled = false;
+    showDock(title, n * interval);
+  }
 
   let i = 0, markIdx = -1, t0 = performance.now(), lastPaint = 0;
   const maxBurst = 64;
@@ -138,21 +142,21 @@ async function stream(builder, { title, signal }) {
     // If the tab was throttled we fall behind: rebase instead of bursting.
     if (end < due) t0 = performance.now() - i * interval;
     while (markIdx + 1 < marks.length && marks[markIdx + 1].at <= i) markIdx++;
-    if (now - lastPaint > 100 || i === n) {
+    if (!quiet && (now - lastPaint > 100 || i === n)) {
       lastPaint = now;
       paintProgress(i, n, markIdx >= 0 ? marks[markIdx].text : title, (n - i) * interval);
     }
     await sleep(8);
   }
   // Let the OS/interface buffer drain before reporting success.
-  await sleep(150);
+  if (!quiet) await sleep(150);
 }
 
 function waitReply(timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       state.pendingReply = null;
-      reject(new Error("No reply from the cartridge. Check the MIDI in cable and that the C64 is in the Kerberos menu."));
+      reject(new Error("No reply from the cartridge. Check the MIDI in cable, and that the C64 is on the Kerberos menu's T (Transfer from PC/Mac) screen."));
     }, timeoutMs);
     state.pendingReply = {
       resolve: (v) => { clearTimeout(timer); resolve(v); },
@@ -221,16 +225,33 @@ function finishDock(ok, text) {
 
 // ------------------------------------------------------------- confirm
 
-function confirmBox(title, body, okLabel = "OK", danger = false) {
+// buttons: [{ value, label, kind: "primary" | "danger" | "ghost" }]
+function choiceBox(title, body, buttons) {
   const d = $("confirmDialog");
   $("confirmTitle").textContent = title;
   $("confirmBody").textContent = body;
-  const ok = $("confirmOk");
-  ok.textContent = okLabel;
-  ok.className = danger ? "btn danger-ghost" : "btn primary";
+  const row = $("dialogActions");
+  row.innerHTML = "";
+  const cancel = document.createElement("button");
+  cancel.value = "cancel";
+  cancel.className = "btn ghost";
+  cancel.textContent = "Cancel";
+  row.append(cancel);
+  for (const b of buttons) {
+    const el = document.createElement("button");
+    el.value = b.value;
+    el.className = "btn " + (b.kind === "danger" ? "danger-ghost" : b.kind === "ghost" ? "ghost" : "primary");
+    el.textContent = b.label;
+    row.append(el);
+  }
   d.returnValue = "";
   d.showModal();
-  return new Promise((resolve) => d.addEventListener("close", () => resolve(d.returnValue === "ok"), { once: true }));
+  row.lastElementChild.focus();
+  return new Promise((resolve) => d.addEventListener("close", () => resolve(d.returnValue === "cancel" ? "" : d.returnValue), { once: true }));
+}
+
+async function confirmBox(title, body, okLabel = "OK", danger = false) {
+  return (await choiceBox(title, body, [{ value: "ok", label: okLabel, kind: danger ? "danger" : "primary" }])) === "ok";
 }
 
 // ------------------------------------------------------------- settings
@@ -325,62 +346,420 @@ async function loadFile(file) {
   updateUi();
 }
 
+// ------------------------------------------------------- MIDI emulation
+
+const emuShort = (i) => (i >= 0 ? K.MIDI_EMULATIONS[i].short : "custom MIDI");
+
 // ----------------------------------------------------------------- slots
 
+const DRAG_TYPE = "application/x-kerberos-slot";
+const isEfSlot = (s) => s >= 10;
+const efLabel = () => "EasyFlash CRT";
+
+function slotLabel(info) {
+  if (!info) return { text: "—", cls: "empty" };
+  if (info.kind === "prg") return { text: info.name || "(unnamed)", cls: "" };
+  if (info.kind === "ef") return { text: efLabel(), cls: "efdata" };
+  if (info.kind === "data") return { text: "(unknown data)", cls: "empty" };
+  return { text: "empty", cls: "empty" };
+}
+
+function setSlot(slot, info) {
+  state.slots = { ...state.slots, [slot]: info };
+  store.set("slots", state.slots);
+}
+
+function canReorganize() {
+  return !!state.out && !!state.input && !state.busy;
+}
+
+let dragFrom = 0;
 function renderSlots() {
   const list = $("slotList");
   list.innerHTML = "";
+  const dragOk = canReorganize();
   for (let s = K.SLOT_MIN; s <= K.SLOT_MAX; s++) {
+    const info = state.slots[s];
     const li = document.createElement("li");
-    if (s >= 10) li.className = "ef";
+    if (isEfSlot(s)) li.className = "ef";
     const b = document.createElement("button");
     b.type = "button";
+    b.dataset.slot = s;
     b.setAttribute("aria-pressed", String(s === state.slot));
     const num = document.createElement("span");
     num.className = "num";
     num.textContent = s;
     const nm = document.createElement("span");
-    const known = state.slotNames[s];
-    nm.className = "nm" + (known ? "" : " empty");
-    nm.textContent = known === undefined ? "—" : known || "empty";
-    if (known) b.title = known;
+    const label = slotLabel(info);
+    nm.className = "nm" + (label.cls ? " " + label.cls : "");
+    nm.textContent = label.text;
+    b.title = info?.kind === "prg"
+      ? `${info.name} · ${info.length.toLocaleString()} bytes${info.emu !== undefined ? ` · MIDI: ${info.emu >= 0 ? K.MIDI_EMULATIONS[info.emu].label : "custom"}` : ""}${info.c128 ? " · C128" : ""}${dragOk ? " · drag to another slot to move, copy or swap" : ""}`
+      : info?.kind === "ef" && state.ef?.name ? `Part of the installed EasyFlash CRT (${state.ef.name})` : label.text;
     b.append(num, nm);
+    if (info?.kind === "prg" && info.emu !== undefined) {
+      const tag = document.createElement("span");
+      tag.className = "emu" + (info.emu === K.EMU_NONE ? " off" : "");
+      tag.textContent = emuShort(info.emu);
+      b.append(tag);
+    }
     b.onclick = () => { state.slot = s; store.set("slot", s); renderSlots(); updateUi(); };
+
+    if (info?.kind === "prg" && dragOk) {
+      b.draggable = true;
+      b.addEventListener("dragstart", (e) => {
+        dragFrom = s;
+        e.dataTransfer.setData(DRAG_TYPE, String(s));
+        e.dataTransfer.effectAllowed = "copyMove";
+        li.classList.add("dragging-src");
+      });
+      b.addEventListener("dragend", () => { dragFrom = 0; li.classList.remove("dragging-src"); clearDropTargets(); });
+    }
+    b.addEventListener("dragover", (e) => {
+      if (!dragFrom || dragFrom === s || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearDropTargets();
+      li.classList.add("drop-target");
+    });
+    b.addEventListener("dragleave", () => li.classList.remove("drop-target"));
+    b.addEventListener("drop", (e) => {
+      if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearDropTargets();
+      const from = Number(e.dataTransfer.getData(DRAG_TYPE));
+      dragFrom = 0;
+      if (from && from !== s) onSlotDrop(from, s);
+    });
     li.append(b);
     list.append(li);
   }
   document.querySelectorAll(".slotNum").forEach((el) => (el.textContent = state.slot));
   $("flashSlotLabel").textContent = state.slot;
+  renderEfStatus();
 }
 
-async function readSlotNames(signal) {
-  const names = {};
-  const one = new K.MessageBuilder();
-  one.redraw(); one.nop(); one.print("reading slots..." + K.NEWLINE);
-  await stream(one, { title: "Reading slot names", signal });
+function clearDropTargets() {
+  document.querySelectorAll(".slots .drop-target").forEach((el) => el.classList.remove("drop-target"));
+}
+
+function renderEfStatus() {
+  const el = $("efStatus");
+  el.className = "ef-status";
+  if (!state.ef) {
+    el.textContent = "EasyFlash CRT: not read yet";
+    el.classList.add("unknown");
+  } else if (!state.ef.present) {
+    el.textContent = "No EasyFlash CRT installed";
+  } else {
+    el.textContent = state.ef.name ? `EasyFlash CRT installed: ${state.ef.name}` : "EasyFlash CRT installed (this CRT doesn't store its name)";
+    el.classList.add("present");
+    if (state.ef.nameFromBrowser) {
+      const note = document.createElement("span");
+      note.className = "note";
+      note.textContent = " · name remembered from when this browser flashed it";
+      el.append(note);
+    }
+    const over = state.ef.overlapping || [];
+    if (over.length) {
+      const warn = document.createElement("span");
+      warn.className = "warn";
+      warn.textContent = ` — slot${over.length > 1 ? "s" : ""} ${over.join(", ")} also hold${over.length > 1 ? "" : "s"} a PRG inside the CRT's area, so the CRT may be damaged.`;
+      el.append(warn);
+    }
+  }
+}
+
+// One 256-byte flash block, with retries. Retries add the original app's
+// NOP padding in case the menu needs more breathing room.
+async function readBlock(phys, signal) {
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+    try {
+      const reply = waitReply(attempt ? 4000 : 2500);
+      await stream(K.buildReadBlock(phys, { safe: attempt > 0 }), { quiet: true, signal });
+      const { tag, data } = await reply;
+      if (tag !== K.CMD.MEMORY_BLOCK || data.length !== 256) throw new Error(`Unexpected reply (command $${tag.toString(16)}).`);
+      return data;
+    } catch (err) {
+      if (err.name === "AbortError") throw err;
+      lastErr = err;
+      state.pendingReply = null;
+      receiver.reset();
+      log(`Read at $${phys.toString(16).toUpperCase()} failed (${err.message}) — retrying…`, "err");
+      await sleep(600); // let any late reply drain before asking again
+    }
+  }
+  throw lastErr;
+}
+
+// Job-level progress for multi-step reads.
+function readProgress(title) {
+  const t0 = performance.now();
+  showDock(title, 0);
+  return (done, total, stage) => {
+    const per = done ? (performance.now() - t0) / done : 160;
+    paintProgress(done, total, stage, (total - done) * per);
+  };
+}
+
+function prgInfo(h) {
+  return { kind: "prg", name: h.name, length: h.length, emu: h.midiEmulation, c128: h.c128, regs: h.regs };
+}
+
+function classify(block) {
+  const h = K.parseSlotHeader(block);
+  if (h) return prgInfo(h);
+  return block.every((x) => x === 0xff) ? { kind: "empty" } : { kind: "data" };
+}
+
+async function scanCartridge(signal) {
+  const total = K.SLOT_MAX + 3;
+  const paint = readProgress("Reading slots");
+  const msg = new K.MessageBuilder();
+  msg.redraw(); msg.print("reading slots..." + K.NEWLINE);
+  await stream(msg, { quiet: true, signal });
+  const found = {};
+  let n = 0;
   for (let s = K.SLOT_MIN; s <= K.SLOT_MAX; s++) {
-    if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
-    const reply = waitReply(4000);
-    await stream(K.buildReadSlotHeader(s), { title: `Reading slot ${s} of ${K.SLOT_MAX}`, signal });
-    const { tag, data } = await reply;
-    if (tag !== K.CMD.MEMORY_BLOCK || data.length !== 256) throw new Error(`Unexpected reply while reading slot ${s}.`);
-    const h = K.parseSlotHeader(data);
-    names[s] = h ? h.name || "(unnamed)" : data.every((x) => x === 0xff) ? "" : "(other data)";
-    state.slotNames = { ...state.slotNames, [s]: names[s] };
+    paint(n, total, `Reading slot ${s} of ${K.SLOT_MAX}`);
+    found[s] = classify(await readBlock(K.slotAddress(s), signal));
+    setSlot(s, found[s]);
     renderSlots();
+    n++;
+  }
+  paint(n, total, "Checking for an EasyFlash CRT");
+  const probe = {};
+  for (const [key, phys] of Object.entries(K.EF_PROBE_BLOCKS)) {
+    probe[key] = await readBlock(phys, signal);
+    paint(++n, total, "Checking for an EasyFlash CRT");
+  }
+  const kinds = Object.fromEntries(Object.entries(found).map(([s, v]) => [s, v.kind]));
+  const ef = K.detectEasyFlash(probe, kinds);
+  // Many CRTs (e.g. the SID Collection) store no name on the cartridge. If this
+  // browser flashed the CRT, reuse the file's name.
+  const remembered = store.get("lastCrt", null);
+  if (ef.present && !ef.name && remembered?.vectors === hexOf(probe.vectors.subarray(0xe0))) {
+    ef.name = remembered.name;
+    ef.nameFromBrowser = true;
+  }
+  state.ef = ef;
+  store.set("ef", ef);
+  if (ef.present) {
+    for (let s = 10; s <= K.SLOT_MAX; s++) if (found[s].kind === "data") setSlot(s, { kind: "ef" });
   }
   const done = new K.MessageBuilder();
   done.print("done");
-  await stream(done, { title: "Finishing", signal });
-  store.set("slotNames", state.slotNames);
-  const used = Object.values(names).filter(Boolean).length;
-  return `Read ${K.SLOT_MAX} slots (${used} in use)`;
+  await stream(done, { quiet: true, signal });
+  renderSlots();
+  const used = Object.values(found).filter((v) => v.kind === "prg").length;
+  const crt = ef.present ? `EasyFlash CRT ${ef.name ? `“${ef.name}”` : "(unnamed)"} installed` : "no EasyFlash CRT";
+  return `Read ${K.SLOT_MAX} slots: ${used} program${used === 1 ? "" : "s"}, ${crt}`;
 }
 
-function rememberSlot(slot, name) {
-  state.slotNames = { ...state.slotNames, [slot]: name };
-  store.set("slotNames", state.slotNames);
-  renderSlots();
+// Read a whole PRG slot (header + body) back from flash.
+async function readSlotImage(slot, signal, paint, label = `Reading slot ${slot}`) {
+  const header = await readBlock(K.slotAddress(slot), signal);
+  const h = K.parseSlotHeader(header);
+  if (!h) {
+    setSlot(slot, classify(header));
+    renderSlots();
+    throw new Error(`Slot ${slot} doesn't hold a program.`);
+  }
+  const blocks = K.slotBlockCount(h);
+  const raw = new Uint8Array(blocks * 256);
+  raw.set(header, 0);
+  for (let i = 1; i < blocks; i++) {
+    paint?.(i, blocks, label);
+    raw.set(await readBlock(K.slotAddress(slot) + i * 256, signal), i * 256);
+  }
+  paint?.(blocks, blocks, label);
+  setSlot(slot, prgInfo(h));
+  return { header: h, raw: raw.subarray(0, 256 + h.length) };
+}
+
+async function verifySlot(slot, raw, signal, paint) {
+  const blocks = Math.ceil(raw.length / 256);
+  for (let i = 0; i < blocks; i++) {
+    paint?.(i, blocks, `Verifying slot ${slot}`);
+    const got = await readBlock(K.slotAddress(slot) + i * 256, signal);
+    const want = raw.subarray(i * 256, i * 256 + 256);
+    for (let j = 0; j < want.length; j++) {
+      if (got[j] !== want[j]) throw new Error(`Verify failed: slot ${slot} differs at byte ${i * 256 + j}.`);
+    }
+  }
+}
+
+const hexOf = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+const safeName = (s) => s.replace(/[\/\\:*?"<>|\x00-\x1f]/g, "_").trim() || "program";
+const prgName = (name) => (/\.prg$/i.test(name) ? name : name + ".prg");
+
+function saveBlob(blob, filename) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function rescue(images, why) {
+  const files = images.map(({ slot, raw }) => {
+    const h = K.parseSlotHeader(raw);
+    return { name: `slot${String(slot).padStart(2, "0")}-${safeName(prgName(h.name))}`, data: K.prgFromSlot(raw) };
+  });
+  saveBlob(K.makeZip(files), "kerberos-rescued-programs.zip");
+  log(`${why} Saved ${files.length} program${files.length > 1 ? "s" : ""} the page was holding to kerberos-rescued-programs.zip.`, "err");
+}
+
+async function onSlotDrop(from, to) {
+  if (!canReorganize()) return;
+  const src = state.slots[from];
+  const dst = state.slots[to];
+  if (src?.kind !== "prg") return;
+  const efWarn = isEfSlot(to) && state.ef?.present
+    ? " Slots 10–25 hold the installed EasyFlash CRT, so this will damage it."
+    : isEfSlot(to) && !state.ef ? " Slots 10–25 share flash with the EasyFlash CRT area." : "";
+  let action;
+  if (dst?.kind === "prg") {
+    action = await choiceBox(
+      `Swap slots ${from} and ${to}?`,
+      `“${src.name}” goes to slot ${to} and “${dst.name}” goes to slot ${from}. Both are read into the page first and each write is checked before moving on.${efWarn}`,
+      [{ value: "swap", label: "Swap", kind: efWarn ? "danger" : "primary" }],
+    );
+  } else {
+    const what = dst?.kind === "ef" ? `EasyFlash data in slot ${to}` : dst?.kind === "data" ? `the unknown data in slot ${to}` : "";
+    action = await choiceBox(
+      `Move or copy “${src.name}” to slot ${to}?`,
+      `Move erases slot ${from} only after the new copy reads back correctly.${what ? ` This overwrites ${what}.` : ""}${efWarn}`,
+      [{ value: "copy", label: "Copy", kind: "ghost" }, { value: "move", label: "Move", kind: efWarn ? "danger" : "primary" }],
+    );
+  }
+  if (!action) return;
+  if (action === "swap") swapSlots(from, to);
+  else copySlot(from, to, action === "move");
+}
+
+function copySlot(from, to, move) {
+  const verb = move ? "Moving" : "Copying";
+  runJob(`${verb} slot ${from} to slot ${to}`, async (signal) => {
+    const paint = readProgress(`Reading slot ${from}`);
+    const { header, raw } = await readSlotImage(from, signal, paint, `Reading slot ${from}`);
+    const target = classify(await readBlock(K.slotAddress(to), signal));
+    if (target.kind === "prg") throw new Error(`Slot ${to} now holds “${target.name}”. Nothing was changed; read the slots and try again.`);
+    try {
+      await stream(K.buildFlashSlotImage(raw, to), { title: `Writing to slot ${to}`, signal });
+      await verifySlot(to, raw, signal, readProgress(`Verifying slot ${to}`));
+    } catch (err) {
+      if (err.name !== "AbortError") setSlot(to, { kind: "data" });
+      throw err;
+    }
+    setSlot(to, prgInfo(header));
+    if (isEfSlot(to) && state.ef?.present) markEfOverlap(to);
+    if (move) {
+      await stream(K.buildDeleteSlot(from), { title: `Erasing slot ${from}`, signal });
+      setSlot(from, { kind: "empty" });
+      if (state.slot === from) { state.slot = to; store.set("slot", to); }
+    }
+    renderSlots();
+    return `${move ? "Moved" : "Copied"} “${header.name}” from slot ${from} to slot ${to}`;
+  });
+}
+
+function swapSlots(a, b) {
+  runJob(`Swapping slots ${a} and ${b}`, async (signal) => {
+    const A = await readSlotImage(a, signal, readProgress(`Reading slot ${a}`), `Reading slot ${a}`);
+    const B = await readSlotImage(b, signal, readProgress(`Reading slot ${b}`), `Reading slot ${b}`);
+    const held = [{ slot: a, raw: A.raw }, { slot: b, raw: B.raw }];
+    try {
+      await stream(K.buildFlashSlotImage(A.raw, b), { title: `Writing “${A.header.name}” to slot ${b}`, signal });
+      await verifySlot(b, A.raw, signal, readProgress(`Verifying slot ${b}`));
+      setSlot(b, prgInfo(A.header));
+      await stream(K.buildFlashSlotImage(B.raw, a), { title: `Writing “${B.header.name}” to slot ${a}`, signal });
+      await verifySlot(a, B.raw, signal, readProgress(`Verifying slot ${a}`));
+      setSlot(a, prgInfo(B.header));
+    } catch (err) {
+      rescue(held, err.name === "AbortError" ? "Swap cancelled partway." : "Swap failed partway.");
+      setSlot(a, { kind: "data" }); setSlot(b, { kind: "data" });
+      renderSlots();
+      throw err;
+    }
+    for (const s of [a, b]) if (isEfSlot(s) && state.ef?.present) markEfOverlap(s);
+    renderSlots();
+    return `Swapped slots ${a} and ${b}`;
+  });
+}
+
+// Rewrite only the slot's first 4 KB flash sector with a corrected header.
+// The sector is held in memory, so a failed write is simply retried.
+async function changeSlotEmulation(slot, emu) {
+  runJob(`Changing slot ${slot} to ${emuShort(emu)}`, async (signal) => {
+    const sectorBlocks = 16;
+    const base = K.slotAddress(slot);
+    const paint = readProgress(`Reading slot ${slot}`);
+    const sector = new Uint8Array(sectorBlocks * 256);
+    for (let i = 0; i < sectorBlocks; i++) {
+      paint(i, sectorBlocks, `Reading slot ${slot}`);
+      sector.set(await readBlock(base + i * 256, signal), i * 256);
+      if (i === 0 && !K.parseSlotHeader(sector)) {
+        setSlot(slot, classify(sector.subarray(0, 256)));
+        renderSlots();
+        throw new Error(`Slot ${slot} doesn't hold a program.`);
+      }
+    }
+    const before = K.parseSlotHeader(sector);
+    if (before.midiEmulation === emu) return `Slot ${slot} already uses ${emuShort(emu)}`;
+    K.setHeaderEmulation(sector, emu);
+    let lastErr;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await stream(K.buildFlashSector(sector, base, before.name), { title: `Writing slot ${slot} header`, signal });
+        await verifySlot(slot, sector, signal, readProgress(`Verifying slot ${slot}`));
+        lastErr = null;
+        break;
+      } catch (err) {
+        if (err.name === "AbortError" && attempt === 1) {
+          // Never leave the sector half-written: finish the rewrite even if cancelled.
+          log("Finishing the header rewrite so the slot isn't left half-written…", "err");
+        } else if (err.name === "AbortError") {
+          throw err;
+        }
+        lastErr = err;
+        log(`Header rewrite attempt ${attempt} failed (${err.message}).`, "err");
+        signal = undefined;
+      }
+    }
+    if (lastErr) throw new Error(`Couldn't rewrite slot ${slot}'s header. Download the slot or re-flash it from the .prg. (${lastErr.message})`);
+    setSlot(slot, prgInfo(K.parseSlotHeader(sector)));
+    renderSlots();
+    return `Slot ${slot} (“${before.name}”) now uses ${emuShort(emu)} (was ${emuShort(before.midiEmulation)})`;
+  });
+}
+
+$("changeEmuBtn").onclick = async () => {
+  if (!needOut() || !state.input) return;
+  const slot = state.slot;
+  const info = state.slots[slot];
+  const current = info?.kind === "prg" ? info.emu : undefined;
+  const choices = K.MIDI_EMULATIONS
+    .map((e, i) => ({ value: String(i), label: e.short, kind: i === K.EMU_DATEL ? "primary" : "ghost" }))
+    .filter((c) => Number(c.value) !== current);
+  const choice = await choiceBox(
+    `Change MIDI emulation for slot ${slot}`,
+    `${info?.name ? `“${info.name}”` : `Slot ${slot}`} currently uses ${current === undefined ? "an unknown setting (read the slots to see it)" : current >= 0 ? K.MIDI_EMULATIONS[current].label : "a custom setting"}. Only the slot's first 4 KB is rewritten; it takes about 10 seconds.`,
+    choices,
+  );
+  if (choice) changeSlotEmulation(slot, Number(choice));
+};
+
+function markEfOverlap(slot) {
+  const over = new Set(state.ef.overlapping || []);
+  over.add(slot);
+  state.ef = { ...state.ef, overlapping: [...over].sort((x, y) => x - y) };
+  store.set("ef", state.ef);
 }
 
 // --------------------------------------------------------------- actions
@@ -408,27 +787,37 @@ $("flashPrgBtn").onclick = async () => {
   if (!needOut() || !hexOk() || state.file?.kind !== "prg") return;
   const { name, bytes } = state.file;
   const slot = state.slot;
-  const existing = state.slotNames[slot];
-  if (existing && !(await confirmBox(`Replace slot ${slot}?`, `Slot ${slot} currently holds “${existing}”. It will be overwritten with ${name}.`, "Replace", true))) return;
-  if (slot >= 10 && !(await confirmBox(`Flash to slot ${slot}?`, "Slots 10–25 share flash with the EasyFlash image. Flashing here will damage an installed CRT.", "Flash anyway", true))) return;
+  const existing = state.slots[slot];
+  if (existing?.kind === "prg" && !(await confirmBox(`Replace slot ${slot}?`, `Slot ${slot} currently holds “${existing.name}”. It will be overwritten with ${name}.`, "Replace", true))) return;
+  if (isEfSlot(slot) && state.ef?.present !== false) {
+    const body = state.ef?.present
+      ? `Slots 10–25 hold the installed EasyFlash CRT${state.ef.name ? ` (${state.ef.name})` : ""}. Flashing here will damage it.`
+      : "Slots 10–25 share flash with the EasyFlash CRT area. If a CRT is installed, flashing here will damage it.";
+    if (!(await confirmBox(`Flash to slot ${slot}?`, body, "Flash anyway", true))) return;
+  }
+  const opts = readOpts();
   runJob(`Flashing ${name} to slot ${slot}`, async (signal) => {
-    await stream(K.buildFlashPrg(name, bytes, slot, readOpts()), { title: `Flashing ${name}`, signal });
-    rememberSlot(slot, name);
+    await stream(K.buildFlashPrg(name, bytes, slot, opts), { title: `Flashing ${name}`, signal });
+    setSlot(slot, prgInfo(K.parseSlotHeader(K.createHeader(name, false, bytes.length - 2, opts))));
+    if (isEfSlot(slot) && state.ef?.present) markEfOverlap(slot);
+    renderSlots();
     return `Flashed ${name} to slot ${slot}`;
   });
 };
 
 $("flashCrtBtn").onclick = async () => {
   if (!needOut() || state.file?.kind !== "crt") return;
-  const { name, builder: b } = state.file;
+  const { name, builder: b, crt } = state.file;
   const eta = fmtDuration(b.length * (Number($("pacingSelect").value) || 1));
   if (!(await confirmBox("Flash EasyFlash CRT?", `This erases the cartridge's upper 1 MB (slots 10–25 and any previous CRT) and writes ${name}. It takes about ${eta}. Keep this tab in front while it runs.`, "Flash CRT", true))) return;
   runJob(`Flashing ${name}`, async (signal) => {
     await stream(b, { title: `Flashing ${name}`, signal });
-    const names = { ...state.slotNames };
-    for (let s = 10; s <= K.SLOT_MAX; s++) delete names[s];
-    state.slotNames = names;
-    store.set("slotNames", names);
+    for (let s = 10; s <= K.SLOT_MAX; s++) setSlot(s, { kind: "ef" });
+    // Remember which CRT this is (keyed by its reset-vector block) for carts with no stored name.
+    const vec = crt.image.subarray(0x80000 + 0x1fe0, 0x80000 + 0x2000);
+    store.set("lastCrt", { name: crt.efName || crt.cartName || name.replace(/\.crt$/i, ""), vectors: hexOf(vec) });
+    state.ef = { present: true, name: crt.efName || crt.cartName || name.replace(/\.crt$/i, ""), overlapping: [] };
+    store.set("ef", state.ef);
     renderSlots();
     return `Flashed ${name}`;
   });
@@ -438,19 +827,35 @@ $("startSlotBtn").onclick = () => {
   if (!needOut()) return;
   const slot = state.slot;
   runJob(`Starting slot ${slot}`, async (signal) => {
-    await stream(K.buildStartSlot(slot, readOpts()), { title: `Starting slot ${slot}`, signal });
-    return `Started slot ${slot}`;
+    // Start with the settings stored in the slot (as the C64 menu's "S" does),
+    // not the page's dropdowns. Read them fresh when MIDI in is available.
+    let info = state.slots[slot];
+    if (state.input) {
+      info = classify(await readBlock(K.slotAddress(slot), signal));
+      setSlot(slot, info);
+      renderSlots();
+      if (info.kind !== "prg") throw new Error(`Slot ${slot} doesn't hold a program.`);
+    }
+    const regs = info?.kind === "prg" && info.regs ? info.regs : null;
+    if (!regs) log(`Couldn't read slot ${slot}'s stored settings, so it starts with the page's settings (${K.MIDI_EMULATIONS[readOpts().midiEmulation].short}).`, "err");
+    await stream(K.buildStartSlot(slot, readOpts(), regs), { title: `Starting slot ${slot}`, signal });
+    const emu = regs ? emuShort(info.emu) : K.MIDI_EMULATIONS[readOpts().midiEmulation].short;
+    return `Started slot ${slot}${info?.name ? ` (“${info.name}”)` : ""} · ${emu}`;
   });
 };
 
 $("deleteSlotBtn").onclick = async () => {
   if (!needOut()) return;
   const slot = state.slot;
-  const what = state.slotNames[slot] ? `“${state.slotNames[slot]}” in slot ${slot}` : `slot ${slot}`;
-  if (!(await confirmBox(`Delete slot ${slot}?`, `This erases ${what}.`, "Delete", true))) return;
+  const info = state.slots[slot];
+  const what = info?.kind === "prg" ? `“${info.name}” in slot ${slot}` : `slot ${slot}`;
+  const efNote = isEfSlot(slot) && state.ef?.present ? " This slot is inside the installed EasyFlash CRT, so erasing it will damage the CRT." : "";
+  if (!(await confirmBox(`Delete slot ${slot}?`, `This erases ${what}.${efNote}`, "Delete", true))) return;
   runJob(`Deleting slot ${slot}`, async (signal) => {
     await stream(K.buildDeleteSlot(slot), { title: `Deleting slot ${slot}`, signal });
-    rememberSlot(slot, "");
+    setSlot(slot, { kind: "empty" });
+    if (isEfSlot(slot) && state.ef?.present) markEfOverlap(slot);
+    renderSlots();
     return `Deleted slot ${slot}`;
   });
 };
@@ -473,7 +878,45 @@ $("basicBtn").onclick = () => {
 
 $("readSlotsBtn").onclick = () => {
   if (!needOut() || !state.input) return;
-  runJob("Reading slot names", readSlotNames);
+  runJob("Reading slots", scanCartridge);
+};
+
+$("downloadSlotBtn").onclick = () => {
+  if (!needOut() || !state.input) return;
+  const slot = state.slot;
+  runJob(`Downloading slot ${slot}`, async (signal) => {
+    const { header, raw } = await readSlotImage(slot, signal, readProgress(`Reading slot ${slot}`));
+    renderSlots();
+    const filename = safeName(prgName(header.name));
+    saveBlob(new Blob([K.prgFromSlot(raw)], { type: "application/octet-stream" }), filename);
+    return `Downloaded slot ${slot} as ${filename}`;
+  });
+};
+
+$("downloadAllBtn").onclick = () => {
+  if (!needOut() || !state.input) return;
+  runJob("Downloading all programs", async (signal) => {
+    showDock("Downloading all programs", 0);
+    const files = [];
+    for (let s = K.SLOT_MIN; s <= K.SLOT_MAX; s++) {
+      paintProgress(s - 1, K.SLOT_MAX, `Checking slot ${s}`, 0);
+      const header = await readBlock(K.slotAddress(s), signal);
+      const info = classify(header);
+      if (info.kind !== "prg") {
+        if (!(info.kind === "data" && state.slots[s]?.kind === "ef")) setSlot(s, info);
+        renderSlots();
+        continue;
+      }
+      const { header: h, raw } = await readSlotImage(s, signal, readProgress(`Reading slot ${s}`), `Reading slot ${s} (“${info.name}”)`);
+      files.push({ name: `${String(s).padStart(2, "0")} ${safeName(prgName(h.name))}`, data: K.prgFromSlot(raw) });
+      renderSlots();
+    }
+    if (!files.length) throw new Error("No programs found in slots 1–25.");
+    const d = new Date();
+    const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    saveBlob(K.makeZip(files), `kerberos-slots-${stamp}.zip`);
+    return `Downloaded ${files.length} program${files.length === 1 ? "" : "s"} as kerberos-slots-${stamp}.zip`;
+  });
 };
 
 $("pingBtn").onclick = () => {
@@ -505,6 +948,8 @@ $("clearLogBtn").onclick = () => { $("log").innerHTML = ""; };
 
 // -------------------------------------------------------------------- UI
 
+let renderedDragState = null;
+
 function updateUi() {
   const haveOut = !!state.out, haveIn = !!state.input, busy = state.busy;
   const dot = $("statusDot");
@@ -512,7 +957,14 @@ function updateUi() {
   for (const id of ["runBtn", "flashPrgBtn", "flashCrtBtn", "startSlotBtn", "deleteSlotBtn", "listSlotsBtn", "basicBtn"]) {
     $(id).disabled = busy || !haveOut;
   }
-  for (const id of ["pingBtn", "readSlotsBtn"]) $(id).disabled = busy || !haveOut || !haveIn;
+  for (const id of ["pingBtn", "readSlotsBtn", "downloadAllBtn"]) $(id).disabled = busy || !haveOut || !haveIn;
+  $("downloadSlotBtn").disabled = busy || !haveOut || !haveIn || state.slots[state.slot]?.kind === "empty";
+  $("changeEmuBtn").disabled = busy || !haveOut || !haveIn || (state.slots[state.slot] && state.slots[state.slot].kind !== "prg");
+  const needIn = haveOut && !haveIn;
+  $("slotsNote").textContent = needIn
+    ? "Reading, downloading and drag-to-reorganize need the MIDI in cable (Kerberos MIDI out → computer) selected above."
+    : "Drag a program onto another slot to move, copy or swap it. Slots 10–25 share flash with the EasyFlash CRT.";
+  if (renderedDragState !== canReorganize()) { renderedDragState = canReorganize(); renderSlots(); }
   $("outSelect").disabled = busy || !state.midi || !state.midi.outputs.size;
   $("inSelect").disabled = busy || !state.midi || !state.midi.inputs.size;
   $("pacingSelect").disabled = busy;
@@ -536,10 +988,12 @@ function init() {
   $("dropZone").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("fileInput").click(); } });
 
   let dragDepth = 0;
-  window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
-  window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("dragging"); } });
-  window.addEventListener("dragover", (e) => e.preventDefault());
+  const isFileDrag = (e) => e.dataTransfer?.types?.includes("Files");
+  window.addEventListener("dragenter", (e) => { if (!isFileDrag(e)) return; e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
+  window.addEventListener("dragleave", (e) => { if (!isFileDrag(e)) return; if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("dragging"); } });
+  window.addEventListener("dragover", (e) => { if (isFileDrag(e)) e.preventDefault(); });
   window.addEventListener("drop", (e) => {
+    if (!isFileDrag(e)) return;
     e.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging");
     const f = e.dataTransfer?.files?.[0];
     if (f) loadFile(f);

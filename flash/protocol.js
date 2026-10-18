@@ -41,12 +41,22 @@ export const slotAddress = (slot) => slot * 0x10000 + 0x60000;
 // MIDI emulation presets: [MIDI_ADDRESS ($DE39), MIDI_CONFIG ($DE3A)]
 const IRQ_ON = 0x01, NMI_ON = 0x02, CLOCK_2MHZ = 0x04, THRU_IN_ON = 0x08, ENABLE_ON = 0x20;
 export const MIDI_EMULATIONS = [
-  { label: "None", address: 0x00, config: 0x00 },
-  { label: "Sequential Circuits Inc.", address: 0x02, config: IRQ_ON | ENABLE_ON },
-  { label: "Passport & Syntech", address: 0x88, config: IRQ_ON | ENABLE_ON },
-  { label: "DATEL / Siel / JMS", address: 0x46, config: IRQ_ON | CLOCK_2MHZ | ENABLE_ON },
-  { label: "Namesoft", address: 0x02, config: NMI_ON | ENABLE_ON },
+  { label: "None", short: "MIDI off", address: 0x00, config: 0x00 },
+  { label: "Sequential Circuits Inc.", short: "SCI", address: 0x02, config: IRQ_ON | ENABLE_ON },
+  { label: "Passport & Syntech", short: "Passport", address: 0x88, config: IRQ_ON | ENABLE_ON },
+  { label: "DATEL / Siel / JMS", short: "DATEL", address: 0x46, config: IRQ_ON | CLOCK_2MHZ | ENABLE_ON },
+  { label: "Namesoft", short: "Namesoft", address: 0x02, config: NMI_ON | ENABLE_ON },
 ];
+export const EMU_NONE = 0;
+export const EMU_DATEL = 3;
+
+// Map the stored $DE39/$DE3A register values back to an emulation preset.
+// Returns its index, or -1 for a combination none of the presets produce.
+export function emulationFromRegs(address, config) {
+  if (!(config & ENABLE_ON)) return EMU_NONE;
+  const cfg = config & ~THRU_IN_ON;
+  return MIDI_EMULATIONS.findIndex((e, i) => i > 0 && e.address === address && e.config === cfg);
+}
 
 // ---------------------------------------------------------------- CRC-8
 
@@ -359,10 +369,14 @@ export function buildUploadAndRun(name, bytes, opts) {
   return b;
 }
 
-export function buildStartSlot(slot, opts) {
-  const header = createHeader("", true, 0, opts);
+// The menu copies these 16 bytes over the slot's own control byte and
+// registers before starting. Pass `storedRegs` (from the slot's header) to
+// start the program with the settings it was flashed with; otherwise the
+// page's current settings are used, as in the original app.
+export function buildStartSlot(slot, opts, storedRegs = null) {
+  const regs = storedRegs || createHeader("", true, 0, opts).subarray(0x30, 0x40);
   const b = new MessageBuilder();
-  b.command(CMD.START_SLOT_PROGRAM, [slot, ...header.subarray(0x30, 0x40)]);
+  b.command(CMD.START_SLOT_PROGRAM, [slot, ...regs]);
   b.mark(`Started slot ${slot}`, 100);
   return b;
 }
@@ -382,8 +396,11 @@ export function buildDeleteSlot(slot) {
       b.command(CMD.ERASE_FLASH_SECTOR);
       b.nop();
     }
-    address += 0x2000;
-    transferred += 0x2000;
+    // The original app stepped 0x2000 here, which erased only the first 4 KB
+    // sector of each 8 KB bank (8 of 16). Step per sector so the whole slot
+    // is really cleared.
+    address += 0x1000;
+    transferred += 0x1000;
     const percent = Math.min(100, Math.floor((transferred * 100) / full));
     b.mark(`Erasing ${percent}%`, percent);
     b.gotoX(0);
@@ -421,16 +438,23 @@ export function buildPing() {
   return b;
 }
 
-// Read the 256-byte header at the start of a slot.
-export function buildReadSlotHeader(slot) {
-  const address = slotAddress(slot);
+// Read one 256-byte flash block at a physical flash address (0..0x1FFFFF).
+// The menu replies with a MEMORY_BLOCK command. `safe` adds the NOP padding
+// the original app used; the menu handles each command before re-arming its
+// receiver, and we only send the next request after the reply arrives, so
+// the padding is optional.
+export function buildReadBlock(phys, { safe = false } = {}) {
   const b = new MessageBuilder();
-  b.wordCommand(CMD.SET_ADDRESS, (address & 0x1fff) | 0x8000);
-  b.nop();
-  b.byteCommand(CMD.SET_FLASH_BANK, address >> 13);
-  b.nop();
+  b.wordCommand(CMD.SET_ADDRESS, (phys & 0x1fff) | 0x8000);
+  if (safe) b.nop();
+  b.byteCommand(CMD.SET_FLASH_BANK, (phys >> 13) & 0xff);
+  if (safe) b.nop();
   b.command(CMD.READ_MEMORY_BLOCK);
   return b;
+}
+
+export function buildReadSlotHeader(slot, opts) {
+  return buildReadBlock(slotAddress(slot), opts);
 }
 
 export function parseSlotHeader(block) {
@@ -440,6 +464,8 @@ export function parseSlotHeader(block) {
   return {
     name,
     c128: !!(block[0x30] & 1),
+    midiEmulation: emulationFromRegs(block[0x39], block[0x3a]),
+    regs: Array.from(block.subarray(0x30, 0x40)), // control byte + $DE31-$DE3F as stored
     loadAddress: block[0x40] | (block[0x41] << 8),
     startAddress: block[0x42] | (block[0x43] << 8),
     length: block[0x44] | (block[0x45] << 8),
@@ -447,6 +473,44 @@ export function parseSlotHeader(block) {
 }
 
 // ------------------------------------------------------------ CRT files
+
+export function petsciiToAscii(bytes) {
+  let out = "";
+  for (const c of bytes) {
+    if (c === 0) break;
+    if (c >= 65 && c <= 90) out += String.fromCharCode(c + 32);
+    else if (c >= 97 && c <= 122) out += String.fromCharCode(c - 32);
+    else if (c >= 193 && c <= 218) out += String.fromCharCode(c - 128);
+    else if (c >= 32 && c < 127) out += String.fromCharCode(c);
+  }
+  return out.trim();
+}
+
+// EasyFlash bank 0 of chip 1 (ROMH) sits at physical $180000. A cart keeps
+// its reset vectors at the end of that bank, its EAPI at $1800 and its
+// optional name ("EF-Name:" + 16 chars) at $1B00.
+export const EF_BANK0_ROMH = 0x180000;
+export const EF_PROBE_BLOCKS = {
+  eapi: EF_BANK0_ROMH + 0x1800,
+  name: EF_BANK0_ROMH + 0x1b00,
+  vectors: EF_BANK0_ROMH + 0x1f00,
+};
+const EF_NAME_SIG = [0x65, 0x66, 0x2d, 0x6e, 0x41, 0x4d, 0x45, 0x3a];
+
+// slotKinds: { [slot]: "prg" | "empty" | "data" } for slots 10-25.
+export function detectEasyFlash(blocks, slotKinds = {}) {
+  const ff = (b) => b.every((x) => x === 0xff);
+  const present = !ff(blocks.vectors) && slotKinds[18] !== "prg";
+  if (!present) return { present: false };
+  let name = "";
+  if (EF_NAME_SIG.every((v, i) => blocks.name[i] === v)) name = petsciiToAscii(blocks.name.subarray(8, 24));
+  const hasEapi = ascii(blocks.eapi, 0, 4) === "eapi";
+  const eapiName = hasEapi ? petsciiToAscii(blocks.eapi.subarray(4, 20)) : "";
+  const overlapping = Object.entries(slotKinds)
+    .filter(([s, k]) => Number(s) >= 10 && k === "prg")
+    .map(([s]) => Number(s));
+  return { present: true, name, hasEapi, eapiName, overlapping };
+}
 
 // EasyFlash EAPI driver for the SST39VF1681 flash used by Kerberos
 // (768 bytes, from qt/eapi-sst39vf1681 with its load address removed).
@@ -494,7 +558,7 @@ export function parseCrt(bytes) {
       if (bank === 0 && chip === 1) {
         if (offset === 0x1800 && ascii(block, 0, 4) === "eapi") replaceEapi = true;
         if (offset === 0x1b00 && ascii(block, 0, 8) === "ef-nAME:") {
-          for (let i = 0; i < 16 && block[i]; i++) efName += String.fromCharCode(block[i]);
+          efName = petsciiToAscii(block.subarray(8, 24));
         }
       }
       if (replaceEapi) {
@@ -574,6 +638,7 @@ export class Receiver {
           let length = b;
           if (this.b0 & 2) this.tag |= 0x80;
           if (this.b0 & 1) length |= 0x80;
+          this.lengthField = length; // carries the byte of one-byte commands
           this.crc = crc8([this.tag, length]);
           length = length === 0 ? 0x100 : length + 1;
           if (this.tag & 0x80) { length = 0; this.tag &= 0x7f; }
@@ -601,9 +666,9 @@ export class Receiver {
           this.length--;
         } else {
           const ok = b === this.crc;
-          const tag = this.tag, data = Uint8Array.from(this.msg);
+          const tag = this.tag, data = Uint8Array.from(this.msg), lengthField = this.lengthField;
           this.reset();
-          if (ok) this.onCommand(tag, data);
+          if (ok) this.onCommand(tag, data, lengthField);
           else this.onError(new Error("Checksum error in data received from the cartridge."));
         }
       }
@@ -613,3 +678,112 @@ export class Receiver {
 
 // Decode the base64 EAPI at load time (works in browsers and Node 16+).
 setEapi(Uint8Array.from(atob(EAPI_B64), (c) => c.charCodeAt(0)));
+
+// ------------------------------------------------------ slot read-back
+
+// Number of 256-byte blocks a slot occupies (header + program body).
+export function slotBlockCount(header) {
+  return 1 + Math.ceil(header.length / 256);
+}
+
+// Rebuild the .prg (2-byte load address + body) from a slot image.
+export function prgFromSlot(raw) {
+  const h = parseSlotHeader(raw);
+  if (!h) throw new Error("Not a PRG slot.");
+  const prg = new Uint8Array(2 + h.length);
+  prg[0] = h.loadAddress & 0xff;
+  prg[1] = h.loadAddress >> 8;
+  prg.set(raw.subarray(256, 256 + h.length), 2);
+  return prg;
+}
+
+// Flash an exact slot image (header + body) to another slot.
+export function buildFlashSlotImage(raw, slot) {
+  const h = parseSlotHeader(raw);
+  if (!h) throw new Error("Not a PRG slot image.");
+  if (slot < SLOT_MIN || slot > SLOT_MAX) throw new Error(`Slot must be ${SLOT_MIN}–${SLOT_MAX}.`);
+  const b = new MessageBuilder();
+  buildFlashFile(b, h.name || "program", raw, slotAddress(slot));
+  return b;
+}
+
+// Set a header's MIDI emulation registers the same way createHeader does.
+export function setHeaderEmulation(header, emu) {
+  const e = MIDI_EMULATIONS[emu];
+  if (!e) throw new Error("Unknown MIDI emulation.");
+  header[0x39] = e.address;
+  header[0x3a] = e.config | THRU_IN_ON;
+  return header;
+}
+
+// Erase one 4 KB sector and write `data` (up to 4 KB) back into it.
+export function buildFlashSector(data, phys, name = "slot") {
+  if (phys & 0xfff) throw new Error("Sector address must be 4 KB aligned.");
+  if (data.length > 0x1000) throw new Error("Sector data must be at most 4 KB.");
+  const b = new MessageBuilder();
+  buildFlashFile(b, name, data, phys);
+  return b;
+}
+
+// ---------------------------------------------------------------- zip
+
+const CRC32 = new Uint32Array(256);
+for (let n = 0; n < 256; n++) {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  CRC32[n] = c >>> 0;
+}
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (const b of bytes) c = CRC32[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// Minimal store-only (uncompressed) zip. files: [{ name, data: Uint8Array }]
+export function makeZip(files, date = new Date()) {
+  const enc = new TextEncoder();
+  const dosTime = ((date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1)) & 0xffff;
+  const dosDate = (((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate()) & 0xffff;
+  const parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name);
+    const crc = crc32(f.data);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true); // UTF-8 names
+    local.setUint16(8, 0, true);
+    local.setUint16(10, dosTime, true);
+    local.setUint16(12, dosDate, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, f.data.length, true);
+    local.setUint32(22, f.data.length, true);
+    local.setUint16(26, name.length, true);
+    local.setUint16(28, 0, true);
+    parts.push(new Uint8Array(local.buffer), name, f.data);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true);
+    cen.setUint16(4, 20, true);
+    cen.setUint16(6, 20, true);
+    cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true);
+    cen.setUint16(12, dosTime, true);
+    cen.setUint16(14, dosDate, true);
+    cen.setUint32(16, crc, true);
+    cen.setUint32(20, f.data.length, true);
+    cen.setUint32(24, f.data.length, true);
+    cen.setUint16(28, name.length, true);
+    cen.setUint32(42, offset, true);
+    central.push(new Uint8Array(cen.buffer), name);
+    offset += 30 + name.length + f.data.length;
+  }
+  const cenSize = central.reduce((n, p) => n + p.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, cenSize, true);
+  end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: "application/zip" });
+}
