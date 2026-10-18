@@ -130,17 +130,29 @@ export function patchToFile(p) {
   return { format: "cynthcart-patch", version: 1, ...structuredClone(p) };
 }
 
-/** Random patch with the firmware's guards (no 6CHAN, no silent PW, a real filter type). Volume is kept, as in the firmware's "randomize all". */
-export function randomPatch(from, rnd = Math.random) {
-  const r = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
+/** What "randomize" may change: never octave, tuning or the base preset. VOL only when asked for by name (the firmware's "randomize all" keeps it). */
+export const RANDOM_KEYS = ["mode", "fx", "vibD", "vibS", "trmD", "trmS", "fType", "cut", "res", "wave", "mod", "pw", "flt", "a", "d", "s", "r"];
+const RANDOM_RANGE = { // the firmware's guards: no 6CHAN, no silent PW, a real filter type, VOL 8-15
+  mode: [0, 14], fx: [0, 8], vibD: [0, 31], vibS: [0, 3], trmD: [0, 15], trmS: [0, 31], fType: [1, 7],
+  cut: [0, 127, 2], res: [0, 15], vol: [8, 15],
+  wave: [0, 3], mod: [0, 3], pw: [12, 115, 2], flt: [0, 1], a: [0, 15], d: [0, 15], s: [0, 15], r: [0, 15],
+};
+/**
+ * Random patch. opts.keys: which parameters (default RANDOM_KEYS); opts.locks: { key: true } to leave alone;
+ * opts.link: one value for all three voices (like the firmware's "sync" randomize).
+ * The name becomes "Random" only when everything is randomized.
+ */
+export function randomPatch(from, rnd = Math.random, opts = {}) {
+  const { keys = RANDOM_KEYS, locks = {}, link = false } = opts;
+  const r = (k) => { const [lo, hi, m = 1] = RANDOM_RANGE[k]; return (lo + Math.floor(rnd() * (hi - lo + 1))) * m; };
   const p = structuredClone(from);
-  p.name = "Random";
-  p.mode = r(0, 14); p.fx = r(0, 8);
-  p.vibD = r(0, 31); p.vibS = r(0, 3); p.trmD = r(0, 15); p.trmS = r(0, 31);
-  p.fType = r(1, 7); p.cut = r(0, 127) * 2; p.res = r(0, 15);
-  for (const v of p.voices) {
-    v.wave = r(0, 3); v.mod = r(0, 3); v.pw = r(12, 115) * 2; v.flt = r(0, 1);
-    v.a = r(0, 15); v.d = r(0, 15); v.s = r(0, 15); v.r = r(0, 15);
+  if (!opts.keys) p.name = "Random";
+  for (const k of keys) {
+    if (locks[k] || !(k in RANDOM_RANGE)) continue;
+    if (k in VOICE_PARAMS) {
+      const shared = r(k);
+      for (const v of p.voices) v[k] = link ? shared : r(k);
+    } else p[k] = r(k);
   }
   return p;
 }
@@ -294,33 +306,49 @@ export function asciiName(name) {
 // What Cynthcart's header shows for this patch (5 rows of 40), as spans of
 // [text, colorClass]. Good enough to read the app the same way as the screen.
 export function headerRows(p, { channel = null, presetLabel = null } = {}) {
-  const L = (t, c) => [t, c];
+  const L = (t, c, k) => (k ? [t, c, k] : [t, c]);
   const pad = (s, n) => String(s).padEnd(n).slice(0, n);
   const num = (v, n) => String(v).padStart(n);
   const ch = channel == null ? "ALL" : num(channel, 2) + " ";
   const vSame = (k) => p.voices.every((v) => v[k] === p.voices[0][k]);
   const eq = (k) => (vSame(k) ? ["=", "eq"] : ["*", "diff"]);
   // one letter per voice; R = triangle + ring, reverse video = sync
-  const osc = p.voices.map((v) => L(v.wave === 0 && v.mod & 1 ? "R" : WAVES[v.wave], v.mod & 2 ? "val rev" : "val"));
+  const osc = p.voices.map((v, i) => L(v.wave === 0 && v.mod & 1 ? "R" : WAVES[v.wave], v.mod & 2 ? "val rev" : "val", "osc" + i));
   const fltOn = p.voices[0].flt ? FILTER_TYPES[p.fType] : "OFF";
   const fltSame = p.voices.every((v) => v.flt === p.voices[0].flt);
   const v = p.voices[0];
   return [
     [L("CYNTHCART ", "title"), L("CH", "sys"), L("=", "eq"), L(pad(ch, 3), "val"), L("  ", ""),
-      L(presetLabel ?? "--", "val"), L(" ", ""), L(pad(p.name.toUpperCase(), 16), "val"), L("   ", "")],
-    [L("MODE", "sys"), L("=", "eq"), L(pad(MODES[p.mode], 5), "val"), L(" ", ""), L("FX", "sys"), L("=", "eq"),
-      L(pad(FX[p.fx], 5), "val"), L(" ", ""), L("P1", "mod"), L("=", "eq"), L("---/P-", "dim"), L(" ", ""),
+      L(presetLabel ?? "--", "val", "base"), L(" ", ""), L(pad(p.name.toUpperCase(), 16), "val", "name"), L("   ", "")],
+    [L("MODE", "sys"), L("=", "eq"), L(pad(MODES[p.mode], 5), "val", "mode"), L(" ", ""), L("FX", "sys"), L("=", "eq"),
+      L(pad(FX[p.fx], 5), "val", "fx"), L(" ", ""), L("P1", "mod"), L("=", "eq"), L("---/P-", "dim"), L(" ", ""),
       L("P2", "mod"), L("=", "eq"), L("---/P+", "dim")],
-    [L("OSC", "osc"), L("=", "eq"), ...osc, L(" ", ""), L("PW", "osc"), eq("pw"), L(pad(num(v.pw >> 1, 3), 4), "val"),
-      L(" ", ""), L("OCT", "osc"), L("=", "eq"), L(String(p.oct), "val"), L(" ", ""), L("TUN", "osc"), L("=", "eq"),
-      L(num(TUNINGS[p.tune], 3), "val"), L(" ", ""), L("VIB", "mod"), L("=", "eq"),
-      L(num(p.vibD, 2) + "/" + p.vibS, "val")],
-    [L("FLT", "flt"), fltSame ? L("=", "eq") : L("*", "diff"), L(pad(fltOn, 3), "val"), L(" ", ""), L("CUT", "flt"), L("=", "eq"),
-      L(pad(num(p.cut >> 1, 3), 4), "val"), L(" ", ""), L("RES", "flt"), L("=", "eq"), L(num(p.res, 2), "val"),
+    [L("OSC", "osc"), L("=", "eq"), ...osc, L(" ", ""), L("PW", "osc"), eq("pw"), L(pad(num(v.pw >> 1, 3), 4), "val", "pw"),
+      L(" ", ""), L("OCT", "osc"), L("=", "eq"), L(String(p.oct), "val", "oct"), L(" ", ""), L("TUN", "osc"), L("=", "eq"),
+      L(num(TUNINGS[p.tune], 3), "val", "tune"), L(" ", ""), L("VIB", "mod"), L("=", "eq"),
+      L(num(p.vibD, 2), "val", "vibD"), L("/", "val"), L(String(p.vibS), "val", "vibS")],
+    [L("FLT", "flt"), fltSame ? L("=", "eq") : L("*", "diff"), L(pad(fltOn, 3), "val", "flt"), L(" ", ""), L("CUT", "flt"), L("=", "eq"),
+      L(pad(num(p.cut >> 1, 3), 4), "val", "cut"), L(" ", ""), L("RES", "flt"), L("=", "eq"), L(num(p.res, 2), "val", "res"),
       L("       ", ""), L("VID", "sys"), L("=", "eq"), L("-----", "dim")],
-    [L("VOL", "amp"), L("=", "eq"), L(num(p.vol, 2), "val"), L(" ", ""), L("A", "amp"), eq("a"), L(num(v.a, 2), "val"), L(" ", ""),
-      L("D", "amp"), eq("d"), L(num(v.d, 2), "val"), L(" ", ""), L("S", "amp"), eq("s"), L(num(v.s, 2), "val"), L(" ", ""),
-      L("R", "amp"), eq("r"), L(num(v.r, 2), "val"), L(" ", ""), L("TRM", "mod"), L("=", "eq"),
-      L(num(p.trmD, 2) + "/" + num(p.trmS, 2), "val")],
+    [L("VOL", "amp"), L("=", "eq"), L(num(p.vol, 2), "val", "vol"), L(" ", ""), L("A", "amp"), eq("a"), L(num(v.a, 2), "val", "a"), L(" ", ""),
+      L("D", "amp"), eq("d"), L(num(v.d, 2), "val", "d"), L(" ", ""), L("S", "amp"), eq("s"), L(num(v.s, 2), "val", "s"), L(" ", ""),
+      L("R", "amp"), eq("r"), L(num(v.r, 2), "val", "r"), L(" ", ""), L("TRM", "mod"), L("=", "eq"),
+      L(num(p.trmD, 2), "val", "trmD"), L("/", "val"), L(num(p.trmS, 2), "val", "trmS")],
   ];
 }
+
+// ---------------------------------------------------------------- modulation timing
+// The main loop isn't frame-locked: about 138 passes per second with a note playing (emulator, NTSC).
+export const PASSES_PER_SEC = 138;
+/** Vibrato LFO speeds 0-3 in Hz (measured in the emulator; a stepped triangle). */
+export const VIB_HZ = [1.08, 1.52, 4.55, 8.8];
+// tremolo phase increments per pass (cynthextra.asm trmRateL/H): a 16-bit triangle LFO
+const TRM_INC = [44, 51, 60, 71, 83, 98, 115, 135, 159, 187, 220, 259, 304, 357, 420, 494, 580, 682, 802, 942,
+  1107, 1302, 1530, 1798, 2114, 2485, 2921, 3433, 4035, 4743, 5575, 6554];
+export const trmHz = (s) => (TRM_INC[clamp(s, 0, 31)] * PASSES_PER_SEC) / 65536;
+/** The firmware's tremolo output for a triangle phase t (0-1): volume - (tri * depth) / 16, never below 0. */
+export function trmLevel(vol, depth, t) {
+  const tri = Math.floor((t < 0.5 ? t * 2 : 2 - t * 2) * 127.99) >> 3; // 0-15
+  return depth ? Math.max(0, vol - ((tri * depth) >> 4)) : vol;
+}
+

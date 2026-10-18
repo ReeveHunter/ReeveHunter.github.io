@@ -53,7 +53,9 @@
   <!-- the C64 header, as Cynthcart will show it -->
   <section class="screen-wrap" aria-label="Cynthcart header preview">
     <pre class="screen" id="screen"></pre>
+    <div class="pop" id="pop" hidden role="dialog" aria-label="Edit value"></div>
   </section>
+  <p class="hint screen-hint">Drag a value on the screen up or down to change it, or click it for a menu.</p>
 
   <!-- patch bar -->
   <section class="card patchbar">
@@ -69,7 +71,7 @@
       <button id="sendBtn" class="btn primary" title="Send the whole patch to Cynthcart">Send patch</button>
       <button id="saveBtn" class="btn">Save</button>
       <button id="libraryBtn" class="btn" aria-expanded="false" aria-controls="library">Patches <span id="libCount" class="count"></span></button>
-      <button id="randomBtn" class="btn ghost" title="Random sound (keeps the base preset)">Randomize</button>
+      <button id="randomBtn" class="btn ghost dice-btn" title="Randomize every unlocked parameter (volume, octave, tuning and the base preset stay)" aria-label="Randomize">🎲</button>
     </div>
     <label class="switch" title="Send each change as you make it">
       <input type="checkbox" id="liveToggle" checked>
@@ -94,15 +96,16 @@
   <div class="grid">
     <!-- global -->
     <section class="card g-sys a-sys">
-      <h2>Sound</h2>
+      <div class="card-head"><h2>Sound</h2><button type="button" class="icon-btn dice" data-dice="sys" title="Randomize mode and FX (locked parameters stay)" aria-label="Randomize mode and FX">🎲</button></div>
       <div class="ctl-list" id="sysCtls"></div>
     </section>
     <section class="card g-mod a-mod">
-      <h2>Modulation</h2>
+      <div class="card-head"><h2>Modulation</h2><button type="button" class="icon-btn dice" data-dice="mod" title="Randomize vibrato and tremolo (locked parameters stay)" aria-label="Randomize vibrato and tremolo">🎲</button></div>
       <div class="ctl-list" id="modCtls"></div>
+      <div class="modviz" id="modviz"></div>
     </section>
     <section class="card g-flt a-flt">
-      <h2>Filter</h2>
+      <div class="card-head"><h2>Filter</h2><button type="button" class="icon-btn dice" data-dice="flt" title="Randomize cutoff, resonance and filter type (locked parameters stay)" aria-label="Randomize cutoff, resonance and filter type">🎲</button></div>
       <figure class="fgraph-wrap">
         <div id="fgraph"></div>
         <figcaption class="hint">6581 response (reSID's measurements; real chips vary). Ticks mark every cutoff step Cynthcart can set; the red one is 64, where the 6581's curve jumps back down. Filter FX animate as the C64 runs them; FILT2 and FILT3 follow notes played from this page.</figcaption>
@@ -110,7 +113,7 @@
       <div class="ctl-list" id="fltCtls"></div>
     </section>
     <section class="card g-amp a-amp">
-      <h2>Amplitude</h2>
+      <div class="card-head"><h2>Amplitude</h2><button type="button" class="icon-btn dice" data-dice="amp" title="Randomize volume (locked parameters stay)" aria-label="Randomize volume">🎲</button></div>
       <div class="ctl-list" id="ampCtls"></div>
     </section>
 
@@ -118,10 +121,13 @@
     <section class="card voices">
       <div class="card-head">
         <h2>Voices</h2>
-        <label class="switch" title="Edit all three voices together">
-          <input type="checkbox" id="linkToggle" checked>
-          <span>Link voices</span>
-        </label>
+        <div class="head-actions">
+          <label class="switch" title="Edit all three voices together (the dice then give all three the same values)">
+            <input type="checkbox" id="linkToggle" checked>
+            <span>Link voices</span>
+          </label>
+          <button type="button" class="icon-btn dice" data-dice="voices" title="Randomize the voices (locked parameters stay)" aria-label="Randomize the voices">🎲</button>
+        </div>
       </div>
       <div class="voice-grid" id="voiceGrid"></div>
     </section>
@@ -139,7 +145,7 @@
       </div>
     </div>
     <div class="piano" id="piano" aria-label="Keyboard"></div>
-    <p class="hint">Computer keys A W S E D F T G Y H U J K play the lower octave.</p>
+    <p class="hint">Computer keys play two octaves, like Cynthcart: <span class="mono">Z S X D C V G B H N J M ,</span> for the lower one, <span class="mono">Q 2 W 3 E R 5 T 6 Y 7 U I</span> for the upper one.</p>
   </section>
 
   <details class="card about">

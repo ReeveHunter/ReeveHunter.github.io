@@ -1,7 +1,8 @@
 // app.js - UI for the Cynthcart controller
 import {
-  MODES, FX, WAVES, MODS, FILTER_TYPES, TUNINGS, VIB_LEVELS, TARGETS, GLOBAL_PARAMS, VOICE_PARAMS,
-  supports, why, patchFromPreset, normalizePatch, patchToFile, randomPatch,
+  MODES, FX, WAVES, WAVE_NAMES, MODS, FILTER_TYPES, TUNINGS, VIB_LEVELS, TARGETS, GLOBAL_PARAMS, VOICE_PARAMS,
+  supports, why, patchFromPreset, normalizePatch, patchToFile, randomPatch, RANDOM_KEYS,
+  VIB_HZ, PASSES_PER_SEC, trmHz, trmLevel,
   editMessages, patchMessages, voiceSelectCC, headerRows, isV20,
 } from "./engine.js";
 import { PRESETS } from "./presets.js";
@@ -25,10 +26,12 @@ const store = {
 };
 
 const settings = Object.assign(
-  { outId: "", inId: "", ch: 1, target: "sx", live: true, link: true, kbdBase: 48 },
+  { outId: "", inId: "", ch: 1, target: "sx", live: true, link: true, kbdBase: 48, locks: {} },
   store.get("settings", {}),
 );
 if (!TARGETS[settings.target]) settings.target = "sx";
+if (!settings.locks || typeof settings.locks !== "object") settings.locks = {};
+settings.kbdBase = Math.max(12, Math.min(96, settings.kbdBase));
 const saveSettings = () => store.set("settings", settings);
 
 let library = store.get("library", []).filter((e) => e && e.patch);
@@ -122,6 +125,35 @@ function select({ get, set, options, label }) {
   return { el: s, update() { s.value = get(); } };
 }
 
+// ---- locks: a locked parameter is left alone by the dice
+const LOCKABLE = new Set([...RANDOM_KEYS, "vol"]);
+const lockButtons = [];
+function lockBtn(key, label) {
+  if (!LOCKABLE.has(key)) return null;
+  const b = el("button", { type: "button", className: "lock" });
+  b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    settings.locks[key] = !settings.locks[key];
+    if (!settings.locks[key]) delete settings.locks[key];
+    saveSettings();
+    updateLocks();
+  });
+  b.dataset.key = key;
+  b.dataset.label = label;
+  lockButtons.push(b);
+  return b;
+}
+function updateLocks() {
+  for (const b of lockButtons) {
+    const on = !!settings.locks[b.dataset.key];
+    b.textContent = on ? "🔒" : "🔓";
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+    b.title = on ? `${b.dataset.label} is locked: the dice leave it alone` : `Lock ${b.dataset.label.toLowerCase()} so the dice leave it alone`;
+    b.setAttribute("aria-label", `Lock ${b.dataset.label}`);
+  }
+}
+
 /** A labelled control for a global parameter. */
 function globalCtl(container, key, kind = "slider", extra = {}) {
   const d = GLOBAL_PARAMS[key];
@@ -129,7 +161,7 @@ function globalCtl(container, key, kind = "slider", extra = {}) {
   const opts = { get: () => patch[key], set: (v) => setParam(key, v), min: d.min, max: d.max, step: d.step, show, label: d.label, ...extra };
   const c = kind === "slider" ? slider(opts) : kind === "seg" ? seg(opts) : select(opts);
   const out = c.out ?? el("output", { hidden: kind === "select" });
-  const lab = el("div", { className: "lab" }, el("b", { textContent: extra.label ?? d.label }), out);
+  const lab = el("div", { className: "lab" }, el("span", { className: "lab-l" }, el("b", { textContent: extra.label ?? d.label }), lockBtn(key, d.label)), out);
   const box = el("div", { className: "ctl" }, lab, c.el);
   container.append(box);
   const ctl = {
@@ -209,7 +241,7 @@ const voiceRows = [];
 for (const [key, kind, extra, g] of VOICE_ROWS) {
   const d = VOICE_PARAMS[key];
   const show = d.show ?? String;
-  const rl = el("div", { className: "rl", style: `--g2: var(--c-${g})` }, d.label);
+  const rl = el("div", { className: "rl", style: `--g2: var(--c-${g})` }, el("span", { textContent: d.label }), lockBtn(key, d.label));
   vg.append(rl);
   const cells = [0, 1, 2].map((i) => {
     const opts = { get: () => patch.voices[i][key], set: (v) => setParam(key, v, i), min: d.min, max: d.max, step: d.step, show, label: `${d.label}, voice ${i + 1}`, ...extra };
@@ -309,16 +341,222 @@ function renderScreen() {
   scr.replaceChildren();
   rows.forEach((row, r) => {
     let len = 0;
-    for (const [text, cls] of row) {
+    for (const [text, cls, key] of row) {
       len += text.length;
-      scr.append(cls ? el("span", { className: cls, textContent: text }) : text);
+      if (key && screenEditable(key)) {
+        const sp = el("span", { className: cls + " edit" + (pop.key === key ? " open" : ""), textContent: text });
+        sp.dataset.key = key;
+        scr.append(sp);
+      } else scr.append(cls ? el("span", { className: cls, textContent: text }) : text);
     }
     scr.append(" ".repeat(Math.max(0, 40 - len)) + (r < rows.length - 1 ? "\n" : ""));
   });
 }
 
+// ------------------------------------------------------------ editing on the C64 screen
+// Each value is a "spec": sections of { key, voice, options | range }. Drag a value up/down to
+// step its first section; click for a small menu with every section.
+const opt = (key, options, extra = {}) => ({ key, options, ...extra });
+const rng = (key, extra = {}) => ({ key, range: true, ...extra });
+const voiceLabel = (k, i = 0) => `${VOICE_PARAMS[k].label}${settings.link ? "" : `, voice ${i + 1}`}`;
+const SCREEN_SPECS = {
+  base: () => [opt("base", PRESETS.map((p, i) => `${String(i).padStart(2, "0")} ${p.name}`), { label: "Base preset", list: true })],
+  mode: () => [opt("mode", MODES)],
+  fx: () => [opt("fx", FX)],
+  osc0: () => [opt("wave", WAVE_NAMES, { voice: 0, label: "Waveform, voice 1" }), opt("mod", MODS, { voice: 0, label: "Ring / sync, voice 1" })],
+  osc1: () => [opt("wave", WAVE_NAMES, { voice: 1, label: "Waveform, voice 2" }), opt("mod", MODS, { voice: 1, label: "Ring / sync, voice 2" })],
+  osc2: () => [opt("wave", WAVE_NAMES, { voice: 2, label: "Waveform, voice 3" }), opt("mod", MODS, { voice: 2, label: "Ring / sync, voice 3" })],
+  pw: () => [rng("pw", { voice: 0, label: voiceLabel("pw") })],
+  oct: () => [opt("oct", ["0", "1", "2", "3"])],
+  tune: () => [opt("tune", TUNINGS.map((t) => t + "¢"))],
+  vibD: () => [rng("vibD")],
+  vibS: () => [opt("vibS", ["0", "1", "2", "3"])],
+  flt: () => [opt("fType", FILTER_TYPES.slice(1), { offset: 1 }), opt("flt", ["OFF", "ON"], { voice: 0, label: voiceLabel("flt") })],
+  cut: () => [rng("cut")],
+  res: () => [rng("res")],
+  vol: () => [rng("vol")],
+  a: () => [rng("a", { voice: 0, label: voiceLabel("a") })],
+  d: () => [rng("d", { voice: 0, label: voiceLabel("d") })],
+  s: () => [rng("s", { voice: 0, label: voiceLabel("s") })],
+  r: () => [rng("r", { voice: 0, label: voiceLabel("r") })],
+  trmD: () => [rng("trmD")],
+  trmS: () => [rng("trmS")],
+};
+const paramDef = (k) => (k in VOICE_PARAMS ? VOICE_PARAMS[k] : GLOBAL_PARAMS[k]);
+const sectionOk = (sec) => {
+  if (sec.key === "base") return true;
+  const ok = supports(settings.target, sec.key);
+  return ok !== false && ok !== "fixed" && !(ok === "voice1" && sec.voice > 0);
+};
+const sections = (key) => (SCREEN_SPECS[key] ? SCREEN_SPECS[key]().filter(sectionOk) : []);
+function screenEditable(key) { return key === "name" || sections(key).length > 0; }
+const secGet = (sec) => sec.key === "base" ? patch.base : sec.voice != null ? patch.voices[sec.voice][sec.key] : patch[sec.key];
+function secSet(sec, v) {
+  if (sec.key === "base") { setBase(v); return; }
+  setParam(sec.key, v, sec.voice ?? 0);
+}
+// the menu ("pop") under a clicked value
+const pop = { key: null, update: null };
+function closePop() {
+  pop.key = null; pop.update = null;
+  $("pop").hidden = true;
+  $("pop").replaceChildren();
+  for (const e of $("screen").querySelectorAll(".edit.open")) e.classList.remove("open");
+}
+function openPop(span) {
+  const key = span.dataset.key;
+  if (key === "name") { $("nameInput").focus(); $("nameInput").select(); return; }
+  const secs = sections(key);
+  const box = $("pop");
+  box.replaceChildren();
+  const updaters = [];
+  for (const sec of secs) {
+    const d = sec.key === "base" ? null : paramDef(sec.key);
+    const title = sec.label ?? d.label;
+    box.append(el("div", { className: "pop-t", textContent: title }));
+    if (sec.range) {
+      const sl = slider({ get: () => secGet(sec), set: (v) => secSet(sec, v), min: d.min, max: d.max, step: d.step, show: d.show ?? String, label: title });
+      box.append(el("div", { className: "pop-range" }, sl.el, sl.out));
+      updaters.push(sl.update);
+    } else {
+      const grid = el("div", { className: "pop-opts" + (sec.list ? " list" : "") });
+      const off = sec.offset ?? 0;
+      const btns = sec.options.map((o, i) => {
+        const b = el("button", { type: "button", textContent: o });
+        if (sec.key === "fx" && i === 8 && isV20(settings.target)) b.disabled = true;
+        b.addEventListener("click", () => { secSet(sec, i + off); if (sec.key === "base") closePop(); });
+        grid.append(b);
+        return b;
+      });
+      box.append(grid);
+      updaters.push(() => btns.forEach((b, i) => b.setAttribute("aria-pressed", String(secGet(sec) === i + off))));
+    }
+  }
+  pop.key = key;
+  pop.update = () => updaters.forEach((u) => u());
+  pop.update();
+  box.hidden = false;
+  // place it under the value, kept inside the screen area
+  const wrap = box.parentElement.getBoundingClientRect(), r = span.getBoundingClientRect();
+  const w = Math.min(box.offsetWidth, wrap.width - 16);
+  box.style.left = `${Math.max(8, Math.min(r.left - wrap.left, wrap.width - w - 8))}px`;
+  box.style.top = `${r.bottom - wrap.top + 6}px`;
+  span.classList.add("open");
+  box.querySelector('button[aria-pressed="true"]') ?? box.querySelector("button, .slider")?.focus({ preventScroll: true });
+}
+// drag up/down to step the value's first section
+let drag = null;
+$("screen").addEventListener("pointerdown", (e) => {
+  const span = e.target.closest(".edit");
+  if (!span) return;
+  e.preventDefault();
+  const sec = sections(span.dataset.key)[0];
+  const d = sec && sec.key !== "base" ? paramDef(sec.key) : null;
+  drag = { span, key: span.dataset.key, sec, d, y: e.clientY, moved: false, start: sec ? secGet(sec) : 0, id: e.pointerId };
+  $("screen").setPointerCapture(e.pointerId);
+});
+$("screen").addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.id || !drag.d) return;
+  const dy = drag.y - e.clientY;
+  if (!drag.moved && Math.abs(dy) < 5) return;
+  if (!drag.moved) { drag.moved = true; closePop(); $("screen").classList.add("dragging"); }
+  const { d, sec } = drag;
+  const step = d.step ?? 1;
+  const n = (d.max - d.min) / step;
+  const px = n > 40 ? 3 : n > 15 ? 6 : 12; // pixels per step
+  const lo = sec.offset ?? d.min;
+  const v = Math.max(lo, Math.min(d.max, drag.start + Math.round(dy / px) * step));
+  if (v !== secGet(sec)) secSet(sec, v);
+});
+const dragEnd = (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const { moved, key } = drag;
+  drag = null;
+  $("screen").classList.remove("dragging");
+  if (moved) return;
+  if (pop.key === key) { closePop(); return; }
+  const span = [...$("screen").querySelectorAll(".edit")].find((s) => s.dataset.key === key);
+  if (span) openPop(span);
+};
+$("screen").addEventListener("pointerup", dragEnd);
+$("screen").addEventListener("pointercancel", (e) => { if (drag && e.pointerId === drag.id) { drag = null; $("screen").classList.remove("dragging"); } });
+document.addEventListener("pointerdown", (e) => {
+  if (pop.key && !e.target.closest("#pop") && !e.target.closest("#screen .edit")) closePop();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop.key) closePop(); });
+
+// ------------------------------------------------------------ vibrato and tremolo pictures
+// What the C64 does over a few seconds: vibrato as pitch around the note (a stepped triangle),
+// tremolo as the SID volume the firmware writes each pass. Slow tremolo gets a longer window
+// (up to 8 s) so a whole cycle shows. A cursor runs across in real time.
+const svgNS = "http://www.w3.org/2000/svg";
+function vizPanel(title, cls) {
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", "0 0 200 60");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.classList.add("viz", cls);
+  const mk = (tag, c) => { const n = document.createElementNS(svgNS, tag); if (c) n.setAttribute("class", c); svg.append(n); return n; };
+  const mid = mk("line", "mid"), path = mk("path", "wave"), cursor = mk("line", "cursor");
+  const read = el("output", { className: "viz-read" });
+  const span = el("small", { className: "viz-span" });
+  const box = el("figure", { className: "viz-box" }, el("figcaption", {}, el("b", {}, title, " ", span), read), svg);
+  return { box, svg, mid, path, cursor, read, span, secs: 2 };
+}
+const vibViz = vizPanel("Vibrato", "vib");
+const trmViz = vizPanel("Tremolo", "trm");
+$("modviz").append(vibViz.box, trmViz.box);
+function drawViz() {
+  let passes = vibViz.secs * PASSES_PER_SEC;
+  let X = (i) => (i / passes) * 200;
+  vibViz.span.textContent = `· ${vibViz.secs} s`;
+  // vibrato: stepped triangle, height from the depth (0-31)
+  const hz = VIB_HZ[patch.vibS], amp = (patch.vibD / 31) * 26;
+  vibViz.mid.setAttribute("x1", 0); vibViz.mid.setAttribute("x2", 200); vibViz.mid.setAttribute("y1", 30); vibViz.mid.setAttribute("y2", 30);
+  let d = "";
+  for (let i = 0; i <= passes; i++) {
+    const t = (i * hz / PASSES_PER_SEC) % 1;
+    const tri = t < 0.5 ? t * 4 - 1 : 3 - t * 4; // -1..1
+    const y = 30 - Math.round(tri * 3) / 3 * amp; // a few steps, like the LFO
+    d += (i ? "L" : "M") + X(i).toFixed(1) + " " + y.toFixed(1);
+  }
+  vibViz.path.setAttribute("d", d);
+  vibViz.read.value = patch.vibD ? `≈${hz.toFixed(1)} Hz · depth ${patch.vibD}` : "off";
+  vibViz.box.classList.toggle("off", !patch.vibD);
+  // tremolo: the volume the firmware writes, pass by pass
+  const tna = supports(settings.target, "trmD") === false;
+  const thz = trmHz(patch.trmS);
+  trmViz.secs = Math.max(2, Math.min(8, Math.ceil(1.25 / thz)));
+  trmViz.span.textContent = `· ${trmViz.secs} s`;
+  passes = trmViz.secs * PASSES_PER_SEC;
+  X = (i) => (i / passes) * 200;
+  let td = "", lo = 15;
+  for (let i = 0; i <= passes; i++) {
+    const lvl = trmLevel(patch.vol, tna ? 0 : patch.trmD, (i * thz / PASSES_PER_SEC) % 1);
+    lo = Math.min(lo, lvl);
+    td += (i ? "L" : "M") + X(i).toFixed(1) + " " + (56 - (lvl / 15) * 52).toFixed(1);
+  }
+  trmViz.mid.setAttribute("x1", 0); trmViz.mid.setAttribute("x2", 200); trmViz.mid.setAttribute("y1", 56); trmViz.mid.setAttribute("y2", 56);
+  trmViz.path.setAttribute("d", td);
+  trmViz.read.value = tna ? "not on 2.0" : patch.trmD ? `≈${thz < 1 ? thz.toFixed(2) : thz.toFixed(1)} Hz · VOL ${patch.vol}→${lo}` : "off";
+  trmViz.box.classList.toggle("off", tna || !patch.trmD);
+}
+controls.push({ update: drawViz });
+const still = matchMedia("(prefers-reduced-motion: reduce)");
+function tickViz(now) {
+  for (const v of [vibViz, trmViz]) {
+    const x = ((now / 1000) % v.secs) / v.secs * 200;
+    const on = !still.matches && !v.box.classList.contains("off");
+    v.cursor.style.display = on ? "" : "none";
+    if (on) { v.cursor.setAttribute("x1", x); v.cursor.setAttribute("x2", x); v.cursor.setAttribute("y1", 0); v.cursor.setAttribute("y2", 60); }
+  }
+  requestAnimationFrame(tickViz);
+}
+requestAnimationFrame(tickViz);
+
 function renderAll() {
   for (const c of controls) c.update();
+  updateLocks();
+  pop.update?.();
   const v20 = isV20(settings.target);
   vibSlider.box.hidden = v20;
   vibLevels.box.hidden = !v20;
@@ -404,14 +642,14 @@ midi.onInput = (data) => {
 
 // ------------------------------------------------------------ patch bar
 PRESETS.forEach((p, i) => $("baseSelect").append(el("option", { value: i, textContent: `${String(i).padStart(2, "0")}  ${p.name}` })));
-$("baseSelect").addEventListener("change", (e) => {
-  const n = Number(e.target.value);
+$("baseSelect").addEventListener("change", (e) => setBase(Number(e.target.value)));
+function setBase(n) {
   patch = patchFromPreset(n);
   currentId = null;
   renderAll();
   saveCurrent();
   if (settings.live && midi.output) { midi.flush(); midi.send([0xc0 | chan(), n]); status(`Loaded preset ${n}.`); }
-});
+}
 $("nameInput").addEventListener("input", (e) => { patch.name = e.target.value.slice(0, 16); renderScreen(); saveCurrentSoon(); });
 
 function sendPatch() {
@@ -426,13 +664,41 @@ function sendPatch() {
 }
 $("sendBtn").addEventListener("click", sendPatch);
 
+// ---- dice: the big one randomizes every unlocked parameter (not volume, octave or tuning),
+// each card's randomizes that card. Linked voices get one value for all three.
 $("randomBtn").addEventListener("click", () => {
-  patch = randomPatch(patch);
+  patch = randomPatch(patch, Math.random, { locks: settings.locks, link: settings.link });
   currentId = null;
   renderAll();
   saveCurrent();
   if (settings.live) sendPatch();
+  status("Randomized every unlocked parameter (volume, octave and tuning stay).");
 });
+const CARD_KEYS = {
+  sys: ["mode", "fx"],
+  mod: ["vibD", "vibS", "trmD", "trmS"],
+  flt: ["cut", "res", "fType"],
+  amp: ["vol"],
+  voices: ["wave", "mod", "pw", "flt", "a", "d", "s", "r"],
+};
+for (const btn of document.querySelectorAll("[data-dice]")) {
+  btn.addEventListener("click", () => {
+    const keys = CARD_KEYS[btn.dataset.dice].filter((k) => !settings.locks[k]);
+    if (!keys.length) { status("Everything in this card is locked.", "warn"); return; }
+    patch = randomPatch(patch, Math.random, { keys, link: settings.link });
+    currentId = null;
+    renderAll();
+    saveCurrentSoon();
+    if (settings.live) {
+      for (const k of keys) {
+        if (k in VOICE_PARAMS) {
+          if (settings.link) sendEdit(k, [0, 1, 2]);
+          else for (const i of [0, 1, 2]) sendEdit(k, [i]);
+        } else sendEdit(k);
+      }
+    }
+  });
+}
 
 $("liveToggle").checked = settings.live;
 $("liveToggle").addEventListener("change", (e) => { settings.live = e.target.checked; saveSettings(); });
@@ -541,7 +807,7 @@ function buildPiano() {
   const p = $("piano");
   p.replaceChildren(); keyEls.clear();
   const whites = [0, 2, 4, 5, 7, 9, 11];
-  const nW = 15;
+  const nW = 17; // C to E two octaves up: the reach of the computer-key rows
   for (let w = 0; w < nW; w++) {
     const semi = Math.floor(w / 7) * 12 + whites[w % 7];
     const k = el("div", { className: "w" });
@@ -579,10 +845,14 @@ $("piano").addEventListener("pointermove", (e) => {
 const pointerEnd = (e) => { const n = pointerNotes.get(e.pointerId); if (n != null) noteOff(n); pointerNotes.delete(e.pointerId); };
 $("piano").addEventListener("pointerup", pointerEnd);
 $("piano").addEventListener("pointercancel", pointerEnd);
-$("octDown").addEventListener("click", () => { settings.kbdBase = Math.max(24, settings.kbdBase - 12); saveSettings(); buildPiano(); });
+$("octDown").addEventListener("click", () => { settings.kbdBase = Math.max(12, settings.kbdBase - 12); saveSettings(); buildPiano(); }); // 12 = C0
 $("octUp").addEventListener("click", () => { settings.kbdBase = Math.min(96, settings.kbdBase + 12); saveSettings(); buildPiano(); });
 
-const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
+// like Cynthcart and trackers: Z row + A row = lower octave, Q row + number row = upper octave
+const KEYMAP = {
+  z: 0, s: 1, x: 2, d: 3, c: 4, v: 5, g: 6, b: 7, h: 8, n: 9, j: 10, m: 11, ",": 12, l: 13, ".": 14, ";": 15, "/": 16,
+  q: 12, 2: 13, w: 14, 3: 15, e: 16, r: 17, 5: 18, t: 19, 6: 20, y: 21, 7: 22, u: 23, i: 24, 9: 25, o: 26, 0: 27, p: 28,
+};
 const typing = (e) => e.target.matches("input, select, textarea");
 window.addEventListener("keydown", (e) => {
   if (e.repeat || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
