@@ -14,7 +14,7 @@ Reeve Hunter's site (GitHub Pages, custom domain in `CNAME`). Each top-level fol
 | `math/` | Math resources and practice problems. |
 | `clock/`, `stopwatch/` | Classroom clock and exam stopwatch. |
 | `dinner/`, `mixup/`, `feelings/` | Family dinner planner, group shuffler, feelings wheel. |
-| `CheckItBU/` | Course quiz material. |
+| `CheckItBU/` | CheckIt course material (`Cal-I`). |
 | `assets/` | Shared images, favicon and the home page's styles. |
 
 Web MIDI pages (`C64/`, `flash/`, `CZ/`, `sightreading/`) need Chrome, Edge or Opera on a computer (or a Web MIDI browser app on iPad), and `https://` or `localhost`. To try a page locally: `python3 -m http.server` in the repo root, then open `http://localhost:8000/<folder>/`.
