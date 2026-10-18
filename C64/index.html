@@ -131,6 +131,18 @@
       </div>
       <div class="voice-grid" id="voiceGrid"></div>
     </section>
+
+    <!-- setup: not part of patches -->
+    <section class="card g-sys setup">
+      <div class="card-head">
+        <h2>Setup</h2>
+        <div class="head-actions">
+          <button id="sendSetupBtn" class="btn small" title="Send the paddle, button, video and channel settings">Send setup</button>
+        </div>
+      </div>
+      <div class="setup-grid" id="setupCtls"></div>
+      <p class="hint">Paddles, paddle buttons, video and Cynthcart's MIDI channel. These aren't part of patches (presets never change them on the C64). The page can't see changes made with the C64's keys, so press <strong>Send setup</strong> to bring the C64 in line.</p>
+    </section>
   </div>
 
   <!-- audition -->
@@ -153,6 +165,7 @@
     <ul>
       <li><strong>Targets.</strong> <em>Cynthcart 2.0</em> uses the original MIDI map (resonance only reaches 7 over MIDI, no PULS3, pulse width is uneven); <em>Cynthcart 2.0.1F</em> is 2.0.1 with the resonance and pulse-width bugs fixed. <em>Custom build (CC only)</em> is the Kerberos build before SysEx; <em>Custom build + SysEx</em> sets everything exactly, including octave, tuning, filter type and per-voice filter routing, and shows the patch name on the C64.</li>
       <li><strong>Greyed-out controls</strong> can't be reached on the chosen target; their value comes from the base preset.</li>
+      <li><strong>Setup</strong> (paddles, paddle buttons, video, Cynthcart's MIDI channel) needs the SysEx firmware; the CC-only build can set video (no full screen). Setting Cynthcart to a channel also switches this page to it.</li>
       <li><strong>Sending a patch</strong> loads the base preset first, then sets every value on top. On 2.0, only values that differ from the base preset are sent.</li>
       <li>The page is the source of truth: Cynthcart can't send its state back, so changes made on the C64 keyboard aren't shown here.</li>
       <li>Patches are kept in this browser. Export them to back them up or move them to another device.</li>

@@ -3,6 +3,7 @@ import {
   MODES, FX, WAVES, WAVE_NAMES, MODS, FILTER_TYPES, TUNINGS, VIB_LEVELS, TARGETS, GLOBAL_PARAMS, VOICE_PARAMS,
   supports, why, patchFromPreset, normalizePatch, patchToFile, randomPatch, RANDOM_KEYS,
   VIB_HZ, PASSES_PER_SEC, trmHz, trmLevel,
+  PADDLE_MODES, FIRE_MODES, VID_STATES, CHANNELS, SETUP_PARAMS, normalizeSetup, setupSupported, setupMessages, allSetupMessages,
   editMessages, patchMessages, voiceSelectCC, headerRows, isV20,
 } from "./engine.js";
 import { PRESETS } from "./presets.js";
@@ -31,6 +32,7 @@ const settings = Object.assign(
 );
 if (!TARGETS[settings.target]) settings.target = "sx";
 if (!settings.locks || typeof settings.locks !== "object") settings.locks = {};
+settings.setup = normalizeSetup(settings.setup); // paddles, fire buttons, video, Cynthcart's channel
 settings.kbdBase = Math.max(12, Math.min(96, settings.kbdBase));
 const saveSettings = () => store.set("settings", settings);
 
@@ -291,6 +293,55 @@ controls.push({
   },
 });
 
+// ---- setup card: paddles, fire buttons, video, Cynthcart's MIDI channel (not part of patches)
+const SETUP_OPTIONS = {
+  ch: CHANNELS.map((c, i) => (i ? `Channel ${c}` : "ALL (omni)")),
+  pad1: PADDLE_MODES.map(([c, n]) => n), pad2: PADDLE_MODES.map(([c, n]) => n),
+  fire1: FIRE_MODES.map(([c, n]) => `${c.trim() || "--"}  ${n}`), fire2: FIRE_MODES.map(([c, n]) => `${c.trim() || "--"}  ${n}`),
+  vid: VID_STATES.map(([c, n]) => n), pat: ["1", "2", "3"],
+};
+const setupOk = (key) => setupSupported(settings.target, key, settings.setup);
+for (const key of ["pad1", "fire1", "pad2", "fire2", "vid", "pat", "ch"]) {
+  const box = $("setupCtls");
+  const c = key === "pat"
+    ? seg({ get: () => settings.setup.pat, set: (v) => setSetup("pat", v), options: SETUP_OPTIONS.pat, label: SETUP_PARAMS.pat.label })
+    : select({ get: () => settings.setup[key], set: (v) => setSetup(key, v), options: SETUP_OPTIONS[key], label: SETUP_PARAMS[key].label });
+  const ctl = el("div", { className: "ctl" }, el("div", { className: "lab" }, el("b", { textContent: SETUP_PARAMS[key].label })), c.el);
+  box.append(ctl);
+  controls.push({
+    update() {
+      c.update();
+      const ok = setupOk(key) || (key === "vid" && settings.target === "cc");
+      ctl.classList.toggle("na", !ok);
+      ctl.title = ok ? "" : settings.target === "cc" ? "Only the SysEx firmware can set this (the CC-only build reaches video on CC 10, without full screen)." : "Cynthcart 2.0 can't set this over MIDI; use the C64's keys.";
+      if (key === "vid" && c.el.tagName === "SELECT") for (const o of c.el.options) o.disabled = settings.target === "cc" && (o.value === "1" || o.value === "3");
+    },
+  });
+}
+function setSetup(key, v) {
+  v = Math.max(0, Math.min(SETUP_PARAMS[key].max, v));
+  if (settings.setup[key] === v) return;
+  settings.setup[key] = v;
+  saveSettings();
+  if (settings.live) sendSetup([key]);
+  if (key === "ch" && v) { // the page must send on the channel Cynthcart now listens to
+    settings.ch = v; saveSettings();
+    $("chSelect").value = v;
+    status(`Cynthcart now listens on channel ${v}, so this page sends on ${v} too.`);
+  }
+  renderAll();
+}
+function sendSetup(keys) {
+  if (!midi.output) { status("Connect a MIDI output first.", "warn"); return; }
+  const t = settings.target;
+  const msgs = keys ? keys.flatMap((k) => setupMessages(t, chan(), settings.setup, k) ?? []) : allSetupMessages(t, chan(), settings.setup);
+  if (!msgs.length) { status(t === "cc" ? "The CC-only build can only set video (without full screen) over MIDI." : "Cynthcart 2.0 can't set these over MIDI.", "warn"); return; }
+  if (msgs.some((m) => m[0] === 0xf0) && !midi.sysexAllowed) { status("SysEx isn't allowed in this browser session, so the setup can't be sent.", "warn"); return; }
+  midi.flush();
+  midi.sendSequence(msgs.map((msg) => ({ msg, delay: 0 })));
+  if (!keys) status("Sent the setup (paddles, buttons, video, channel).", "ok");
+}
+
 // ------------------------------------------------------------ editing
 function setParam(key, value, voice) {
   const perVoice = key in VOICE_PARAMS;
@@ -336,7 +387,7 @@ function renderScreen() {
   // the custom build with SysEx shows "--" and our name after a patch send; otherwise the preset
   const showOwn = settings.target === "sx" && !pristine;
   const view = showOwn ? patch : { ...patch, name: PRESETS[patch.base].name };
-  const rows = headerRows(view, { presetLabel: showOwn ? "--" : String(patch.base).padStart(2) });
+  const rows = headerRows(view, { presetLabel: showOwn ? "--" : String(patch.base).padStart(2), setup: settings.setup, setupOk });
   const scr = $("screen");
   scr.replaceChildren();
   rows.forEach((row, r) => {
@@ -358,6 +409,7 @@ function renderScreen() {
 // step its first section; click for a small menu with every section.
 const opt = (key, options, extra = {}) => ({ key, options, ...extra });
 const rng = (key, extra = {}) => ({ key, range: true, ...extra });
+const sopt = (key, extra = {}) => ({ key, setup: true, options: SETUP_OPTIONS[key], label: SETUP_PARAMS[key].label, ...extra });
 const voiceLabel = (k, i = 0) => `${VOICE_PARAMS[k].label}${settings.link ? "" : `, voice ${i + 1}`}`;
 const SCREEN_SPECS = {
   base: () => [opt("base", PRESETS.map((p, i) => `${String(i).padStart(2, "0")} ${p.name}`), { label: "Base preset", list: true })],
@@ -381,18 +433,27 @@ const SCREEN_SPECS = {
   r: () => [rng("r", { voice: 0, label: voiceLabel("r") })],
   trmD: () => [rng("trmD")],
   trmS: () => [rng("trmS")],
+  ch: () => [sopt("ch", { list: true })],
+  pad1: () => [sopt("pad1", { list: true })],
+  fire1: () => [sopt("fire1", { list: true })],
+  pad2: () => [sopt("pad2", { list: true })],
+  fire2: () => [sopt("fire2", { list: true })],
+  vid: () => [sopt("vid"), sopt("pat")],
+  pat: () => [sopt("pat"), sopt("vid")],
 };
-const paramDef = (k) => (k in VOICE_PARAMS ? VOICE_PARAMS[k] : GLOBAL_PARAMS[k]);
+const paramDef = (k) => (k in VOICE_PARAMS ? VOICE_PARAMS[k] : k in GLOBAL_PARAMS ? GLOBAL_PARAMS[k] : { min: 0, max: SETUP_PARAMS[k].max, label: SETUP_PARAMS[k].label });
 const sectionOk = (sec) => {
   if (sec.key === "base") return true;
+  if (sec.setup) return setupOk(sec.key) || (sec.key === "vid" && settings.target === "cc");
   const ok = supports(settings.target, sec.key);
   return ok !== false && ok !== "fixed" && !(ok === "voice1" && sec.voice > 0);
 };
 const sections = (key) => (SCREEN_SPECS[key] ? SCREEN_SPECS[key]().filter(sectionOk) : []);
 function screenEditable(key) { return key === "name" || sections(key).length > 0; }
-const secGet = (sec) => sec.key === "base" ? patch.base : sec.voice != null ? patch.voices[sec.voice][sec.key] : patch[sec.key];
+const secGet = (sec) => sec.setup ? settings.setup[sec.key] : sec.key === "base" ? patch.base : sec.voice != null ? patch.voices[sec.voice][sec.key] : patch[sec.key];
 function secSet(sec, v) {
   if (sec.key === "base") { setBase(v); return; }
+  if (sec.setup) { setSetup(sec.key, v); return; }
   setParam(sec.key, v, sec.voice ?? 0);
 }
 // the menu ("pop") under a clicked value
@@ -411,7 +472,7 @@ function openPop(span) {
   box.replaceChildren();
   const updaters = [];
   for (const sec of secs) {
-    const d = sec.key === "base" ? null : paramDef(sec.key);
+    const d = sec.key === "base" || sec.setup ? null : paramDef(sec.key);
     const title = sec.label ?? d.label;
     box.append(el("div", { className: "pop-t", textContent: title }));
     if (sec.range) {
@@ -424,7 +485,8 @@ function openPop(span) {
       const btns = sec.options.map((o, i) => {
         const b = el("button", { type: "button", textContent: o });
         if (sec.key === "fx" && i === 8 && isV20(settings.target)) b.disabled = true;
-        b.addEventListener("click", () => { secSet(sec, i + off); if (sec.key === "base") closePop(); });
+        if (sec.key === "vid" && (i === 1 || i === 3) && settings.target === "cc") b.disabled = true;
+        b.addEventListener("click", () => { secSet(sec, i + off); if (sec.list) closePop(); });
         grid.append(b);
         return b;
       });
@@ -451,7 +513,7 @@ $("screen").addEventListener("pointerdown", (e) => {
   if (!span) return;
   e.preventDefault();
   const sec = sections(span.dataset.key)[0];
-  const d = sec && sec.key !== "base" ? paramDef(sec.key) : null;
+  const d = sec && sec.key !== "base" && sec.key !== "ch" ? paramDef(sec.key) : null; // (the channel: menu only)
   drag = { span, key: span.dataset.key, sec, d, y: e.clientY, moved: false, start: sec ? secGet(sec) : 0, id: e.pointerId };
   $("screen").setPointerCapture(e.pointerId);
 });
@@ -663,6 +725,7 @@ function sendPatch() {
   else status(what, "ok");
 }
 $("sendBtn").addEventListener("click", sendPatch);
+$("sendSetupBtn").addEventListener("click", () => sendSetup());
 
 // ---- dice: the big one randomizes every unlocked parameter (not volume, octave or tuning),
 // each card's randomizes that card. Linked voices get one value for all three.

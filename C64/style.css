@@ -413,3 +413,11 @@ input:focus-visible, select:focus-visible, button:focus-visible, .slider:focus-v
 .viz .cursor { stroke: var(--text); stroke-width: 1; opacity: .35; vector-effect: non-scaling-stroke; }
 .viz-box.off .wave { opacity: .35; }
 .viz-span { color: var(--muted); font-weight: 400; }
+
+/* ---------- setup ---------- */
+.grid .setup { grid-column: 1 / -1; }
+.setup-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 16px; }
+@media (max-width: 1000px) { .setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .setup-grid { grid-template-columns: minmax(0, 1fr); } }
+.setup .ctl.na { opacity: 0.38; }
+.setup .ctl.na .lab b::after { content: ""; }

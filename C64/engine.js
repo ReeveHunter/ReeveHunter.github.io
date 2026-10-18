@@ -27,7 +27,7 @@ export const TARGETS = {
 export const isV20 = (t) => t === "v20" || t === "v20f";
 
 // SysEx parameter indexes (header order, cynthparam.asm paramTable)
-const P = { CH: 0, PRESET: 1, MODE: 2, FX: 3, OSC: 6, PW: 7, OCT: 8, TUN: 9, VIB: 10, FLT: 11,
+const P = { CH: 0, PRESET: 1, MODE: 2, FX: 3, P1: 4, P2: 5, OSC: 6, PW: 7, OCT: 8, TUN: 9, VIB: 10, FLT: 11,
   CUT: 12, RES: 13, VID: 14, VOL: 15, A: 16, D: 17, S: 18, R: 19, TRM: 20 };
 
 // ---------------------------------------------------------------- parameters
@@ -56,6 +56,62 @@ export const VOICE_PARAMS = {
   s: { label: "Sustain", min: 0, max: 15, group: "amp" },
   r: { label: "Release", min: 0, max: 15, group: "amp" },
 };
+
+// ---------------------------------------------------------------- setup (not part of patches)
+// Paddles, fire buttons, video and Cynthcart's MIDI channel. Presets never change these on the
+// C64, so they're sent on their own. Only the SysEx firmware can set all of them; the
+// custom build's CC 10 reaches video (no full screen).
+export const PADDLE_MODES = [
+  ["---", "Off"], ["FLT", "Cutoff"], ["PW ", "Pulse width"], ["VOL", "Volume"], ["ATK", "Attack"], ["DEC", "Decay"],
+  ["SUS", "Sustain"], ["REL", "Release"], ["VIB", "Vibrato depth"], ["VSP", "Vibrato speed"], ["TRM", "Tremolo depth"],
+  ["TSP", "Tremolo speed"], ["PB ", "Pitch bend (both ways)"], ["PB+", "Bend up"], ["PB-", "Bend down"],
+];
+export const FIRE_MODES = [
+  ["--", "Off"], ["P-", "Short bend down"], ["P+", "Short bend up"], ["HD", "Hold notes (latch)"], ["F ", "Filter wah"],
+  ["V ", "Deep vibrato (latch)"], ["T ", "Deep tremolo (latch)"],
+  ["A1", "ARP1 (latch)"], ["A2", "ARP2 (latch)"], ["A3", "ARP3 (latch)"], ["A4", "ARP4 (latch)"], ["A5", "ARP5 (latch)"],
+  ["M1", "MONO1 (latch)"], ["M2", "MONO2 (latch)"], ["M3", "MONP1 (latch)"], ["M4", "MONP2 (latch)"],
+  ["P1", "PORT1 (latch)"], ["P2", "PORT2 (latch)"], ["P3", "PORT3 (latch)"], ["N ", "Noise (latch)"], ["5 ", "5THS (latch)"],
+  ["O+", "Octave up (latch)"], ["O-", "Octave down (latch)"], ["A+", "Attack max (latch)"], ["R+", "Release max (latch)"],
+  ["MU", "Mute"], [">>", "Next preset"], ["<<", "Previous preset"], ["+1", "Selected parameter +1"],
+  ["-1", "Selected parameter −1"], ["? ", "Randomize all"],
+];
+export const VID_STATES = [["ON ", "On"], ["ON ", "Full screen"], ["SND", "On with sound"], ["SND", "Full screen with sound"], ["OFF", "Off"]];
+export const CHANNELS = ["ALL", ...Array.from({ length: 16 }, (_, i) => String(i + 1))];
+/** The C64's power-on setup. */
+export const DEFAULT_SETUP = { ch: 0, pad1: 0, fire1: 1, pad2: 0, fire2: 2, vid: 0, pat: 1 };
+export const SETUP_PARAMS = {
+  ch: { label: "Cynthcart MIDI channel", max: 16 },
+  pad1: { label: "Paddle 1", max: 14 }, fire1: { label: "Paddle 1 button", max: 30 },
+  pad2: { label: "Paddle 2", max: 14 }, fire2: { label: "Paddle 2 button", max: 30 },
+  vid: { label: "Video", max: 4 }, pat: { label: "Video pattern", max: 2 },
+};
+export function normalizeSetup(raw) {
+  const s = { ...DEFAULT_SETUP };
+  for (const [k, d] of Object.entries(SETUP_PARAMS)) if (Number.isFinite(raw?.[k])) s[k] = clamp(raw[k], 0, d.max);
+  return s;
+}
+/** true if the target can set this setup value (key = "ch", "pad1", ...). */
+export function setupSupported(target, key, setup = DEFAULT_SETUP) {
+  if (target === "sx") return true;
+  if (target === "cc" && (key === "vid" || key === "pat")) return setup.vid !== 1 && setup.vid !== 3; // no full screen by CC
+  return false;
+}
+const SETUP_SX = { ch: [P.CH, 0], pad1: [P.P1, 0], fire1: [P.P1, 1], pad2: [P.P2, 0], fire2: [P.P2, 1], vid: [P.VID, 0], pat: [P.VID, 1] };
+/** Messages to set one setup value (or null if the target can't). */
+export function setupMessages(target, ch, setup, key) {
+  if (target === "sx") { const [pp, ww] = SETUP_SX[key]; return [sxMsg(1, pp, ww, setup[key])]; }
+  if (target === "cc" && (key === "vid" || key === "pat") && setupSupported(target, key, setup)) {
+    const band = setup.vid === 4 ? 6 : (setup.vid === 2 ? 3 : 0) + setup.pat; // CC 10: on 1-3, with sound 1-3, off
+    return [ccMsg(ch, 10, band * 16 + 8)];
+  }
+  return null;
+}
+/** Everything in the setup the target can set. */
+export function allSetupMessages(target, ch, setup) {
+  const keys = target === "sx" ? ["pad1", "fire1", "pad2", "fire2", "vid", "pat", "ch"] : ["vid"];
+  return keys.flatMap((k) => setupMessages(target, ch, setup, k) ?? []);
+}
 
 // What each target can reach over MIDI. "voice1" = one value for all voices
 // (2.0 only has global envelope / pulse width CCs).
@@ -305,11 +361,13 @@ export function asciiName(name) {
 // ---------------------------------------------------------------- the C64 header
 // What Cynthcart's header shows for this patch (5 rows of 40), as spans of
 // [text, colorClass]. Good enough to read the app the same way as the screen.
-export function headerRows(p, { channel = null, presetLabel = null } = {}) {
+export function headerRows(p, { channel = null, presetLabel = null, setup = null, setupOk = () => false } = {}) {
   const L = (t, c, k) => (k ? [t, c, k] : [t, c]);
   const pad = (s, n) => String(s).padEnd(n).slice(0, n);
   const num = (v, n) => String(v).padStart(n);
-  const ch = channel == null ? "ALL" : num(channel, 2) + " ";
+  const st = setup ?? DEFAULT_SETUP;
+  const chText = st.ch ? num(st.ch, 2) + " " : channel == null ? "ALL" : num(channel, 2) + " ";
+  const sv = (text, key) => L(text, setupOk(key) ? "val" : "dim", key); // setup values: dim when the target can't set them
   const vSame = (k) => p.voices.every((v) => v[k] === p.voices[0][k]);
   const eq = (k) => (vSame(k) ? ["=", "eq"] : ["*", "diff"]);
   // one letter per voice; R = triangle + ring, reverse video = sync
@@ -318,18 +376,18 @@ export function headerRows(p, { channel = null, presetLabel = null } = {}) {
   const fltSame = p.voices.every((v) => v.flt === p.voices[0].flt);
   const v = p.voices[0];
   return [
-    [L("CYNTHCART ", "title"), L("CH", "sys"), L("=", "eq"), L(pad(ch, 3), "val"), L("  ", ""),
+    [L("CYNTHCART ", "title"), L("CH", "sys"), L("=", "eq"), sv(pad(chText, 3), "ch"), L("  ", ""),
       L(presetLabel ?? "--", "val", "base"), L(" ", ""), L(pad(p.name.toUpperCase(), 16), "val", "name"), L("   ", "")],
     [L("MODE", "sys"), L("=", "eq"), L(pad(MODES[p.mode], 5), "val", "mode"), L(" ", ""), L("FX", "sys"), L("=", "eq"),
-      L(pad(FX[p.fx], 5), "val", "fx"), L(" ", ""), L("P1", "mod"), L("=", "eq"), L("---/P-", "dim"), L(" ", ""),
-      L("P2", "mod"), L("=", "eq"), L("---/P+", "dim")],
+      L(pad(FX[p.fx], 5), "val", "fx"), L(" ", ""), L("P1", "mod"), L("=", "eq"), sv(PADDLE_MODES[st.pad1][0], "pad1"), L("/", setupOk("pad1") ? "val" : "dim"), sv(FIRE_MODES[st.fire1][0], "fire1"), L(" ", ""),
+      L("P2", "mod"), L("=", "eq"), sv(PADDLE_MODES[st.pad2][0], "pad2"), L("/", setupOk("pad2") ? "val" : "dim"), sv(FIRE_MODES[st.fire2][0], "fire2")],
     [L("OSC", "osc"), L("=", "eq"), ...osc, L(" ", ""), L("PW", "osc"), eq("pw"), L(pad(num(v.pw >> 1, 3), 4), "val", "pw"),
       L(" ", ""), L("OCT", "osc"), L("=", "eq"), L(String(p.oct), "val", "oct"), L(" ", ""), L("TUN", "osc"), L("=", "eq"),
       L(num(TUNINGS[p.tune], 3), "val", "tune"), L(" ", ""), L("VIB", "mod"), L("=", "eq"),
       L(num(p.vibD, 2), "val", "vibD"), L("/", "val"), L(String(p.vibS), "val", "vibS")],
     [L("FLT", "flt"), fltSame ? L("=", "eq") : L("*", "diff"), L(pad(fltOn, 3), "val", "flt"), L(" ", ""), L("CUT", "flt"), L("=", "eq"),
       L(pad(num(p.cut >> 1, 3), 4), "val", "cut"), L(" ", ""), L("RES", "flt"), L("=", "eq"), L(num(p.res, 2), "val", "res"),
-      L("       ", ""), L("VID", "sys"), L("=", "eq"), L("-----", "dim")],
+      L("       ", ""), L("VID", "sys"), L("=", "eq"), sv(VID_STATES[st.vid][0], "vid"), L("/", setupOk("vid") ? "val" : "dim"), sv(String(st.pat + 1), "pat")],
     [L("VOL", "amp"), L("=", "eq"), L(num(p.vol, 2), "val", "vol"), L(" ", ""), L("A", "amp"), eq("a"), L(num(v.a, 2), "val", "a"), L(" ", ""),
       L("D", "amp"), eq("d"), L(num(v.d, 2), "val", "d"), L(" ", ""), L("S", "amp"), eq("s"), L(num(v.s, 2), "val", "s"), L(" ", ""),
       L("R", "amp"), eq("r"), L(num(v.r, 2), "val", "r"), L(" ", ""), L("TRM", "mod"), L("=", "eq"),
