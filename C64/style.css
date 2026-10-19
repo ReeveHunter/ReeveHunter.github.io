@@ -428,3 +428,20 @@ input:focus-visible, select:focus-visible, button:focus-visible, .slider:focus-v
 @media (max-width: 620px) { .setup-grid { grid-template-columns: minmax(0, 1fr); } }
 .setup .ctl.na { opacity: 0.38; }
 .setup .ctl.na .lab b::after { content: ""; }
+
+/* TEMPORARY: patch tryout (tryout.js) */
+.tryout { border-style: dashed; }
+.tryout .hint { margin: 0 0 12px; }
+.tryout-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
+.tryout-list li { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.tryout-list li.kept { border-color: var(--ok); }
+.tryout-top { display: flex; gap: 10px; align-items: flex-start; }
+.tryout-keep { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); cursor: pointer; padding-top: 2px; }
+.tryout-keep input { width: 20px; height: 20px; margin: 0; accent-color: var(--ok); cursor: pointer; }
+.tryout-name { flex: 1; min-width: 0; }
+.tryout-name small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 2px; }
+.tryout-name .badge { margin-left: 6px; font: 600 11px var(--mono); color: var(--warn); }
+.tryout-btns { display: flex; flex-direction: column; gap: 4px; }
+.tryout-btns .btn { min-height: 28px; }
+.tryout-note { font-size: 13px; min-height: 32px; padding: 4px 8px; }
+@media (max-width: 420px) { .tryout-list { grid-template-columns: 1fr; } }

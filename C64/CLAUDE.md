@@ -19,6 +19,7 @@ A browser MIDI controller for **Cynthcart** on Reeve's Commodore 64 (Kerberos MI
 | `midi.js` | Web MIDI access (asks for SysEx, falls back without), coalescing `queue`/`flush`, timed `sendSequence` for patch recall. |
 | `presets.js` | Generated from the firmware's `cynthdata.asm` by `tools/make_presets_js.py` in the firmware repo. Don't hand-edit. |
 | `filtergraph.js` | 6581 filter response (reSID curve), Cynthcart's cutoff steps, and the FILT1–5 animation using the firmware's own logic. |
+| `tryout.js` | **Temporary** patch tryout card: 12 candidate starter patches to audition, Keep checkboxes, notes, "Use my edits", and Copy/Download results for Reeve to hand back. Remove it (file, `<section id="tryout">`, the import + `initTryout` call in `app.js`, the tryout CSS) once the final starter library is built. State in localStorage `cynthcart.tryout`. |
 | `index.html`, `style.css` | Layout; colors per header group (`--c-sys`, `--c-mod`, `--c-osc`, `--c-flt`, `--c-amp`), light and dark. |
 
 **Storage** (localStorage, prefix `cynthcart.`): `settings` (output/input ids, channel, target, live, link, keyboard base, **locks**, **setup**), `library` (saved patches), `current`, `currentId`, `connected`.

@@ -9,6 +9,7 @@ import {
 import { PRESETS } from "./presets.js";
 import { Midi, hex } from "./midi.js";
 import { FilterGraph } from "./filtergraph.js";
+import { initTryout } from "./tryout.js"; // TEMPORARY patch tryout
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => {
@@ -953,6 +954,21 @@ function download(name, obj) {
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// ------------------------------------------------------------ TEMPORARY: patch tryout (tryout.js)
+initTryout($("tryout"), {
+  el,
+  getPatch: () => patch,
+  loadPatch: (p) => {
+    patch = p;
+    currentId = null;
+    renderAll();
+    renderLibrary();
+    saveCurrent();
+    if (settings.live) sendPatch();
+  },
+  status,
+});
 
 // ------------------------------------------------------------ keyboard
 const held = new Set();
