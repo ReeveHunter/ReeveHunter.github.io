@@ -187,7 +187,6 @@ function globalCtl(container, key, kind = "slider", extra = {}) {
 globalCtl($("sysCtls"), "mode", "select", { options: MODES, titles: MODE_INFO });
 const fxCtl = globalCtl($("sysCtls"), "fx", "select", {
   options: FX, titles: FX_INFO,
-  after: (c) => { c.el.querySelector('option[value="8"]').disabled = isV20(settings.target); },
 });
 globalCtl($("sysCtls"), "oct", "seg", { options: ["0", "1", "2", "3"] });
 globalCtl($("sysCtls"), "tune", "slider");
@@ -495,7 +494,6 @@ function openPop(span) {
       const off = sec.offset ?? 0;
       const btns = sec.options.map((o, i) => {
         const b = el("button", { type: "button", textContent: o, title: (sec.key === "mode" ? MODE_INFO : sec.key === "fx" ? FX_INFO : [])[i + off] ?? "" });
-        if (sec.key === "fx" && i === 8 && isV20(settings.target)) b.disabled = true;
         if (sec.key === "vid" && (i === 1 || i === 3) && settings.target === "cc") b.disabled = true;
         b.addEventListener("click", () => { secSet(sec, i + off); if (sec.list) closePop(); });
         grid.append(b);
@@ -638,7 +636,6 @@ function drawPwViz() {
   pwViz.span.textContent = fx === 7 ? "· per note" : `· ${pwViz.secs} s`;
   pwViz.read.value = fx === 6 ? `${pct(150)}–${pct(245)}%`
     : fx === 7 ? `${pct(180)}→${pct(30)}%`
-    : fx === 8 ? "PULS3: no effect"
     : `voice 1 · ${Math.round(patch.voices[0].pw / 256 * 100)}%`;
   pwViz.read.title = pwTurnsFxOff(fx) ? `${FX[fx]} sets the pulse width of all three voices; ${who}` : "No pulse-width FX: each voice keeps its own width";
   pwViz.read.classList.toggle("warn", pwTurnsFxOff(fx) && !users.length);

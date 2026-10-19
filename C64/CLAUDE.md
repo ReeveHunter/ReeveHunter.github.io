@@ -29,6 +29,7 @@ A browser MIDI controller for **Cynthcart** on Reeve's Commodore 64 (Kerberos MI
 - Paddles, paddle buttons, video and Cynthcart's MIDI channel are a setup, not part of patches. Setting Cynthcart to a channel also switches the page's channel.
 - Keep the look of the C64 header (40 columns, same colors); everything on it is editable where the target allows.
 - Cynthcart switches PULS1/PULS2 off when a pulse-width CC arrives: a live PW edit sets the page's FX to NONE, and CC-target patch sends resend the FX after the PW CCs (`resendPulseFx`).
+- FX is 0–7 on every target (PULS3 had no code; the custom build removed it, stock can't reach it by MIDI). PULS2 is sent as CC 3 = 116 so older custom firmware reads it right; old patches with FX 8 load as NONE.
 - When the firmware's parameters, ranges or SysEx change, update `engine.js` here and the firmware docs together, and regenerate the firmware repo's `tests/webapp_patches.json`.
 
 ## Testing

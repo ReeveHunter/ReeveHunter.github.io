@@ -8,7 +8,7 @@ import { PRESETS } from "./presets.js";
 
 export const MODES = ["POLY", "5THS", "5PORT", "PORT1", "PORT2", "PORT3", "MONO1", "MONO2",
   "MONP1", "MONP2", "ARP1", "ARP2", "ARP3", "ARP4", "ARP5", "6CHAN"];
-export const FX = ["NONE", "FILT1", "FILT2", "FILT3", "FILT4", "FILT5", "PULS1", "PULS2", "PULS3"];
+export const FX = ["NONE", "FILT1", "FILT2", "FILT3", "FILT4", "FILT5", "PULS1", "PULS2"]; // (PULS3 had no code: removed)
 /** One line per play mode (Cynthcart 2.0.1 manual, checked against the firmware). */
 export const MODE_INFO = [
   "3-voice polyphonic: each note gets its own voice.",
@@ -38,7 +38,6 @@ export const FX_INFO = [
   "Cutoff buzzes between two values, about 35 times a second.",
   "Slow up-and-down sweep of the pulse width on all voices (about 11 s per cycle). Only voices on the pulse waveform change.",
   "On each new note the pulse width jumps wide and narrows in about a fifth of a second. Only voices on the pulse waveform change.",
-  "No effect: Cynthcart lists PULS3, but no modulation is coded for it.",
 ];
 export const WAVES = ["T", "S", "P", "N"];
 export const WAVE_NAMES = ["Triangle", "Sawtooth", "Pulse", "Noise"];
@@ -65,7 +64,7 @@ const P = { CH: 0, PRESET: 1, MODE: 2, FX: 3, P1: 4, P2: 5, OSC: 6, PW: 7, OCT: 
 // range, display and grouping for every control. group = C64 header color.
 export const GLOBAL_PARAMS = {
   mode: { label: "Mode", min: 0, max: 15, group: "sys", show: (v) => MODES[v] },
-  fx: { label: "FX", min: 0, max: 8, group: "sys", show: (v) => FX[v] },
+  fx: { label: "FX", min: 0, max: 7, group: "sys", show: (v) => FX[v] },
   oct: { label: "Octave", min: 0, max: 3, group: "osc" },
   tune: { label: "Tuning", min: 0, max: 9, group: "osc", show: (v) => TUNINGS[v] + "¢" },
   vibD: { label: "Vibrato depth", min: 0, max: 31, group: "mod" },
@@ -198,6 +197,7 @@ export function normalizePatch(raw) {
   for (const [k, d] of Object.entries(GLOBAL_PARAMS)) {
     if (Number.isFinite(raw?.[k])) p[k] = clampStep(raw[k], d);
   }
+  if (raw?.fx === 8) p.fx = 0; // PULS3 (removed) did nothing
   for (let i = 0; i < 3; i++) {
     const rv = raw?.voices?.[i];
     if (!rv) continue;
@@ -220,7 +220,7 @@ export function patchToFile(p) {
 /** What "randomize" may change: never octave, tuning or the base preset. VOL only when asked for by name (the firmware's "randomize all" keeps it). */
 export const RANDOM_KEYS = ["mode", "fx", "vibD", "vibS", "trmD", "trmS", "fType", "cut", "res", "wave", "mod", "pw", "flt", "a", "d", "s", "r"];
 const RANDOM_RANGE = { // the firmware's guards: no 6CHAN, no silent PW, a real filter type, VOL 8-15
-  mode: [0, 14], fx: [0, 8], vibD: [0, 31], vibS: [0, 3], trmD: [0, 15], trmS: [0, 31], fType: [1, 7],
+  mode: [0, 14], fx: [0, 7], vibD: [0, 31], vibS: [0, 3], trmD: [0, 15], trmS: [0, 31], fType: [1, 7],
   cut: [0, 127, 2], res: [0, 15], vol: [8, 15],
   wave: [0, 3], mod: [0, 3], pw: [12, 115, 2], flt: [0, 1], a: [0, 15], d: [0, 15], s: [0, 15], r: [0, 15],
 };
@@ -248,12 +248,9 @@ export function randomPatch(from, rnd = Math.random, opts = {}) {
 const band8 = (v) => clamp(v, 0, 15) * 8 + 4; // middle of a 0-15 band of 0-127
 const ccMsg = (ch, cc, val) => [0xb0 | ch, cc, clamp(val, 0, 127)];
 const sxMsg = (...data) => [0xf0, 0x7d, 0x43, ...data.map((b) => clamp(b, 0, 127)), 0xf7];
-const fxCC = (target, fx) => {
-  if (isV20(target)) return clamp(fx, 0, 7) * 16 + 8; // 2.0 and 2.0.1F: no PULS3 over MIDI
-  if (fx === 7) return 116;
-  if (fx === 8) return 124;
-  return fx * 16 + 8;
-};
+// CC 3: bands of 16 on every build. PULS2 is sent as 116, inside 112-119, which older custom
+// firmware (where 120-127 meant PULS3) also reads as PULS2.
+const fxCC = (target, fx) => (fx >= 7 ? 116 : clamp(fx, 0, 7) * 16 + 8);
 const vibLevel = (depth) => {
   // nearest of 2.0's four depths
   let best = 0;
@@ -359,7 +356,6 @@ export function patchMessages(target, ch, p) {
   }
 
   if (target === "v20" && p.res > 7) unreachable.push("Resonance above 7 (2.0's CC 0 stops at 7)");
-  if (isV20(target) && p.fx === 8) unreachable.push("FX PULS3");
   if (isV20(target)) {
     const vd = (k, i = 0) => p.voices[i][k] !== base.voices[i][k];
     if ([0, 1, 2].some((i) => vd("wave", i))) send(editMessages(target, ch, p, "wave", [0]).msgs);
