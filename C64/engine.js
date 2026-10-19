@@ -9,6 +9,37 @@ import { PRESETS } from "./presets.js";
 export const MODES = ["POLY", "5THS", "5PORT", "PORT1", "PORT2", "PORT3", "MONO1", "MONO2",
   "MONP1", "MONP2", "ARP1", "ARP2", "ARP3", "ARP4", "ARP5", "6CHAN"];
 export const FX = ["NONE", "FILT1", "FILT2", "FILT3", "FILT4", "FILT5", "PULS1", "PULS2", "PULS3"];
+/** One line per play mode (Cynthcart 2.0.1 manual, checked against the firmware). */
+export const MODE_INFO = [
+  "3-voice polyphonic: each note gets its own voice.",
+  "Polyphonic with a fifth added above each note.",
+  "Polyphonic with an added fifth, and notes glide into each other.",
+  "Polyphonic; notes glide into each other (slow glide).",
+  "Polyphonic; notes glide into each other (fast glide).",
+  "Polyphonic; notes glide into each other (fastest glide).",
+  "Monophonic: all three voices play one note, stacked in octaves.",
+  "Monophonic: all three voices play one note in unison.",
+  "Like MONO1 (octave stack), with glide between notes.",
+  "Like MONO2 (unison), with glide between notes.",
+  "Arpeggiator: steps up through the held notes, fast.",
+  "Arpeggiator: steps up through the held notes, medium.",
+  "Arpeggiator: steps up through the held notes, slow.",
+  "Arpeggiator: steps down through the held notes, medium.",
+  "Arpeggiator: steps down through the held notes, fast.",
+  "6 voices of polyphony; needs a second SID chip.",
+];
+/** One line per FX (what the firmware actually does; timings at ~138 loop passes per second). */
+export const FX_INFO = [
+  "No modulation.",
+  "Slow up-and-down sweep of the cutoff, above the set value (about 11 s per cycle).",
+  "Cutoff rises slowly while notes are held (about 3.7 s to the top) and drops when all are released.",
+  "Cutoff jumps up on each new note and falls back in about a quarter second.",
+  "Cutoff chops between open and closed, about 9 times a second.",
+  "Cutoff buzzes between two values, about 35 times a second.",
+  "Slow up-and-down sweep of the pulse width on all voices (about 11 s per cycle). Only voices on the pulse waveform change.",
+  "On each new note the pulse width jumps wide and narrows in about a fifth of a second. Only voices on the pulse waveform change.",
+  "No effect: Cynthcart lists PULS3, but no modulation is coded for it.",
+];
 export const WAVES = ["T", "S", "P", "N"];
 export const WAVE_NAMES = ["Triangle", "Sawtooth", "Pulse", "Noise"];
 export const MODS = ["-", "RING", "SYNC", "R+S"];
@@ -339,6 +370,7 @@ export function patchMessages(target, ch, p) {
     else if ([0, 1, 2].some((i) => vd("d", i))) unreachable.push("Decay");
     if (vd("r") && p.voices[0].s !== 15) unreachable.push("Sustain (2.0 sets it to 15 with release)");
     else if ([0, 1, 2].some((i) => vd("s", i))) unreachable.push("Sustain");
+    resendPulseFx(target, ch, p, steps);
     return { steps, unreachable: [...new Set(unreachable)] };
   }
 
@@ -349,7 +381,15 @@ export function patchMessages(target, ch, p) {
     if (p.voices[i].flt !== base.voices[i].flt) unreachable.push(VOICE_PARAMS.flt.label);
   }
   send([voiceSelectCC(ch, 0)]);
+  resendPulseFx(target, ch, p, steps);
   return { steps, unreachable: [...new Set(unreachable)] };
+}
+
+/** Cynthcart switches PULS1/PULS2 off when a pulse-width CC (6) arrives, so after one, send the FX again. */
+const isPwCC = (m) => (m[0] & 0xf0) === 0xb0 && m[1] === 6;
+export const pwTurnsFxOff = (fx) => fx === 6 || fx === 7;
+function resendPulseFx(target, ch, p, steps) {
+  if (pwTurnsFxOff(p.fx) && steps.some((s) => isPwCC(s.msg))) steps.push({ msg: ccMsg(ch, 3, fxCC(target, p.fx)), delay: 0 });
 }
 
 export function asciiName(name) {
@@ -394,6 +434,35 @@ export function headerRows(p, { channel = null, presetLabel = null, setup = null
       L(num(p.trmD, 2), "val", "trmD"), L("/", "val"), L(num(p.trmS, 2), "val", "trmS")],
   ];
 }
+
+// ---------------------------------------------------------------- pulse-width FX (PULS1, PULS2)
+// cynthmodulation.asm writes setPulseWidth(v) to all three voices every pass: PW register = v * 16 + 15.
+export const pwDuty = (v) => (v * 16 + 15) / 4096; // fraction of the cycle the pulse is high
+/** The PW value range each FX moves through (for the picture's band). */
+export const PULS_RANGE = { 6: [150, 245], 7: [30, 180] };
+/** PULS1 / PULS2 pass by pass, as modPulseLFO / modPW2 run them. */
+export class PulseSim {
+  constructor() { this.reset(); }
+  reset() { this.v = 200; this.dir = 1; this.frame = 0; this.retrig = false; }
+  noteChange(retrigger) { if (retrigger) this.retrig = true; }
+  step(fx) {
+    this.frame = (this.frame + 1) & 0xff;
+    if (fx === 6) { // PULS1: one step every 8 passes between 150 and 245 (doModulationLFO)
+      if (this.v < 128) this.v = 200;
+      if ((this.frame & 7) === 0) {
+        this.v += this.dir ? 1 : -1;
+        if (this.v >= 245) this.dir = 0;
+        if (this.v <= 150) this.dir = 1;
+      }
+    } else if (fx === 7) { // PULS2: down 5 per pass while >= 32, back to 180 when the held notes change
+      if (this.v & 0xe0) this.v -= 5;
+      if (this.retrig) { this.v = 180; this.retrig = false; this.retrigSeen = true; }
+    }
+    return this.v;
+  }
+}
+/** PULS1 cycle length in passes (95 steps up and 95 down, 8 passes each). */
+export const PULS1_PASSES = 95 * 8 * 2;
 
 // ---------------------------------------------------------------- modulation timing
 // The main loop isn't frame-locked: about 138 passes per second with a note playing (emulator, NTSC).

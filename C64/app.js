@@ -2,7 +2,7 @@
 import {
   MODES, FX, WAVES, WAVE_NAMES, MODS, FILTER_TYPES, TUNINGS, VIB_LEVELS, TARGETS, GLOBAL_PARAMS, VOICE_PARAMS,
   supports, why, patchFromPreset, normalizePatch, patchToFile, randomPatch, RANDOM_KEYS,
-  VIB_HZ, PASSES_PER_SEC, trmHz, trmLevel,
+  VIB_HZ, PASSES_PER_SEC, trmHz, trmLevel, MODE_INFO, FX_INFO, PulseSim, pwDuty, PULS_RANGE, PULS1_PASSES, pwTurnsFxOff,
   PADDLE_MODES, FIRE_MODES, VID_STATES, CHANNELS, SETUP_PARAMS, normalizeSetup, setupSupported, setupMessages, allSetupMessages,
   editMessages, patchMessages, voiceSelectCC, headerRows, isV20,
 } from "./engine.js";
@@ -119,10 +119,10 @@ function seg({ get, set, options, label, multi = false, short = null }) {
   };
 }
 
-function select({ get, set, options, label }) {
+function select({ get, set, options, label, titles }) {
   const s = el("select");
   s.setAttribute("aria-label", label);
-  options.forEach((o, i) => s.append(el("option", { value: i, textContent: o })));
+  options.forEach((o, i) => s.append(el("option", { value: i, textContent: o, title: titles?.[i] ?? "" })));
   s.addEventListener("change", () => set(Number(s.value)));
   return { el: s, update() { s.value = get(); } };
 }
@@ -164,13 +164,15 @@ function globalCtl(container, key, kind = "slider", extra = {}) {
   const c = kind === "slider" ? slider(opts) : kind === "seg" ? seg(opts) : select(opts);
   const out = c.out ?? el("output", { hidden: kind === "select" });
   const lab = el("div", { className: "lab" }, el("span", { className: "lab-l" }, el("b", { textContent: extra.label ?? d.label }), lockBtn(key, d.label)), out);
-  const box = el("div", { className: "ctl" }, lab, c.el);
+  const desc = extra.titles ? el("p", { className: "desc" }) : null;
+  const box = el("div", { className: "ctl" }, lab, c.el, desc);
   container.append(box);
   const ctl = {
     key, box,
     update() {
       c.update();
       if (!c.out) out.value = show(patch[key]);
+      if (desc) desc.textContent = extra.titles[patch[key]] ?? "";
       const s = supports(settings.target, key);
       box.classList.toggle("na", s === false);
       box.title = why(settings.target, key);
@@ -182,9 +184,9 @@ function globalCtl(container, key, kind = "slider", extra = {}) {
 }
 
 // ---- global controls
-globalCtl($("sysCtls"), "mode", "select", { options: MODES });
+globalCtl($("sysCtls"), "mode", "select", { options: MODES, titles: MODE_INFO });
 const fxCtl = globalCtl($("sysCtls"), "fx", "select", {
-  options: FX,
+  options: FX, titles: FX_INFO,
   after: (c) => { c.el.querySelector('option[value="8"]').disabled = isV20(settings.target); },
 });
 globalCtl($("sysCtls"), "oct", "seg", { options: ["0", "1", "2", "3"] });
@@ -224,6 +226,7 @@ function notesChanged(isOn) {
   const n = Math.min(6, held.size + inputHeld.size);
   const mono = patch.mode === 6 || patch.mode === 7; // MONO1/MONO2 restart FILT3 on a new note only
   fgraph.notes(n, mono ? isOn : true);
+  pulseSim.noteChange(mono ? isOn : true);
 }
 
 // ---- voice grid
@@ -252,9 +255,12 @@ for (const [key, kind, extra, g] of VOICE_ROWS) {
     vg.append(cell);
     return { c, cell };
   });
+  const note = key === "pw" ? el("small", { className: "rl-note" }) : null;
+  if (note) rl.append(note);
   voiceRows.push({ key, rl, cells });
   controls.push({
     update() {
+      if (note) note.textContent = pwTurnsFxOff(patch.fx) ? `${FX[patch.fx]} is moving it` : "";
       const s = supports(settings.target, key);
       rl.classList.toggle("na", s === false || s === "fixed");
       rl.classList.toggle("part", s === "voice1");
@@ -355,6 +361,11 @@ function setParam(key, value, voice) {
   } else {
     if (patch[key] === value) return;
     patch[key] = value;
+  }
+  // Cynthcart switches PULS1/PULS2 off when the pulse width arrives by CC; follow it so the page stays true
+  if (key === "pw" && settings.live && midi.output && pwTurnsFxOff(patch.fx) && supports(settings.target, "pw") !== false) {
+    status(`Changing the pulse width switches ${FX[patch.fx]} off on the C64 (Cynthcart does this), so FX is now NONE.`);
+    patch.fx = 0;
   }
   renderAll();
   saveCurrentSoon();
@@ -483,7 +494,7 @@ function openPop(span) {
       const grid = el("div", { className: "pop-opts" + (sec.list ? " list" : "") });
       const off = sec.offset ?? 0;
       const btns = sec.options.map((o, i) => {
-        const b = el("button", { type: "button", textContent: o });
+        const b = el("button", { type: "button", textContent: o, title: (sec.key === "mode" ? MODE_INFO : sec.key === "fx" ? FX_INFO : [])[i + off] ?? "" });
         if (sec.key === "fx" && i === 8 && isV20(settings.target)) b.disabled = true;
         if (sec.key === "vid" && (i === 1 || i === 3) && settings.target === "cc") b.disabled = true;
         b.addEventListener("click", () => { secSet(sec, i + off); if (sec.list) closePop(); });
@@ -566,7 +577,75 @@ function vizPanel(title, cls) {
 }
 const vibViz = vizPanel("Vibrato", "vib");
 const trmViz = vizPanel("Tremolo", "trm");
-$("modviz").append(vibViz.box, trmViz.box);
+const pwViz = vizPanel("Pulse width", "pw");
+$("modviz").append(vibViz.box, trmViz.box, pwViz.box);
+// pulse picture: the wave shape (left, live) and the pulse width over time (right)
+const pwShape = document.createElementNS(svgNS, "path");
+pwShape.setAttribute("class", "shape");
+const pwBand = document.createElementNS(svgNS, "rect");
+pwBand.setAttribute("class", "band");
+pwViz.svg.insertBefore(pwBand, pwViz.svg.firstChild);
+pwViz.svg.append(pwShape);
+const pulseSim = new PulseSim();
+const PW_SPLIT = 70; // x where the trace starts
+const pwX = (f) => PW_SPLIT + 6 + f * (200 - PW_SPLIT - 6);
+const pwY = (duty) => 56 - duty * 52; // 0-100 % up the panel
+function drawPulseShape(duty) {
+  // two cycles of the pulse, high for `duty` of each cycle
+  const w = (PW_SPLIT - 8) / 2, hi = 10, lo = 50;
+  let d = `M2 ${lo}`;
+  for (let c = 0; c < 2; c++) {
+    const x0 = 2 + c * w, x1 = x0 + Math.max(0.6, Math.min(w - 0.6, duty * w));
+    d += `L${x0} ${hi}L${x1} ${hi}L${x1} ${lo}L${x0 + w} ${lo}`;
+  }
+  pwShape.setAttribute("d", d);
+}
+function pulseUsers() { return patch.voices.map((v, i) => (v.wave === 2 ? i + 1 : null)).filter(Boolean); }
+function drawPwViz() {
+  const fx = patch.fx, users = pulseUsers();
+  const who = users.length ? `voice${users.length > 1 ? "s" : ""} ${users.join(", ")} on pulse` : "no voice on pulse";
+  pwViz.mid.setAttribute("x1", PW_SPLIT); pwViz.mid.setAttribute("x2", PW_SPLIT); pwViz.mid.setAttribute("y1", 2); pwViz.mid.setAttribute("y2", 58);
+  let d = "";
+  if (fx === 6) { // PULS1: the slow triangle, one cycle across
+    pwViz.secs = Math.ceil(PULS1_PASSES / PASSES_PER_SEC);
+    for (let i = 0; i <= 100; i++) {
+      const t = i / 100, tri = t < 0.5 ? t * 2 : 2 - t * 2;
+      d += (i ? "L" : "M") + pwX(t).toFixed(1) + " " + pwY(pwDuty(150 + tri * 95)).toFixed(1);
+    }
+  } else if (fx === 7) { // PULS2: one note's sweep, 180 down to 30 in steps of 5
+    pwViz.secs = 1;
+    const passes = PASSES_PER_SEC;
+    let v = 180;
+    for (let i = 0; i <= passes; i++) {
+      d += (i ? "L" : "M") + pwX(i / passes).toFixed(1) + " " + pwY(pwDuty(v)).toFixed(1);
+      if (v & 0xe0) v -= 5;
+    }
+  } else { // no PW FX: voice 1's own width, flat
+    pwViz.secs = 2;
+    const duty = patch.voices[0].pw / 256;
+    d = `M${pwX(0)} ${pwY(duty)}L${pwX(1)} ${pwY(duty)}`;
+    drawPulseShape(duty);
+  }
+  pwViz.path.setAttribute("d", d);
+  const r = PULS_RANGE[fx];
+  if (r) {
+    const y0 = pwY(pwDuty(r[1])), y1 = pwY(pwDuty(r[0]));
+    pwBand.setAttribute("x", PW_SPLIT); pwBand.setAttribute("width", 200 - PW_SPLIT);
+    pwBand.setAttribute("y", y0); pwBand.setAttribute("height", y1 - y0);
+    pwBand.style.display = "";
+  } else pwBand.style.display = "none";
+  const pct = (v) => Math.round(pwDuty(v) * 100);
+  pwViz.span.textContent = fx === 7 ? "· per note" : `· ${pwViz.secs} s`;
+  pwViz.read.value = fx === 6 ? `${pct(150)}–${pct(245)}%`
+    : fx === 7 ? `${pct(180)}→${pct(30)}%`
+    : fx === 8 ? "PULS3: no effect"
+    : `voice 1 · ${Math.round(patch.voices[0].pw / 256 * 100)}%`;
+  pwViz.read.title = pwTurnsFxOff(fx) ? `${FX[fx]} sets the pulse width of all three voices; ${who}` : "No pulse-width FX: each voice keeps its own width";
+  pwViz.read.classList.toggle("warn", pwTurnsFxOff(fx) && !users.length);
+  if (pwTurnsFxOff(fx) && !users.length) pwViz.read.value += " · no voice on pulse";
+  pwViz.box.classList.toggle("off", !pwTurnsFxOff(fx));
+}
+controls.push({ update: drawPwViz });
 function drawViz() {
   let passes = vibViz.secs * PASSES_PER_SEC;
   let X = (i) => (i / passes) * 200;
@@ -604,7 +683,25 @@ function drawViz() {
 }
 controls.push({ update: drawViz });
 const still = matchMedia("(prefers-reduced-motion: reduce)");
+let pwLast = 0, pwAcc = 0, pwFx = -1, pwSince = 1e9;
+function tickPulse(now) {
+  const fx = patch.fx;
+  if (fx !== pwFx) { pulseSim.reset(); pwFx = fx; }
+  if (!pwTurnsFxOff(fx)) { pwLast = now; pwViz.cursor.style.display = "none"; return; }
+  pwAcc += Math.min(250, now - (pwLast || now)) * PASSES_PER_SEC / 1000; pwLast = now;
+  while (pwAcc >= 1) { pulseSim.step(fx); pwAcc--; pwSince++; }
+  if (pulseSim.retrigSeen) { pwSince = 0; pulseSim.retrigSeen = false; }
+  drawPulseShape(still.matches ? pwDuty(PULS_RANGE[fx][1]) : pwDuty(pulseSim.v));
+  // cursor where the simulation is: PULS1 by its place in the triangle, PULS2 by time since the last note
+  const v = pulseSim.v;
+  const f = fx === 6 ? (pulseSim.dir ? (v - 150) / 190 : 0.5 + (245 - v) / 190) : Math.min(1, pwSince / PASSES_PER_SEC);
+  const x = pwX(Math.max(0, Math.min(1, f)));
+  const on = !still.matches && (fx === 6 || pwSince < PASSES_PER_SEC);
+  pwViz.cursor.style.display = on ? "" : "none";
+  if (on) { pwViz.cursor.setAttribute("x1", x); pwViz.cursor.setAttribute("x2", x); pwViz.cursor.setAttribute("y1", 0); pwViz.cursor.setAttribute("y2", 60); }
+}
 function tickViz(now) {
+  tickPulse(now);
   for (const v of [vibViz, trmViz]) {
     const x = ((now / 1000) % v.secs) / v.secs * 200;
     const on = !still.matches && !v.box.classList.contains("off");
