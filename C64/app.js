@@ -349,13 +349,14 @@ function sendSetup(keys) {
 }
 
 // ------------------------------------------------------------ editing
-function setParam(key, value, voice) {
+/** onlyVoices: these voices whatever Link says (the OSC label and letters on the C64 screen). */
+function setParam(key, value, voice, onlyVoices = null) {
   const perVoice = key in VOICE_PARAMS;
   const d = perVoice ? VOICE_PARAMS[key] : GLOBAL_PARAMS[key];
   value = Math.max(d.min, Math.min(d.max, value));
   let voices;
   if (perVoice) {
-    voices = settings.link ? [0, 1, 2] : [voice];
+    voices = onlyVoices ?? (settings.link ? [0, 1, 2] : [voice]);
     if (voices.every((i) => patch.voices[i][key] === value)) return;
     for (const i of voices) patch.voices[i][key] = value;
   } else {
@@ -426,9 +427,11 @@ const SCREEN_SPECS = {
   base: () => [opt("base", PRESETS.map((p, i) => `${String(i).padStart(2, "0")} ${p.name}`), { label: "Base preset", list: true })],
   mode: () => [opt("mode", MODES)],
   fx: () => [opt("fx", FX)],
-  osc0: () => [opt("wave", WAVE_NAMES, { voice: 0, label: "Waveform, voice 1" }), opt("mod", MODS, { voice: 0, label: "Ring / sync, voice 1" })],
-  osc1: () => [opt("wave", WAVE_NAMES, { voice: 1, label: "Waveform, voice 2" }), opt("mod", MODS, { voice: 1, label: "Ring / sync, voice 2" })],
-  osc2: () => [opt("wave", WAVE_NAMES, { voice: 2, label: "Waveform, voice 3" }), opt("mod", MODS, { voice: 2, label: "Ring / sync, voice 3" })],
+  // like the C64's OSC stops: the label sets all three voices, each letter only its own voice (Link doesn't apply)
+  oscAll: () => [opt("wave", WAVE_NAMES, { voice: 0, voices: [0, 1, 2], label: "Waveform, all voices" }), opt("mod", MODS, { voice: 0, voices: [0, 1, 2], label: "Ring / sync, all voices" })],
+  osc0: () => [opt("wave", WAVE_NAMES, { voice: 0, voices: [0], label: "Waveform, voice 1 only" }), opt("mod", MODS, { voice: 0, voices: [0], label: "Ring / sync, voice 1 only" })],
+  osc1: () => [opt("wave", WAVE_NAMES, { voice: 1, voices: [1], label: "Waveform, voice 2 only" }), opt("mod", MODS, { voice: 1, voices: [1], label: "Ring / sync, voice 2 only" })],
+  osc2: () => [opt("wave", WAVE_NAMES, { voice: 2, voices: [2], label: "Waveform, voice 3 only" }), opt("mod", MODS, { voice: 2, voices: [2], label: "Ring / sync, voice 3 only" })],
   pw: () => [rng("pw", { voice: 0, label: voiceLabel("pw") })],
   oct: () => [opt("oct", ["0", "1", "2", "3"])],
   tune: () => [opt("tune", TUNINGS.map((t) => t + "¢"))],
@@ -465,8 +468,10 @@ const secGet = (sec) => sec.setup ? settings.setup[sec.key] : sec.key === "base"
 function secSet(sec, v) {
   if (sec.key === "base") { setBase(v); return; }
   if (sec.setup) { setSetup(sec.key, v); return; }
-  setParam(sec.key, v, sec.voice ?? 0);
+  setParam(sec.key, v, sec.voice ?? 0, sec.voices);
 }
+// a section that sets several voices shows no choice while those voices differ
+const secMixed = (sec) => (sec.voices?.length ?? 0) > 1 && sec.voices.some((i) => patch.voices[i][sec.key] !== patch.voices[sec.voices[0]][sec.key]);
 // the menu ("pop") under a clicked value
 const pop = { key: null, update: null };
 function closePop() {
@@ -501,7 +506,7 @@ function openPop(span) {
         return b;
       });
       box.append(grid);
-      updaters.push(() => btns.forEach((b, i) => b.setAttribute("aria-pressed", String(secGet(sec) === i + off))));
+      updaters.push(() => btns.forEach((b, i) => b.setAttribute("aria-pressed", String(!secMixed(sec) && secGet(sec) === i + off))));
     }
   }
   pop.key = key;

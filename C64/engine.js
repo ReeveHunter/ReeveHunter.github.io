@@ -406,7 +406,8 @@ export function headerRows(p, { channel = null, presetLabel = null, setup = null
   const sv = (text, key) => L(text, setupOk(key) ? "val" : "dim", key); // setup values: dim when the target can't set them
   const vSame = (k) => p.voices.every((v) => v[k] === p.voices[0][k]);
   const eq = (k) => (vSame(k) ? ["=", "eq"] : ["*", "diff"]);
-  // one letter per voice; R = triangle + ring, reverse video = sync
+  // one letter per voice; R = triangle + ring, reverse video = sync. The OSC label (key "oscAll") edits all
+  // three voices and each letter only its own voice, like the C64's OSC stops.
   const osc = p.voices.map((v, i) => L(v.wave === 0 && v.mod & 1 ? "R" : WAVES[v.wave], v.mod & 2 ? "val rev" : "val", "osc" + i));
   const fltOn = p.voices[0].flt ? FILTER_TYPES[p.fType] : "OFF";
   const fltSame = p.voices.every((v) => v.flt === p.voices[0].flt);
@@ -417,7 +418,7 @@ export function headerRows(p, { channel = null, presetLabel = null, setup = null
     [L("MODE", "sys"), L("=", "eq"), L(pad(MODES[p.mode], 5), "val", "mode"), L(" ", ""), L("FX", "sys"), L("=", "eq"),
       L(pad(FX[p.fx], 5), "val", "fx"), L(" ", ""), L("P1", "mod"), L("=", "eq"), sv(PADDLE_MODES[st.pad1][0], "pad1"), L("/", setupOk("pad1") ? "val" : "dim"), sv(FIRE_MODES[st.fire1][0], "fire1"), L(" ", ""),
       L("P2", "mod"), L("=", "eq"), sv(PADDLE_MODES[st.pad2][0], "pad2"), L("/", setupOk("pad2") ? "val" : "dim"), sv(FIRE_MODES[st.fire2][0], "fire2")],
-    [L("OSC", "osc"), L("=", "eq"), ...osc, L(" ", ""), L("PW", "osc"), eq("pw"), L(pad(num(v.pw >> 1, 3), 4), "val", "pw"),
+    [L("OSC", "osc", "oscAll"), L("=", "eq"), ...osc, L(" ", ""), L("PW", "osc"), eq("pw"), L(pad(num(v.pw >> 1, 3), 4), "val", "pw"),
       L(" ", ""), L("OCT", "osc"), L("=", "eq"), L(String(p.oct), "val", "oct"), L(" ", ""), L("TUN", "osc"), L("=", "eq"),
       L(num(TUNINGS[p.tune], 3), "val", "tune"), L(" ", ""), L("VIB", "mod"), L("=", "eq"),
       L(num(p.vibD, 2), "val", "vibD"), L("/", "val"), L(String(p.vibS), "val", "vibS")],
