@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Boy Flash</title>
+<meta name="description" content="Manage the ROMs on an EMS GB USB Smart Card 64M from the browser over WebUSB: multi-ROM pages with a menu, bank map, saves and backups.">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <p class="crumb"><a href="../">Flash tools</a> /</p>
+    <h1>Game Boy Flash</h1>
+    <p class="sub">ROM and bank manager for the EMS GB USB Smart Card 64M</p>
+  </div>
+</header>
+
+<main>
+  <div id="unsupported" class="banner danger" hidden>
+    <strong>This browser can't talk to USB devices.</strong>
+    Open this page in Chrome or Edge on a Mac, Windows or Linux computer (Safari and Firefox don't support WebUSB).
+  </div>
+
+  <!-- Connection -->
+  <section class="card" id="connection">
+    <div class="card-head">
+      <h2><span class="dot" id="statusDot"></span>Cartridge</h2>
+      <div class="head-actions">
+        <button id="connectBtn" class="btn primary">Connect cart</button>
+        <button id="disconnectBtn" class="btn ghost small" hidden>Disconnect</button>
+      </div>
+    </div>
+    <p id="cartStatus" class="status-line">Plug in the cart (with its USB cable) and click Connect. Close the EMS app or ems-flasher first if they're running.</p>
+    <p class="hint">No cart handy? <button id="demoBtn" type="button" class="linkish">Try it with a simulated cart</button> — nothing is sent anywhere.</p>
+  </section>
+
+  <!-- Pages -->
+  <div class="pages" id="pages">
+    <section class="card page" data-page="0" aria-labelledby="p0title">
+      <div class="card-head">
+        <h2 id="p0title">Page 1</h2>
+        <div class="head-actions">
+          <label class="btn small primary file-btn">Add ROMs…<input type="file" accept=".gb,.gbc,.sgb,.GB,.GBC" multiple hidden data-act="add"></label>
+          <details class="menu-more">
+            <summary class="btn ghost small" aria-label="More page actions">More</summary>
+            <div class="menu-pop">
+              <button data-act="dump">Download whole page (4 MB)</button>
+              <label>Restore page from dump…<input type="file" accept=".gb,.bin,.GB,.BIN" hidden data-act="restore"></label>
+              <button data-act="format" class="danger-text">Format page…</button>
+            </div>
+          </details>
+        </div>
+      </div>
+      <p class="page-meta" data-meta>Not read yet</p>
+      <div class="bankmap" data-map role="img" aria-label="Bank map"></div>
+      <div class="drop-hint" data-drop>Drop .gb / .gbc files here to add them to page 1</div>
+      <ol class="romlist" data-list></ol>
+    </section>
+
+    <section class="card page" data-page="1" aria-labelledby="p1title">
+      <div class="card-head">
+        <h2 id="p1title">Page 2</h2>
+        <div class="head-actions">
+          <label class="btn small primary file-btn">Add ROMs…<input type="file" accept=".gb,.gbc,.sgb,.GB,.GBC" multiple hidden data-act="add"></label>
+          <details class="menu-more">
+            <summary class="btn ghost small" aria-label="More page actions">More</summary>
+            <div class="menu-pop">
+              <button data-act="dump">Download whole page (4 MB)</button>
+              <label>Restore page from dump…<input type="file" accept=".gb,.bin,.GB,.BIN" hidden data-act="restore"></label>
+              <button data-act="format" class="danger-text">Format page…</button>
+            </div>
+          </details>
+        </div>
+      </div>
+      <p class="page-meta" data-meta>Not read yet</p>
+      <div class="bankmap" data-map role="img" aria-label="Bank map"></div>
+      <div class="drop-hint" data-drop>Drop .gb / .gbc files here to add them to page 2</div>
+      <ol class="romlist" data-list></ol>
+    </section>
+  </div>
+
+  <!-- Save RAM -->
+  <section class="card" id="sramCard">
+    <div class="card-head">
+      <h2>Save RAM</h2>
+      <div class="head-actions">
+        <button id="sramDumpBtn" class="btn small">Download save (.sav)</button>
+        <label class="btn small file-btn" id="sramRestoreLabel">Restore save…<input type="file" accept=".sav,.srm,.bin" hidden id="sramRestoreInput"></label>
+      </div>
+    </div>
+    <p class="hint">The cart has one 128 KB battery-backed save RAM shared by every game on both pages — playing a different game that saves can overwrite another game's save. Download it before switching games you care about.</p>
+  </section>
+
+  <!-- Log -->
+  <section class="card" id="logCard">
+    <div class="card-head">
+      <h2>Log</h2>
+      <div class="head-actions"><button id="clearLogBtn" class="btn ghost small">Clear</button></div>
+    </div>
+    <pre id="log" class="log" aria-live="polite"></pre>
+  </section>
+
+  <footer class="foot">
+    Bank management is a browser port of
+    <a href="https://github.com/mikeryan/ems-flasher">ems-flasher</a> (Mike Ryan, David Wendt Jr., Christophe Staiesse — MIT licence), including its menu ROM.
+  </footer>
+</main>
+
+<div id="progressDock" class="dock" hidden>
+  <div class="dock-inner">
+    <div class="dock-text">
+      <strong id="progStage">Preparing…</strong>
+      <span id="progDetail" class="mono"></span>
+    </div>
+    <div class="bar"><div id="progBar"></div></div>
+    <button id="cancelBtn" class="btn danger-ghost small">Cancel</button>
+  </div>
+</div>
+
+<dialog id="confirmDialog">
+  <form method="dialog">
+    <h3 id="confirmTitle"></h3>
+    <div id="confirmBody" class="dialog-body"></div>
+    <div class="dialog-actions" id="dialogActions"></div>
+  </form>
+</dialog>
+
+<div id="tip" class="tip" role="tooltip" hidden></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
