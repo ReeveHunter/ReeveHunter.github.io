@@ -656,6 +656,70 @@ export async function restoreSram(dev, bytes, opts) {
   await dev.flush?.();
 }
 
+// Longest title the header allows: 16 bytes, or 15 when byte 0x143 holds the
+// Game Boy Color flag.
+export const maxTitleLength = (raw) => (raw[0x143] & 0x80 ? 15 : 16);
+
+// Put a new title into a header (in place) and fix the header checksum.
+export function setHeaderTitle(raw, title) {
+  const max = maxTitleLength(raw);
+  if (!/^[\x20-\x7e]*$/.test(title)) throw new Error("Use plain letters, numbers and punctuation for the title.");
+  if (title.length > max) throw new Error(`Titles can be at most ${max} characters for this ROM.`);
+  for (let i = 0; i < max; i++) raw[H_TITLE + i] = i < title.length ? title.charCodeAt(i) : 0;
+  raw[H_CHK] = headerChecksum(raw);
+  return raw;
+}
+
+// Rename a ROM on the cart. Flash can't be rewritten in place, so the 128 KB
+// erase block holding its header is read, patched in memory and written back
+// (writing its first bytes erases it). Every game header in that block is
+// written last, so a game only reappears once its block is complete. A failed
+// write is retried from the in-memory copy; `block` is returned for rescue.
+export async function renameRom(dev, page, offset, title, opts = {}) {
+  const base = page * PAGESIZE;
+  const blockStart = offset - (offset % ERASEBLOCKSIZE);
+  const f = new Flasher(dev, opts);
+  const block = await f.readInto(FROM_ROM, base + blockStart, ERASEBLOCKSIZE);
+  const rel = offset - blockStart;
+  const header = block.subarray(rel);
+  if (!headerValid(header)) throw new Error("No ROM found at that bank any more. Re-read the page and try again.");
+  setHeaderTitle(header, title);
+  const result = { block, blockStart, header: decodeHeader(header) };
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await writeBlock(f, base + blockStart, block);
+      await dev.flush?.();
+      return result;
+    } catch (err) {
+      if (err instanceof Cancelled && attempt === 0) { f.signal = null; lastErr = err; await dev.resetError?.(); continue; }
+      lastErr = err;
+      await dev.resetError?.();
+    }
+  }
+  lastErr.block = block;
+  lastErr.blockStart = blockStart;
+  throw lastErr;
+}
+
+// Write a held 128 KB block back (used to finish an interrupted rename).
+export async function writeBlockAt(dev, page, blockStart, block, opts = {}) {
+  const f = new Flasher(dev, opts);
+  await writeBlock(f, page * PAGESIZE + blockStart, block);
+  await dev.flush?.();
+}
+
+async function writeBlock(f, addr, block) {
+  const held = [];
+  for (let s = 0; s < block.length; s += MINROMSIZE) if (headerValid(block.subarray(s))) held.push(s + 0x100, s + 0x120);
+  for (let o = 0; o < block.length; o += WRITEBLOCKSIZE) {
+    if (held.includes(o)) continue;
+    await f.w(TO_ROM, addr + o, block.subarray(o, o + WRITEBLOCKSIZE));
+    if ((o + WRITEBLOCKSIZE) % READBLOCKSIZE === 0) f.onProgress(READBLOCKSIZE);
+  }
+  for (const o of held) await f.w(TO_ROM, addr + o, block.subarray(o, o + WRITEBLOCKSIZE));
+}
+
 // Make the page hold just this one game at bank 0, with no menu, so the cart
 // boots straight into it. Every other header on the page is cleared first.
 export async function writeSingleGame(dev, page, file, opts = {}) {

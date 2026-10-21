@@ -266,6 +266,19 @@ navigator.usb?.addEventListener("disconnect", (e) => {
 
 // ---------------------------------------------------------- pages
 
+// After a failed transfer: clear the USB error state, then show what is
+// really on the cart now.
+async function rereadAfterError(page) {
+  try { await state.cart?.resetError?.(); } catch {}
+  try { await readPage(page); } catch (err) {
+    // Don't keep showing a list that may no longer be true.
+    state.pages[page] = null;
+    renderPage(page);
+    pageEls[page].querySelector("[data-meta]").textContent = "Couldn't re-read this page after the error. Unplug and replug the cart, then click Connect.";
+    log(`Couldn't re-read page ${page + 1}: ${err.message}`, "err");
+  }
+}
+
 async function readPage(page, signal) {
   const listing = await E.listPage(state.cart, page);
   if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
@@ -409,6 +422,7 @@ function romRow(page, rom, idx, listing) {
       acts.append(b);
       return b;
     };
+    mk("✎", "Rename (change the title the menu shows)", () => renameRom(page, rom));
     mk("↓", "Download this ROM", () => downloadRom(page, rom));
     mk(`→ P${2 - page}`, `Move or copy to page ${2 - page}`, () => transferRom(page, rom, 1 - page));
     mk("✕", "Delete from the cart", () => deleteRom(page, rom), "danger-text");
@@ -458,7 +472,7 @@ async function applyPlan(page, plan, signal, title) {
       log(`Saved ${res.rescued.length} ROM${res.rescued.length > 1 ? "s" : ""} the page was holding (${res.rescued.map((r) => r.title).join(", ")}) as downloads.`, "err");
     }
     if (res.lost.length) log(`These ROMs may be damaged on the cart: ${res.lost.join(", ")}.`, "err");
-    await readPage(page).catch(() => {});
+    await rereadAfterError(page);
     throw res.error;
   }
   return totals;
@@ -494,7 +508,75 @@ const needsOwnPage = (h) => /^LSDJ/i.test(h.title) || h.ramKB >= 128;
 const ownPageNote = (names) =>
   `${names} works best alone on a page with no menu. Menus have a poor track record with LSDJ, and launching from a menu limits save RAM based on the game's header, which risks the save. Keep it on its own page (like your page 1).`;
 
-const fileLine = (f) => `${f.header.title || f.name} — ${kb(f.header.romsize)}${f.name && f.name !== f.header.title ? ` (${f.name})` : ""}`;
+// Titles must be unique on a page (the menu lists games by title). When new
+// files clash with each other or with games already on the page, ask for a
+// different title for each clashing file and patch only the copy we write.
+async function resolveTitles(listing, files) {
+  const taken = new Set(listing.roms.map((r) => r.header.title));
+  const clashes = [];
+  for (const f of files) {
+    if (taken.has(f.header.title)) clashes.push(f);
+    else taken.add(f.header.title);
+  }
+  if (!clashes.length) return files;
+
+  const suggest = (f, used) => {
+    const max = f.header.enhancements & E.ENH_GBC ? 15 : 16;
+    let base = f.name.replace(/\.[^.]+$/, "").replace(/[^\x20-\x7e]/g, "").trim() || f.header.title;
+    base = base.slice(0, max);
+    let t = base;
+    for (let i = 2; used.has(t); i++) { const suffix = ` ${i}`; t = base.slice(0, max - suffix.length) + suffix; }
+    return t;
+  };
+  const used = new Set(taken);
+  const inputs = clashes.map((f) => {
+    const max = f.header.enhancements & E.ENH_GBC ? 15 : 16;
+    const label = document.createElement("label");
+    label.className = "field rename-field";
+    const span = document.createElement("span");
+    span.textContent = `${f.name} — currently “${f.header.title || "(untitled)"}” (up to ${max} characters)`;
+    const input = document.createElement("input");
+    input.maxLength = max;
+    input.spellcheck = false;
+    input.autocomplete = "off";
+    input.value = suggest(f, used);
+    used.add(input.value);
+    label.append(span, input);
+    return { f, input, label };
+  });
+  for (;;) {
+    const box = document.createElement("div");
+    box.append(...inputs.map((x) => x.label));
+    const ok = await confirmBox("Same title as another game", [
+      `The menu lists games by title, so each one on a page needs its own. Pick a title for ${clashes.length > 1 ? "these copies" : "this copy"}. Only what's written to the cart changes; your file${clashes.length > 1 ? "s stay" : " stays"} as ${clashes.length > 1 ? "they are" : "it is"}.`,
+      box,
+    ], "Use these titles");
+    if (!ok) return null;
+    const final = new Set(taken);
+    for (const x of inputs) final.delete(x.f.header.title);
+    for (const f of files) if (!clashes.includes(f)) final.add(f.header.title);
+    for (const r of listing.roms) final.add(r.header.title);
+    let problem = null;
+    const chosen = new Set();
+    for (const x of inputs) {
+      const t = x.input.value.replace(/\s+$/, "");
+      if (!t) problem = "Titles can't be empty.";
+      else if (!/^[\x20-\x7e]+$/.test(t)) problem = "Use plain letters, numbers and punctuation.";
+      else if (final.has(t) || chosen.has(t)) problem = `“${t}” is already used on this page.`;
+      chosen.add(t);
+    }
+    if (problem) { log(problem, "err"); continue; }
+    return files.map((f) => {
+      const x = inputs.find((y) => y.f === f);
+      if (!x) return f;
+      const bytes = Uint8Array.from(f.bytes);
+      E.setHeaderTitle(bytes, x.input.value.replace(/\s+$/, ""));
+      return { ...f, bytes, header: E.decodeHeader(bytes), renamedFrom: f.header.title };
+    });
+  }
+}
+
+const fileLine = (f) => `${f.header.title || f.name} — ${kb(f.header.romsize)}${f.name && f.name !== f.header.title ? ` (${f.name}${f.renamedFrom !== undefined ? `, was “${f.renamedFrom || "untitled"}”` : ""})` : ""}`;
 
 // Plan, confirm and write `files` to `page`. Returns false if the user backed out.
 async function writeFiles(page, files, signal, { title = null, extraNote = null } = {}) {
@@ -547,6 +629,8 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
     if (!ok) return false;
   }
 
+  files = await resolveTitles(listing, files);
+  if (!files) return false;
   const plan = await makePlan(listing, files);
   if (!plan) return false;
   const t = E.summarizeUpdates(plan.updates);
@@ -561,7 +645,7 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
   if (!go) return false;
   await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
   await readPage(page, signal);
-  return true;
+  return files; // the files as written (titles may have been changed)
 }
 
 // One game, no menu, at bank 0.
@@ -570,7 +654,7 @@ async function writeSingle(page, file, signal) {
   await E.writeSingleGame(state.cart, page, file, { signal, onProgress: (n) => tr.add(n) });
   tr.finish();
   await readPage(page, signal);
-  return true;
+  return [file];
 }
 
 // Read the games already on a menu-less page, clear it and write them back
@@ -585,7 +669,8 @@ async function rebuildWithMenu(page, games, files, signal) {
     const header = E.inspectRomFile(r.header.title, bytes);
     held.push({ name: romFilename(header), bytes, header });
   }
-  const all = [...held, ...files];
+  const all = await resolveTitles(E.describePage([]), [...held, ...files]);
+  if (!all) return false;
   const plan = await makePlan(E.describePage([]), all);
   if (!plan) return false;
   const t = E.summarizeUpdates(plan.updates);
@@ -601,11 +686,11 @@ async function rebuildWithMenu(page, games, files, signal) {
   } catch (err) {
     for (const h of held) saveBlob(h.bytes, h.name);
     log(`Saved ${held.map((h) => h.name).join(", ")} as downloads because the rebuild didn't finish.`, "err");
-    await readPage(page).catch(() => {});
+    await rereadAfterError(page);
     throw err;
   }
   await readPage(page, signal);
-  return true;
+  return all.slice(held.length);
 }
 
 async function filesFromList(fileList) {
@@ -626,7 +711,8 @@ async function addRoms(page, fileList) {
   runJob(`Adding ${files.length} ROM${files.length > 1 ? "s" : ""} to page ${page + 1}`, async (signal) => {
     const done = await writeFiles(page, files, signal);
     if (!done) return null;
-    return `Added ${files.map((f) => f.header.title).join(", ")} to page ${page + 1}`;
+    const written = Array.isArray(done) ? done : files;
+    return `Added ${written.map((f) => f.header.title).join(", ")} to page ${page + 1}`;
   });
 }
 
@@ -640,6 +726,69 @@ function downloadRom(page, rom) {
     return `Downloaded ${name}`;
   });
 }
+
+async function renameRom(page, rom) {
+  const listing = state.pages[page];
+  const max = rom.header.enhancements & E.ENH_GBC ? 15 : 16;
+  const wrap = document.createElement("div");
+  const label = document.createElement("label");
+  label.className = "field";
+  const span = document.createElement("span");
+  span.textContent = `New title (up to ${max} characters)`;
+  const input = document.createElement("input");
+  input.value = rom.header.title;
+  input.maxLength = max;
+  input.spellcheck = false;
+  input.autocomplete = "off";
+  label.append(span, input);
+  const note = document.createElement("p");
+  note.textContent = "This changes the name the menu shows. Only the title and its checksum change; the game itself is untouched.";
+  wrap.append(label, note);
+  setTimeout(() => { input.focus(); input.select(); }, 30);
+  const ok = await confirmBox(`Rename ${rom.header.title || "(untitled)"}`, [wrap], "Rename");
+  if (!ok) return;
+  const title = input.value.replace(/\s+$/, "");
+  if (!title) { log("The title can't be empty.", "err"); return; }
+  if (!/^[\x20-\x7e]+$/.test(title)) { log("Use plain letters, numbers and punctuation for the title.", "err"); return; }
+  if (title === rom.header.title) return;
+  if (listing?.roms.some((r) => r !== rom && r.header.title === title)) { log(`Page ${page + 1} already has a game called “${title}”.`, "err"); return; }
+  runJob(`Renaming ${rom.header.title || "(untitled)"} to ${title}`, async (signal) => {
+    const tr = tracker(E.ERASEBLOCKSIZE * 2, "Reading the block with its header");
+    try {
+      await E.renameRom(state.cart, page, rom.offset, title, { signal, onProgress: (n) => tr.add(n) });
+    } catch (err) {
+      if (err.block) {
+        state.pendingBlock = { page, blockStart: err.blockStart, block: err.block, title };
+        updateUi();
+        const bank = (err.blockStart / E.BANKSIZE) | 0;
+        saveBlob(err.block, `ems-page${page + 1}-bank${bank}-block.bin`);
+        for (let s = 0; s < err.block.length; s += 32768) {
+          const h = E.headerValid(err.block.subarray(s)) ? E.decodeHeader(err.block.subarray(s)) : null;
+          if (h && s + h.romsize <= err.block.length) saveBlob(err.block.slice(s, s + h.romsize), romFilename(h));
+        }
+        log("The rename didn't finish. The 128 KB block (and any whole games in it) were saved as downloads, and the page is holding it: once the cart responds again, click “Finish the interrupted write”.", "err");
+      }
+      await rereadAfterError(page);
+      throw err;
+    }
+    tr.finish();
+    await readPage(page, signal);
+    return `Renamed to ${title}`;
+  });
+}
+
+$("finishBlockBtn").onclick = () => {
+  const p = state.pendingBlock;
+  if (!p) return;
+  runJob(`Finishing the interrupted write on page ${p.page + 1}`, async (signal) => {
+    const tr = tracker(E.ERASEBLOCKSIZE, "Rewriting the 128 KB block");
+    await E.writeBlockAt(state.cart, p.page, p.blockStart, p.block, { signal, onProgress: (n) => tr.add(n) });
+    tr.finish();
+    state.pendingBlock = null;
+    await readPage(p.page, signal);
+    return `Finished the interrupted write on page ${p.page + 1}`;
+  });
+};
 
 async function deleteRom(page, rom) {
   const ok = await confirmBox(`Delete ${rom.header.title}?`, [
@@ -821,6 +970,8 @@ function updateUi() {
   $("disconnectBtn").hidden = !have;
   $("disconnectBtn").disabled = busy;
   $("demoBtn").disabled = busy;
+  $("finishBlockBtn").hidden = !state.pendingBlock;
+  $("finishBlockBtn").disabled = busy || !have;
   $("anyDeviceBtn").disabled = busy || have;
   for (const el of pageEls) {
     el.querySelectorAll("input, button, summary").forEach((b) => { b.disabled = busy || !have; });

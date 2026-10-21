@@ -442,3 +442,6 @@ kbd {
 .dialog-body ul { margin: 0 0 12px; padding-left: 20px; }
 .dialog-body li { margin: 2px 0; }
 dialog { max-width: min(520px, calc(100vw - 32px)); }
+
+.rename-field { margin: 0 0 12px; }
+.rename-field input { font-family: var(--mono); }
