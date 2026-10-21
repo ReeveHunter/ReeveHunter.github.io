@@ -711,14 +711,13 @@ export class WebUsbCart {
         try { await d.claimInterface(intf.interfaceNumber); claimed.push(intf); } catch (e) { this.claimError = e; }
       }
       if (!claimed.length) throw this.claimError || new Error("No USB interface could be claimed.");
-      // Find the bulk endpoints (ems-flasher uses OUT 2 and IN 1).
-      for (const intf of claimed) {
-        for (const ep of intf.alternate.endpoints) {
-          if (ep.type !== "bulk") continue;
-          if (ep.direction === "out") this.epOut = ep.endpointNumber;
-          if (ep.direction === "in") this.epIn = ep.endpointNumber;
-        }
-      }
+      // Use the bulk endpoints ems-flasher uses (OUT 2, IN 1) when the cart
+      // has them; otherwise fall back to the first bulk endpoint each way.
+      const bulk = claimed.flatMap((intf) => intf.alternate.endpoints.filter((ep) => ep.type === "bulk"));
+      const outs = bulk.filter((ep) => ep.direction === "out"), ins = bulk.filter((ep) => ep.direction === "in");
+      if (!outs.length || !ins.length) throw new Error("the cart doesn't expose bulk USB endpoints");
+      this.epOut = (outs.find((ep) => ep.endpointNumber === 2) || outs[0]).endpointNumber;
+      this.epIn = (ins.find((ep) => ep.endpointNumber === 1) || ins[0]).endpointNumber;
     } catch (err) {
       throw describeUsbError(err, d);
     }
@@ -726,11 +725,13 @@ export class WebUsbCart {
   async close() { try { await this.device.close(); } catch {} }
   describe() {
     const d = this.device;
+    const using = `using endpoints out ${this.epOut} / in ${this.epIn}`;
     const lines = [`${d.manufacturerName || "?"} ${d.productName || "?"} (${hex4(d.vendorId)}:${hex4(d.productId)})`];
     for (const intf of d.configuration?.interfaces || []) {
       const a = intf.alternate;
-      lines.push(`interface ${intf.interfaceNumber}: class ${a.interfaceClass}/${a.interfaceSubclass}/${a.interfaceProtocol}, endpoints ${a.endpoints.map((e) => `${e.direction}${e.endpointNumber}(${e.type})`).join(" ")}`);
+      lines.push(`interface ${intf.interfaceNumber}: class ${a.interfaceClass}/${a.interfaceSubclass}/${a.interfaceProtocol}, endpoints ${a.endpoints.map((e) => `${e.direction}${e.endpointNumber}(${e.type}, ${e.packetSize} B)`).join(" ")}`);
     }
+    lines.push(using);
     return lines.join("\n");
   }
   // Serialise transfers: the cart handles one command at a time. Writes are
@@ -765,20 +766,35 @@ export class WebUsbCart {
       this.broken = null;
     }
   }
+  // The EMS software only ever reads aligned 4 KB chunks, so every read is
+  // done that way and trimmed (odd sizes upset some drivers, notably WinUSB).
   async read(from, offset, count) {
     await this.flush();
+    const start = Math.floor(offset / READBLOCKSIZE) * READBLOCKSIZE;
+    const end = Math.ceil((offset + count) / READBLOCKSIZE) * READBLOCKSIZE;
+    const out = new Uint8Array(end - start);
+    for (let a = start; a < end; a += READBLOCKSIZE) out.set(await this.readChunk(from, a), a - start);
+    return out.slice(offset - start, offset - start + count);
+  }
+  readChunk(from, offset) {
     return this.run(async () => {
       const cmd = from === FROM_ROM ? CMD_READ : CMD_READ_SRAM;
-      const out = await withTimeout(this.device.transferOut(this.epOut, command(cmd, offset, count)));
+      const out = await withTimeout(this.device.transferOut(this.epOut, command(cmd, offset, READBLOCKSIZE)));
       if (out.status !== "ok") throw new Error(`USB write failed (${out.status}).`);
-      const buf = new Uint8Array(count);
+      const buf = new Uint8Array(READBLOCKSIZE);
       let got = 0;
-      while (got < count) {
-        const r = await withTimeout(this.device.transferIn(this.epIn, count - got));
+      while (got < READBLOCKSIZE) {
+        let r;
+        try {
+          r = await withTimeout(this.device.transferIn(this.epIn, READBLOCKSIZE - got));
+        } catch (err) {
+          throw new Error(`USB read failed at ${offset} (endpoint in ${this.epIn}, ${got} of ${READBLOCKSIZE} bytes received): ${err.message}`);
+        }
         if (r.status === "stall") { await this.device.clearHalt("in", this.epIn); throw new Error("USB read stalled."); }
+        if (r.status === "babble") throw new Error("USB read overflowed (the cart sent more than asked for).");
         const chunk = new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
         if (!chunk.length) throw new Error("USB read returned no data.");
-        buf.set(chunk, got);
+        buf.set(chunk.subarray(0, READBLOCKSIZE - got), got);
         got += chunk.length;
       }
       return buf;

@@ -191,7 +191,7 @@ async function attach(cart, demo = false) {
   state.pages = [null, null];
   $("cartStatus").textContent = demo ? "Simulated cart — changes only live in this tab." : `Connected: ${cart.name}`;
   log(demo ? "Using a simulated cart." : `Connected to ${cart.name}.`, "ok");
-  if (!demo && cart.describe) console.info(cart.describe());
+  if (!demo && cart.describe) log(cart.describe());
   updateUi();
   await refreshAll();
 }
@@ -229,7 +229,6 @@ $("anyDeviceBtn").onclick = async () => {
   }
   try {
     const cart = await E.WebUsbCart.fromDevice(device);
-    log(cart.describe());
     await attach(cart);
   } catch (err) {
     log(err.message, "err");
