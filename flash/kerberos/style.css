@@ -343,3 +343,5 @@ kbd {
 .crumb { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
 .crumb a { color: var(--muted); }
 .crumb a:hover { color: var(--accent-strong); }
+
+.build { margin: 6px 0 0; font: 12px/1.3 var(--mono); color: var(--muted); }

@@ -1,5 +1,10 @@
 import * as K from "./protocol.js";
 
+// Bump on every change so the page shows which build the browser is running.
+const BUILD = "v1.4 · 2026-10-21";
+document.getElementById("buildTag").textContent = `Build ${BUILD}`;
+console.info("Kerberos Flash build", BUILD);
+
 const $ = (id) => document.getElementById(id);
 const store = {
   get(k, d) { try { const v = localStorage.getItem("kerberos." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },

@@ -1,5 +1,10 @@
 import * as E from "./ems.js";
 
+// Bump on every change so the page shows which build the browser is running.
+const BUILD = "v1.8 · 2026-10-21";
+document.getElementById("buildTag").textContent = `Build ${BUILD}`;
+console.info("Game Boy Flash build", BUILD);
+
 const $ = (id) => document.getElementById(id);
 const pageEls = [...document.querySelectorAll(".page")];
 const kb = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(n % (1 << 20) ? 1 : 0)} MB` : `${n >> 10} KB`);
