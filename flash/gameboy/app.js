@@ -311,7 +311,7 @@ function renderPage(page) {
   const games = listing.roms.filter((r) => r !== listing.menu);
   const parts = [];
   if (listing.menu) parts.push(`Mode: ${E.enhName(listing.enhancements)}`);
-  else if (games.length === 1 && games[0].header.romsize === E.PAGESIZE) parts.push("Single 4 MB ROM, no menu");
+  else if (listing.single) parts.push("Single game, no menu — boots straight into it");
   else if (games.length) parts.push("No menu ROM");
   else parts.push("Empty");
   parts.push(`${games.length} game${games.length === 1 ? "" : "s"}`);
@@ -323,10 +323,10 @@ function renderPage(page) {
     w.textContent = ` · mixed modes: some games don't match this page's ${E.enhName(listing.enhancements)} mode`;
     meta.append(w);
   }
-  if (listing.roms.length && !listing.menu && !(games.length === 1 && games[0].header.romsize === E.PAGESIZE)) {
+  if (listing.roms.length && !listing.menu && !listing.single) {
     const w = document.createElement("span");
     w.className = "warn";
-    w.textContent = " · no menu at bank 0: format this page before adding ROMs";
+    w.textContent = " · no menu at bank 0, so only the game at bank 0 (if any) can start";
     meta.append(w);
   }
 
@@ -383,7 +383,7 @@ function romRow(page, rom, idx, listing) {
   t.textContent = isMenu ? "Menu" : h.title || "(untitled)";
   const sub = document.createElement("span");
   sub.className = "rom-sub";
-  sub.textContent = isMenu ? `boot menu that lists this page's games · bank 0` : `${kb(h.romsize)} · bank ${rom.offset / E.BANKSIZE} · ${h.cartTypeName}${h.ramKB ? ` · ${h.ramKB} KB save` : ""}`;
+  sub.textContent = isMenu ? `${E.MENU_TITLES[h.title]} (${h.title}) · lists this page's games at power-on` : `${kb(h.romsize)} · bank ${rom.offset / E.BANKSIZE} · ${h.cartTypeName}${h.ramKB ? ` · ${h.ramKB} KB save` : ""}`;
   main.append(t, sub);
   const tags = document.createElement("span");
   tags.className = "rom-tags";
@@ -465,33 +465,70 @@ async function applyPlan(page, plan, signal, title) {
 }
 
 // Plan, confirm and write `files` to `page`. Returns false if the user backed out.
-async function writeFiles(page, files, signal, { title = null, extraNote = null } = {}) {
-  const tr0 = $("progStage");
-  tr0.textContent = `Reading page ${page + 1}`;
-  const listing = await readPage(page, signal);
+// Plan a menu-page write, asking before mixing console modes.
+async function makePlan(listing, files) {
   const menu = await loadMenu();
-  let plan, force = false;
+  let force = false;
   for (;;) {
     try {
-      plan = E.planWrite(listing, files, menu, { force });
-      break;
+      return E.planWrite(listing, files, menu, { force });
     } catch (err) {
       if (err.code === "ENH" && !force) {
         const ok = await confirmBox("Different console modes", [
           err.message,
-          "Each page runs every game in one mode. A Game Boy Color game on a classic-mode page (or the reverse) usually still runs on an original Game Boy, but may look wrong or not start on a Color or Super Game Boy.",
+          "Each menu page runs every game in one mode. A Game Boy Color game on a classic-mode page (or the reverse) usually still runs on an original Game Boy, but may look wrong or not start on a Color or Super Game Boy.",
         ], "Add anyway");
-        if (!ok) return false;
+        if (!ok) return null;
         force = true;
         continue;
       }
       throw err;
     }
   }
+}
+
+const fileLine = (f) => `${f.header.title || f.name} — ${kb(f.header.romsize)}${f.name && f.name !== f.header.title ? ` (${f.name})` : ""}`;
+
+// Plan, confirm and write `files` to `page`. Returns false if the user backed out.
+async function writeFiles(page, files, signal, { title = null, extraNote = null } = {}) {
+  $("progStage").textContent = `Reading page ${page + 1}`;
+  const listing = await readPage(page, signal);
+  const games = listing.roms.filter((r) => r !== listing.menu);
+
+  // A page with games but no menu (e.g. LSDJ on its own): replace it, or
+  // turn the page into a menu page that keeps what's there.
+  if (!listing.menu && games.length) {
+    const cur = games.map((r) => r.header.title || "(untitled)").join(", ");
+    const one = files.length === 1 ? files[0] : null;
+    const choice = await choiceBox(`Page ${page + 1} has no menu`, [
+      listing.single ? `The cart boots straight into ${cur}.` : `Page ${page + 1} has ${cur} but no menu, so only the game at bank 0 can start.`,
+      ...(one ? [one.header.title === cur
+        ? `Replace: the new ${cur} (${one.name}) replaces the one on the cart and still boots straight in (no menu).`
+        : `Replace: ${one.header.title} takes over the page and boots straight in (no menu). ${cur} ${games.length > 1 ? "are" : "is"} removed.`] : []),
+      `Menu page: ${cur} ${games.length > 1 ? "are" : "is"} read into this page, the page is cleared, and everything is written back with a menu so you pick a game at power-on.`,
+    ], [
+      ...(one ? [{ value: "replace", label: "Replace (no menu)", kind: "ghost" }] : []),
+      { value: "menu", label: "Make a menu page" },
+    ]);
+    if (!choice) return false;
+    if (choice === "replace") return writeSingle(page, one, signal);
+    return rebuildWithMenu(page, games, files, signal);
+  }
+
+  // An empty page and one game: boot straight into it, or start a menu page.
+  if (!listing.roms.length && files.length === 1 && files[0].header.romsize < E.PAGESIZE) {
+    const f = files[0];
+    const choice = await choiceBox(`How should page ${page + 1} start?`, [
+      `Boot straight into ${f.header.title}: no menu, the game starts at power-on. Good for something like LSDJ that lives on its own page.`,
+      `With a menu: a menu lists the page's games at power-on, and you can add more games later.`,
+    ], [{ value: "menu", label: "With a menu", kind: "ghost" }, { value: "single", label: "Boot straight in" }]);
+    if (!choice) return false;
+    if (choice === "single") return writeSingle(page, f, signal);
+  }
+
+  const plan = await makePlan(listing, files);
+  if (!plan) return false;
   const t = E.summarizeUpdates(plan.updates);
-  const body = [
-    bullets(files.map((f) => `${f.header.title || f.name} — ${kb(f.header.romsize)}${f.name !== f.header.title ? ` (${f.name})` : ""}`)),
-  ];
   const notes = [];
   if (plan.menuAdded) notes.push(`The page is empty, so the boot menu is added first (page mode: ${E.enhName(plan.menuAdded.header.enhancements)}).`);
   if (t.moves) notes.push(`${t.moves} game${t.moves > 1 ? "s" : ""} already on the page will be moved to make room.`);
@@ -499,10 +536,53 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
   if (preserved) notes.push(`${preserved} small game${preserved > 1 ? "s" : ""} sharing a 128 KB erase block will be held in memory and rewritten.`);
   notes.push(`About ${kb(t.bytes)} to transfer${state.demo ? "" : ` (≈ ${fmtDuration((t.bytes / state.rate) * 1000)})`}. ${kb(plan.free)} will be left free.`);
   if (extraNote) notes.push(extraNote);
-  body.push(...notes);
-  const go = await confirmBox(title || `Add ${files.length} ROM${files.length > 1 ? "s" : ""} to page ${page + 1}?`, body, `Write to page ${page + 1}`);
+  const go = await confirmBox(title || `Add ${files.length} ROM${files.length > 1 ? "s" : ""} to page ${page + 1}?`, [bullets(files.map(fileLine)), ...notes], `Write to page ${page + 1}`);
   if (!go) return false;
   await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
+  await readPage(page, signal);
+  return true;
+}
+
+// One game, no menu, at bank 0.
+async function writeSingle(page, file, signal) {
+  const tr = tracker(file.header.romsize, `Writing ${file.header.title}`);
+  await E.writeSingleGame(state.cart, page, file, { signal, onProgress: (n) => tr.add(n) });
+  tr.finish();
+  await readPage(page, signal);
+  return true;
+}
+
+// Read the games already on a menu-less page, clear it and write them back
+// together with the new files under a menu.
+async function rebuildWithMenu(page, games, files, signal) {
+  const held = [];
+  const total = games.reduce((n, r) => n + r.header.romsize, 0);
+  const tr = tracker(total, "Reading the games on the page");
+  for (const r of games) {
+    tr.stage(`Reading ${r.header.title}`);
+    const bytes = await E.readRom(state.cart, page, r.offset, r.header.romsize, { signal, onProgress: (n) => tr.add(n) });
+    const header = E.inspectRomFile(r.header.title, bytes);
+    held.push({ name: romFilename(header), bytes, header });
+  }
+  const all = [...held, ...files];
+  const plan = await makePlan(E.describePage([]), all);
+  if (!plan) return false;
+  const t = E.summarizeUpdates(plan.updates);
+  const go = await confirmBox(`Make page ${page + 1} a menu page?`, [
+    bullets(all.map(fileLine)),
+    `Page ${page + 1} is cleared and these are written back with a menu (page mode: ${E.enhName(plan.menuAdded.header.enhancements)}). About ${kb(t.bytes)} to transfer.`,
+    "If anything fails, the games that were on the page are saved as downloads.",
+  ], `Rebuild page ${page + 1}`);
+  if (!go) return false;
+  try {
+    await E.formatPage(state.cart, page, { signal });
+    await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
+  } catch (err) {
+    for (const h of held) saveBlob(h.bytes, h.name);
+    log(`Saved ${held.map((h) => h.name).join(", ")} as downloads because the rebuild didn't finish.`, "err");
+    await readPage(page).catch(() => {});
+    throw err;
+  }
   await readPage(page, signal);
   return true;
 }
@@ -590,6 +670,39 @@ async function formatPage(page) {
   });
 }
 
+async function downloadGames(page) {
+  const listing = state.pages[page];
+  const games = listing ? listing.roms.filter((r) => r !== listing.menu) : [];
+  if (!games.length) { log(`Page ${page + 1} has no games to download.`); return; }
+  const total = games.reduce((n, r) => n + r.header.romsize, 0);
+  const how = await choiceBox(`Download ${games.length} game${games.length > 1 ? "s" : ""} from page ${page + 1}?`, [
+    bullets(games.map((r) => `${r.header.title} — ${kb(r.header.romsize)}`)),
+    `About ${kb(total)} to read. Separate files arrive as individual downloads (Chrome may ask once to allow multiple downloads); a .zip is one file.`,
+  ], [{ value: "separate", label: "Separate files", kind: "ghost" }, { value: "zip", label: "One .zip" }]);
+  if (!how) return;
+  runJob(`Downloading page ${page + 1}'s games`, async (signal) => {
+    const tr = tracker(total, "Reading games");
+    const files = [];
+    const used = new Set();
+    for (const r of games) {
+      tr.stage(`Reading ${r.header.title}`);
+      const bytes = await E.readRom(state.cart, page, r.offset, r.header.romsize, { signal, onProgress: (n) => tr.add(n) });
+      let name = romFilename(r.header);
+      for (let i = 2; used.has(name.toLowerCase()); i++) name = name.replace(/(\.\w+)$/, ` (${i})$1`);
+      used.add(name.toLowerCase());
+      files.push({ name, data: bytes });
+      if (how === "separate") { saveBlob(bytes, name); await new Promise((r) => setTimeout(r, 300)); }
+    }
+    tr.finish();
+    if (how === "zip") {
+      const zipName = `ems-page${page + 1}-games.zip`;
+      saveBlob(E.makeZip(files), zipName);
+      return `Saved ${files.length} games as ${zipName}`;
+    }
+    return `Downloaded ${files.length} games from page ${page + 1}`;
+  });
+}
+
 function dumpPage(page) {
   runJob(`Downloading page ${page + 1}`, async (signal) => {
     const tr = tracker(E.PAGESIZE, `Reading page ${page + 1}`);
@@ -651,6 +764,7 @@ pageEls.forEach((el, page) => {
   el.querySelector('input[data-act="add"]').onchange = (e) => { const fl = [...e.target.files]; e.target.value = ""; addRoms(page, fl); };
   el.querySelector('input[data-act="restore"]').onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; el.querySelector("details").open = false; if (f) restorePage(page, f); };
   el.querySelector('button[data-act="dump"]').onclick = () => { el.querySelector("details").open = false; dumpPage(page); };
+  el.querySelector('button[data-act="games"]').onclick = () => { el.querySelector("details").open = false; downloadGames(page); };
   el.querySelector('button[data-act="format"]').onclick = () => { el.querySelector("details").open = false; formatPage(page); };
 
   let depth = 0;

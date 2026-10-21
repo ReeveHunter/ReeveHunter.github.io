@@ -26,6 +26,11 @@ export const WRITEBLOCKSIZE = 32;
 export const READBLOCKSIZE = 4096;
 export const HEADER_SIZE = 336;
 export const MENUTITLE = "MENU#";
+// Menus recognised at bank 0: ems-flasher's open-source menu and the
+// original EMS menu ("GB16M"), which finds games the same way (a valid
+// header at each 32 KB boundary, games aligned to their own size).
+export const MENU_TITLES = { "MENU#": "ems-flasher menu", "GB16M": "EMS menu" };
+export const isMenuRom = (offset, header) => offset === 0 && header.romsize === 32768 && header.title in MENU_TITLES;
 
 export const ENH_GBC = 1;
 export const ENH_SGB = 2;
@@ -322,7 +327,8 @@ export async function listPage(dev, page, onProgress) {
 }
 
 export function describePage(roms) {
-  const menu = roms.length > 0 && roms[0].offset === 0 && roms[0].header.title === MENUTITLE ? roms[0] : null;
+  const menu = roms.length > 0 && isMenuRom(roms[0].offset, roms[0].header) ? roms[0] : null;
+  const single = !menu && roms.length === 1 && roms[0].offset === 0 ? roms[0] : null;
   const menuEnh = menu ? menu.header.enhancements : -1;
   let incompat = 0, used = 0;
   for (const r of roms) {
@@ -332,6 +338,7 @@ export function describePage(roms) {
   return {
     roms,
     menu,
+    single, // one game at bank 0 with no menu: the cart boots straight into it
     enhancements: menuEnh,
     incompatible: incompat,
     used,
@@ -350,10 +357,10 @@ export function planWrite(listing, files, menu, { force = false } = {}) {
 
   // Drop a lone menu if the page is otherwise empty and the new ROMs want a
   // different mode, or a 4 MB ROM takes the whole page.
-  if (roms.length === 1 && roms[0].offset === 0 && roms[0].header.title === MENUTITLE && roms[0].header.romsize === 32768) {
+  if (roms.length === 1 && isMenuRom(roms[0].offset, roms[0].header)) {
     if (files[0].header.romsize === PAGESIZE || files[0].header.enhancements !== roms[0].header.enhancements) roms = [];
   }
-  if (roms.length > 0 && (roms[0].offset !== 0 || roms[0].header.title !== MENUTITLE)) {
+  if (roms.length > 0 && !isMenuRom(roms[0].offset, roms[0].header)) {
     throw new Error("This page has ROMs but no menu at bank 0. Format the page (or restore a dump) before adding ROMs.");
   }
 
@@ -647,6 +654,59 @@ export async function restoreSram(dev, bytes, opts) {
   const size = Math.ceil(bytes.length / 64) * 64 || 64;
   await new Flasher(dev, opts).writef(TO_SRAM, 0, full, size);
   await dev.flush?.();
+}
+
+// Make the page hold just this one game at bank 0, with no menu, so the cart
+// boots straight into it. Every other header on the page is cleared first.
+export async function writeSingleGame(dev, page, file, opts = {}) {
+  if (file.header.romsize > PAGESIZE) throw new Error("ROM is larger than a page.");
+  await formatPage(dev, page, opts);
+  const f = new Flasher(dev, opts);
+  await f.writef(TO_ROM, page * PAGESIZE, file.bytes, file.header.romsize);
+  await dev.flush?.();
+}
+
+// ---------------------------------------------------------------- zip
+
+const CRC32 = new Uint32Array(256);
+for (let n = 0; n < 256; n++) {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  CRC32[n] = c >>> 0;
+}
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (const b of bytes) c = CRC32[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// Store-only zip. files: [{ name, data: Uint8Array }]
+export function makeZip(files, date = new Date()) {
+  const enc = new TextEncoder();
+  const dosTime = ((date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1)) & 0xffff;
+  const dosDate = (((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate()) & 0xffff;
+  const parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(6, 0x0800, true);
+    local.setUint16(10, dosTime, true); local.setUint16(12, dosDate, true); local.setUint32(14, crc, true);
+    local.setUint32(18, f.data.length, true); local.setUint32(22, f.data.length, true); local.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(local.buffer), name, f.data);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint16(12, dosTime, true); cen.setUint16(14, dosDate, true); cen.setUint32(16, crc, true);
+    cen.setUint32(20, f.data.length, true); cen.setUint32(24, f.data.length, true); cen.setUint16(28, name.length, true);
+    cen.setUint32(42, offset, true);
+    central.push(new Uint8Array(cen.buffer), name);
+    offset += 30 + name.length + f.data.length;
+  }
+  const cenSize = central.reduce((n, p) => n + p.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cenSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: "application/zip" });
 }
 
 // ------------------------------------------------------ devices
