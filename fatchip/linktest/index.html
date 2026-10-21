@@ -157,7 +157,7 @@ table.read th { font-weight: 600; width: 38%; }
       <li>Here: connect, pick the output that feeds the Game Boy, and press <b>Zero</b> so both sides start from nothing.</li>
       <li>Run the tests one at a time (or all of them) and compare the Game Boy's screen with the expected screen on this page.</li>
     </ol>
-    <p class="hint">The tests play on a channel no Game Boy voice listens to (16 by default), so they're silent. Nothing is saved on the Game Boy.</p>
+    <p class="hint">The tests play on a channel no Game Boy voice listens to (6 by default, since Fat Chip GB's voices start on 1–5), so they're silent. Some adapters only pass certain channels (a Teensyboy in mGB mode didn't pass 16). Nothing is saved on the Game Boy.</p>
   </section>
 
   <section class="card" id="connection">
@@ -169,8 +169,18 @@ table.read th { font-weight: 600; width: 38%; }
       <label class="field"><span>Output to the Game Boy</span>
         <select id="output" disabled><option>Connect first</option></select>
       </label>
-      <label class="field"><span>Test channel <em>(pick one no voice uses)</em></span>
+      <label class="field"><span>Test channel <em>(one your adapter passes but no voice uses)</em></span>
         <select id="channel"></select>
+      </label>
+      <label class="field"><span>Send speed <em>(notes, CC and clock-between tests)</em></span>
+        <select id="speed">
+          <option value="0">Full MIDI speed (a burst)</option>
+          <option value="1">1 message per ms</option>
+          <option value="2">1 message per 2 ms</option>
+          <option value="3">1 message per 3 ms</option>
+          <option value="5">1 message per 5 ms</option>
+          <option value="10">1 message per 10 ms</option>
+        </select>
       </label>
     </div>
     <p id="status" class="status-line" style="margin-top:10px">Not connected.</p>
@@ -204,7 +214,8 @@ table.read th { font-weight: 600; width: 38%; }
         <tr><th>SysEx counts rise but LEN or SUM are wrong</th><td>SysEx gets through but bytes are lost or changed. Try the short one: if it's right and the long ones aren't, the adapter's buffer is too small for long messages.</td></tr>
         <tr><th>CLOCK stays at 0</th><td>The adapter filters MIDI clock. Fat Chip GB will keep its own tempo and follow the C64's downbeat CC instead.</td></tr>
         <tr><th>"Clock between / inside" loses NOTE ONS, or NO STATUS goes above 0</th><td>The adapter drops a byte after each clock (a known stock-Arduinoboy problem). Don't send clock to the Game Boy port.</td></tr>
-        <tr><th>NOTE ONS short on the plain notes test</th><td>Bytes are being lost even without clock or SysEx: check cables, and that nothing else is sending to the same port.</td></tr>
+        <tr><th>NOTE ONS short on the plain notes test, NO STATUS still 0</th><td>Whole messages are being dropped: usually the adapter's buffer overflowing because MIDI arrives faster than it can pass bytes to the Game Boy. Try a slower send speed and find the fastest one where nothing is lost; that's the safe rate for anything sending to the Game Boy.</td></tr>
+        <tr><th>NOTE ONS short and NO STATUS above 0</th><td>Single bytes are being lost (not whole messages): check cables, and that nothing else is sending to the same port.</td></tr>
       </tbody>
     </table>
   </section>
@@ -213,16 +224,16 @@ table.read th { font-weight: 600; width: 38%; }
 <script type="module">
 // Bursts must match test/test_link.py in the fat-chip-gb repo.
 const TESTS = [
-  { id: "notes", name: "Notes", what: "64 note on/off pairs.",
+  { id: "notes", paced: true, name: "Notes", what: "64 note on/off pairs.",
     build: ch => { const o = []; for (let i = 0; i < 64; i++) { const n = 36 + (i % 24); o.push(0x90 | ch, n, 100, 0x80 | ch, n, 0); } return o; },
     adds: { bytes: 384, noteon: 64 } },
-  { id: "ccbend", name: "CCs and bends", what: "32 control changes and 32 pitch bends.",
+  { id: "ccbend", paced: true, name: "CCs and bends", what: "32 control changes and 32 pitch bends.",
     build: ch => { const o = []; for (let i = 0; i < 32; i++) o.push(0xB0 | ch, 1, i * 4); for (let i = 0; i < 32; i++) { const v = 8192 + i * 64; o.push(0xE0 | ch, v & 0x7F, (v >> 7) & 0x7F); } return o; },
     adds: { bytes: 192, cc: 32, bend: 32 } },
   { id: "clock", name: "Clock", what: "Start, 96 clock ticks (4 beats), stop.",
     build: () => [0xFA, ...Array(96).fill(0xF8), 0xFC],
     adds: { bytes: 98, clock: 96, start: 1, stop: 1 } },
-  { id: "between", name: "Clock between notes", what: "A clock tick before every note message. Catches adapters that drop the byte after a clock.",
+  { id: "between", paced: true, name: "Clock between notes", what: "A clock tick before every note message. Catches adapters that drop the byte after a clock.",
     build: ch => { const o = []; for (let i = 0; i < 32; i++) { const n = 48 + (i % 12); o.push(0xF8, 0x90 | ch, n, 100, 0xF8, 0x80 | ch, n, 0); } return o; },
     adds: { bytes: 256, noteon: 32, clock: 64 } },
   { id: "inside", name: "Clock inside notes", what: "A clock tick in the middle of note messages (allowed by MIDI). Some browsers refuse to send this one.",
@@ -252,7 +263,9 @@ const store = {
 
 // ---- channel picker
 for (let c = 1; c <= 16; c++) $("channel").add(new Option("Channel " + c, String(c - 1)));
-$("channel").value = String(store.get("channel", 15));
+$("channel").value = String(store.get("channel", 5));
+$("speed").value = String(store.get("speed", 0));
+$("speed").addEventListener("change", () => store.set("speed", +$("speed").value));
 $("channel").addEventListener("change", () => store.set("channel", +$("channel").value));
 
 // ---- expected screen
@@ -287,11 +300,26 @@ function updateButtons() {
   $("allBtn").disabled = !ok;
 }
 
-// Send at roughly MIDI wire speed (320 us per byte) so nothing piles up in the OS.
-function sendPaced(out, bytes) {
+// Split a byte list into whole MIDI messages (realtime bytes on their own).
+function splitMessages(bytes) {
+  const msgs = [];
+  let cur = null;
+  for (const b of bytes) {
+    if (b >= 0xF8) { msgs.push([b]); continue; }
+    if (b & 0x80) { cur = [b]; msgs.push(cur); } else cur.push(b);
+  }
+  return msgs;
+}
+
+// Full speed: one send() and the OS sends it as fast as the wire allows.
+// Paced: one message every `gap` ms, using Web MIDI timestamps.
+// Returns how long the send takes, in ms.
+function sendPaced(out, bytes, gap) {
   const now = performance.now();
-  out.send(bytes, now);
-  return bytes.length * 0.32;
+  if (!gap) { out.send(bytes, now); return bytes.length * 0.32; }
+  const msgs = splitMessages(bytes);
+  msgs.forEach((m, i) => out.send(m, now + i * gap));
+  return msgs.length * gap;
 }
 
 function runTest(t) {
@@ -300,8 +328,10 @@ function runTest(t) {
   const ch = +$("channel").value;
   const bytes = t.build(ch);
   const el = testEls[t.id].querySelector(".sent");
+  const gap = t.paced ? +$("speed").value : 0;
+  let ms;
   try {
-    sendPaced(out, bytes);
+    ms = sendPaced(out, bytes, gap);
   } catch (err) {
     el.textContent = "The browser refused to send this one, so it can't be tested here.";
     el.classList.add("err");
@@ -317,17 +347,17 @@ function runTest(t) {
     for (const [k, v] of Object.entries(t.adds)) expected[k] += v;
   }
   el.classList.remove("err");
-  el.textContent = `Sent ${bytes.length} bytes at ${new Date().toLocaleTimeString()}.`;
+  el.textContent = `Sent ${bytes.length} bytes ${gap ? "at 1 message per " + gap + " ms" : "at full speed"}, ${new Date().toLocaleTimeString()}.`;
   renderLcd();
-  return bytes.length;
+  return ms;
 }
 
 $("allBtn").addEventListener("click", async () => {
   $("allBtn").disabled = true;
   for (const t of TESTS) {
     if (t.sysex && !sysexOk) continue;
-    const n = runTest(t) || 0;
-    await new Promise(r => setTimeout(r, n * 0.32 + 400)); // let it finish on the wire, then a gap
+    const ms = runTest(t) || 0;
+    await new Promise(r => setTimeout(r, ms + 600)); // let it finish on the wire, then a gap
   }
   updateButtons();
 });
