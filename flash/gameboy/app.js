@@ -487,6 +487,13 @@ async function makePlan(listing, files) {
   }
 }
 
+// Games that should stay alone on a page with no menu: LSDJ (by title) and
+// anything declaring the full 128 KB of save RAM. Menus have a poor track
+// record with LSDJ, and launching from a menu limits the save RAM by header.
+const needsOwnPage = (h) => /^LSDJ/i.test(h.title) || h.ramKB >= 128;
+const ownPageNote = (names) =>
+  `${names} works best alone on a page with no menu. Menus have a poor track record with LSDJ, and launching from a menu limits save RAM based on the game's header, which risks the save. Keep it on its own page (like your page 1).`;
+
 const fileLine = (f) => `${f.header.title || f.name} — ${kb(f.header.romsize)}${f.name && f.name !== f.header.title ? ` (${f.name})` : ""}`;
 
 // Plan, confirm and write `files` to `page`. Returns false if the user backed out.
@@ -500,16 +507,18 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
   if (!listing.menu && games.length) {
     const cur = games.map((r) => r.header.title || "(untitled)").join(", ");
     const one = files.length === 1 ? files[0] : null;
+    const special = [...games.map((r) => r.header), ...files.map((f) => f.header)].filter(needsOwnPage).map((h) => h.title);
+    const warnMenu = special.length > 0;
     const choice = await choiceBox(`Page ${page + 1} has no menu`, [
       listing.single ? `The cart boots straight into ${cur}.` : `Page ${page + 1} has ${cur} but no menu, so only the game at bank 0 can start.`,
       ...(one ? [one.header.title === cur
         ? `Replace: the new ${cur} (${one.name}) replaces the one on the cart and still boots straight in (no menu).`
         : `Replace: ${one.header.title} takes over the page and boots straight in (no menu). ${cur} ${games.length > 1 ? "are" : "is"} removed.`] : []),
       `Menu page: ${cur} ${games.length > 1 ? "are" : "is"} read into this page, the page is cleared, and everything is written back with a menu so you pick a game at power-on.`,
-    ], [
-      ...(one ? [{ value: "replace", label: "Replace (no menu)", kind: "ghost" }] : []),
-      { value: "menu", label: "Make a menu page" },
-    ]);
+      ...(warnMenu ? [`⚠ ${ownPageNote([...new Set(special)].join(", "))}`] : []),
+    ], warnMenu
+      ? [{ value: "menu", label: "Make a menu page anyway", kind: "danger" }, ...(one ? [{ value: "replace", label: "Replace (no menu)" }] : [])]
+      : [...(one ? [{ value: "replace", label: "Replace (no menu)", kind: "ghost" }] : []), { value: "menu", label: "Make a menu page" }]);
     if (!choice) return false;
     if (choice === "replace") return writeSingle(page, one, signal);
     return rebuildWithMenu(page, games, files, signal);
@@ -518,12 +527,24 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
   // An empty page and one game: boot straight into it, or start a menu page.
   if (!listing.roms.length && files.length === 1 && files[0].header.romsize < E.PAGESIZE) {
     const f = files[0];
+    const special = needsOwnPage(f.header);
     const choice = await choiceBox(`How should page ${page + 1} start?`, [
-      `Boot straight into ${f.header.title}: no menu, the game starts at power-on. Good for something like LSDJ that lives on its own page.`,
+      `Boot straight into ${f.header.title}: no menu, the game starts at power-on.${special ? " Recommended for this one." : " Good for something like LSDJ that lives on its own page."}`,
       `With a menu: a menu lists the page's games at power-on, and you can add more games later.`,
-    ], [{ value: "menu", label: "With a menu", kind: "ghost" }, { value: "single", label: "Boot straight in" }]);
+      ...(special ? [`⚠ ${ownPageNote(f.header.title)}`] : []),
+    ], [{ value: "menu", label: special ? "With a menu anyway" : "With a menu", kind: special ? "danger" : "ghost" }, { value: "single", label: "Boot straight in" }]);
     if (!choice) return false;
     if (choice === "single") return writeSingle(page, f, signal);
+  }
+
+  const special = files.filter((f) => needsOwnPage(f.header));
+  if (special.length) {
+    const names = special.map((f) => f.header.title).join(", ");
+    const ok = await confirmBox(`Put ${names} behind a menu?`, [
+      ownPageNote(names),
+      `To give it its own page, add it to an empty page and choose “Boot straight in”, or replace the game on a page that has no menu.`,
+    ], "Add behind the menu anyway", true);
+    if (!ok) return false;
   }
 
   const plan = await makePlan(listing, files);
