@@ -201,7 +201,37 @@ $("connectBtn").onclick = async () => {
     const cart = await E.WebUsbCart.request();
     await attach(cart);
   } catch (err) {
-    if (err.name === "NotFoundError") { log("No cart was selected. If the cart isn't in Chrome's list, check the USB cable and that it's plugged straight into the computer."); return; }
+    if (err.name === "NotFoundError") { log("No cart was picked. If Chrome said “No compatible devices found”, click “Show every USB device” below to see what it can find."); return; }
+    log(err.message, "err");
+    $("cartStatus").textContent = err.message;
+  }
+};
+
+$("anyDeviceBtn").onclick = async () => {
+  if (state.busy) return;
+  let device;
+  try {
+    device = await E.WebUsbCart.requestAnyDevice();
+  } catch (err) {
+    if (err.name === "NotFoundError") {
+      log("Chrome doesn't see any USB devices it can offer to web pages. If the cart isn't listed either, macOS isn't seeing it: try another USB cable (many are charge-only) and plug it straight into the Mac.", "err");
+    } else log(err.message, "err");
+    return;
+  }
+  const label = E.WebUsbCart.label(device);
+  log(`You picked: ${label}.`);
+  if (!E.WebUsbCart.isEms(device)) {
+    const ok = await confirmBox("Not the usual EMS cart ID", [
+      `${label} isn't the ID ems-flasher looks for (4670:9394).`,
+      "If this is your cart, the page can try talking to it anyway. Connecting only reads the ROM headers; nothing is written until you add, delete or restore something.",
+    ], "Try it as the cart");
+    if (!ok) return;
+  }
+  try {
+    const cart = await E.WebUsbCart.fromDevice(device);
+    log(cart.describe());
+    await attach(cart);
+  } catch (err) {
     log(err.message, "err");
     $("cartStatus").textContent = err.message;
   }
@@ -657,6 +687,7 @@ function updateUi() {
   $("disconnectBtn").hidden = !have;
   $("disconnectBtn").disabled = busy;
   $("demoBtn").disabled = busy;
+  $("anyDeviceBtn").disabled = busy || have;
   for (const el of pageEls) {
     el.querySelectorAll("input, button, summary").forEach((b) => { b.disabled = busy || !have; });
     el.querySelectorAll(".file-btn, .menu-more").forEach((b) => b.classList.toggle("disabled", busy || !have));

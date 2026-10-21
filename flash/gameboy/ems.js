@@ -669,6 +669,21 @@ export class WebUsbCart {
     await cart.open();
     return cart;
   }
+  // Diagnostic: let the user pick any USB device Chrome can see.
+  static async requestAnyDevice() {
+    if (!navigator.usb) throw new Error("This browser doesn't support WebUSB. Use Chrome or Edge.");
+    return navigator.usb.requestDevice({ filters: [] });
+  }
+  static async fromDevice(device) {
+    const cart = new WebUsbCart(device);
+    await cart.open();
+    return cart;
+  }
+  static isEms(device) { return device.vendorId === EMS_VID && device.productId === EMS_PID; }
+  static label(device) {
+    const name = [device.manufacturerName, device.productName].filter(Boolean).join(" ") || "Unnamed device";
+    return `${name} (ID ${hex4(device.vendorId)}:${hex4(device.productId)})`;
+  }
   static async reconnect() {
     if (!navigator.usb) return null;
     const devices = await navigator.usb.getDevices();
