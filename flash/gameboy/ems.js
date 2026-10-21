@@ -326,6 +326,12 @@ export async function listPage(dev, page, onProgress) {
   return describePage(roms);
 }
 
+// List the ROMs in an in-memory 4 MB page image (e.g. a dump being restored).
+export function listPageImage(bytes) {
+  const dev = { read: async (from, offset, count) => bytes.subarray(offset, offset + count) };
+  return listPage(dev, 0);
+}
+
 export function describePage(roms) {
   const menu = roms.length > 0 && isMenuRom(roms[0].offset, roms[0].header) ? roms[0] : null;
   const single = !menu && roms.length === 1 && roms[0].offset === 0 ? roms[0] : null;
@@ -427,7 +433,9 @@ export function planWrite(listing, files, menu, { force = false } = {}) {
     offset: r.offset, romsize: r.romsize, title: r.header.title,
     source: r.source.type, from: r.source.type === "flash" ? r.source.origoffset : null,
   }));
-  return { updates, plan, menuAdded, free };
+  // What the page will hold once the updates are applied (for the UI).
+  const result = image.toArray().map((r) => ({ offset: r.offset, header: r.header }));
+  return { updates, plan, result, menuAdded, free };
 }
 
 export function summarizeUpdates(updates) {
@@ -894,31 +902,38 @@ export class WebUsbCart {
   // done that way and trimmed (odd sizes upset some drivers, notably WinUSB).
   async read(from, offset, count) {
     await this.flush();
+    // Small reads (game headers) use one aligned 512-byte transfer: a whole
+    // number of 64-byte USB packets, 8x faster than a 4 KB chunk.
+    const s512 = Math.floor(offset / 512) * 512;
+    if (offset + count <= s512 + 512) {
+      const buf = await this.readChunk(from, s512, 512);
+      return buf.slice(offset - s512, offset - s512 + count);
+    }
     const start = Math.floor(offset / READBLOCKSIZE) * READBLOCKSIZE;
     const end = Math.ceil((offset + count) / READBLOCKSIZE) * READBLOCKSIZE;
     const out = new Uint8Array(end - start);
     for (let a = start; a < end; a += READBLOCKSIZE) out.set(await this.readChunk(from, a), a - start);
     return out.slice(offset - start, offset - start + count);
   }
-  readChunk(from, offset) {
+  readChunk(from, offset, size = READBLOCKSIZE) {
     return this.run(async () => {
       const cmd = from === FROM_ROM ? CMD_READ : CMD_READ_SRAM;
-      const out = await withTimeout(this.device.transferOut(this.epOut, command(cmd, offset, READBLOCKSIZE)));
+      const out = await withTimeout(this.device.transferOut(this.epOut, command(cmd, offset, size)));
       if (out.status !== "ok") throw new Error(`USB write failed (${out.status}).`);
-      const buf = new Uint8Array(READBLOCKSIZE);
+      const buf = new Uint8Array(size);
       let got = 0;
-      while (got < READBLOCKSIZE) {
+      while (got < size) {
         let r;
         try {
-          r = await withTimeout(this.device.transferIn(this.epIn, READBLOCKSIZE - got));
+          r = await withTimeout(this.device.transferIn(this.epIn, size - got));
         } catch (err) {
-          throw new Error(`USB read failed at ${offset} (endpoint in ${this.epIn}, ${got} of ${READBLOCKSIZE} bytes received): ${err.message}`);
+          throw new Error(`USB read failed at ${offset} (endpoint in ${this.epIn}, ${got} of ${size} bytes received): ${err.message}`);
         }
         if (r.status === "stall") { await this.device.clearHalt("in", this.epIn); throw new Error("USB read stalled."); }
         if (r.status === "babble") throw new Error("USB read overflowed (the cart sent more than asked for).");
         const chunk = new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
         if (!chunk.length) throw new Error("USB read returned no data.");
-        buf.set(chunk.subarray(0, READBLOCKSIZE - got), got);
+        buf.set(chunk.subarray(0, size - got), got);
         got += chunk.length;
       }
       return buf;

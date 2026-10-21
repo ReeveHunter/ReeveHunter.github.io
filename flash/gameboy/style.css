@@ -445,3 +445,6 @@ dialog { max-width: min(520px, calc(100vw - 32px)); }
 
 .rename-field { margin: 0 0 12px; }
 .rename-field input { font-family: var(--mono); }
+
+.page.rereading .bankmap, .page.rereading .romlist { opacity: 0.55; transition: opacity 0.2s; }
+.page.rereading [data-meta]::after { content: " · re-reading…"; color: var(--muted); }

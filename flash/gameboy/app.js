@@ -279,8 +279,20 @@ async function rereadAfterError(page) {
   }
 }
 
+// Update what the page shows from what we just did, without re-reading.
+function setPage(page, listing) {
+  state.pages[page] = listing;
+  renderPage(page);
+}
+const withoutRom = (listing, offset) => E.describePage(listing.roms.filter((r) => r.offset !== offset));
+
 async function readPage(page, signal) {
-  const listing = await E.listPage(state.cart, page);
+  const el = pageEls[page];
+  el.classList.add("rereading");
+  if (state.busy) $("progStage").textContent = `Re-reading page ${page + 1}`;
+  let listing;
+  try { listing = await E.listPage(state.cart, page); }
+  finally { el.classList.remove("rereading"); }
   if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
   state.pages[page] = listing;
   renderPage(page);
@@ -580,8 +592,13 @@ const fileLine = (f) => `${f.header.title || f.name} — ${kb(f.header.romsize)}
 
 // Plan, confirm and write `files` to `page`. Returns false if the user backed out.
 async function writeFiles(page, files, signal, { title = null, extraNote = null } = {}) {
-  $("progStage").textContent = `Reading page ${page + 1}`;
-  const listing = await readPage(page, signal);
+  // Plan from what the page already shows (kept up to date by every action);
+  // read the cart only if this page hasn't been read yet.
+  let listing = state.pages[page];
+  if (!listing) {
+    $("progStage").textContent = `Reading page ${page + 1}`;
+    listing = await readPage(page, signal);
+  }
   const games = listing.roms.filter((r) => r !== listing.menu);
 
   // A page with games but no menu (e.g. LSDJ on its own): replace it, or
@@ -644,7 +661,7 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
   const go = await confirmBox(title || `Add ${files.length} ROM${files.length > 1 ? "s" : ""} to page ${page + 1}?`, [bullets(files.map(fileLine)), ...notes], `Write to page ${page + 1}`);
   if (!go) return false;
   await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
-  await readPage(page, signal);
+  setPage(page, E.describePage(plan.result));
   return files; // the files as written (titles may have been changed)
 }
 
@@ -653,7 +670,7 @@ async function writeSingle(page, file, signal) {
   const tr = tracker(file.header.romsize, `Writing ${file.header.title}`);
   await E.writeSingleGame(state.cart, page, file, { signal, onProgress: (n) => tr.add(n) });
   tr.finish();
-  await readPage(page, signal);
+  setPage(page, E.describePage([{ offset: 0, header: file.header }]));
   return [file];
 }
 
@@ -689,7 +706,7 @@ async function rebuildWithMenu(page, games, files, signal) {
     await rereadAfterError(page);
     throw err;
   }
-  await readPage(page, signal);
+  setPage(page, E.describePage(plan.result));
   return all.slice(held.length);
 }
 
@@ -755,7 +772,9 @@ async function renameRom(page, rom) {
   runJob(`Renaming ${rom.header.title || "(untitled)"} to ${title}`, async (signal) => {
     const tr = tracker(E.ERASEBLOCKSIZE * 2, "Reading the block with its header");
     try {
-      await E.renameRom(state.cart, page, rom.offset, title, { signal, onProgress: (n) => tr.add(n) });
+      const res = await E.renameRom(state.cart, page, rom.offset, title, { signal, onProgress: (n) => tr.add(n) });
+      const cur = state.pages[page];
+      if (cur) setPage(page, E.describePage(cur.roms.map((r) => (r.offset === rom.offset ? { offset: r.offset, header: res.header } : r))));
     } catch (err) {
       if (err.block) {
         state.pendingBlock = { page, blockStart: err.blockStart, block: err.block, title };
@@ -772,7 +791,6 @@ async function renameRom(page, rom) {
       throw err;
     }
     tr.finish();
-    await readPage(page, signal);
     return `Renamed to ${title}`;
   });
 }
@@ -797,7 +815,7 @@ async function deleteRom(page, rom) {
   if (!ok) return;
   runJob(`Deleting ${rom.header.title}`, async (signal) => {
     await E.deleteRoms(state.cart, page, [rom.offset]);
-    await readPage(page, signal);
+    if (state.pages[page]) setPage(page, withoutRom(state.pages[page], rom.offset));
     return `Deleted ${rom.header.title} from page ${page + 1}`;
   });
 }
@@ -820,7 +838,7 @@ async function transferRom(fromPage, rom, toPage) {
     if (!done) return null;
     if (move) {
       await E.deleteRoms(state.cart, fromPage, [rom.offset]);
-      await readPage(fromPage, signal);
+      if (state.pages[fromPage]) setPage(fromPage, withoutRom(state.pages[fromPage], rom.offset));
     }
     return `${move ? "Moved" : "Copied"} ${rom.header.title} to page ${toPage + 1}`;
   });
@@ -835,7 +853,7 @@ async function formatPage(page) {
   if (!ok) return;
   runJob(`Formatting page ${page + 1}`, async (signal) => {
     await E.formatPage(state.cart, page, { signal });
-    await readPage(page, signal);
+    setPage(page, E.describePage([]));
     return `Formatted page ${page + 1}`;
   });
 }
@@ -894,7 +912,7 @@ async function restorePage(page, file) {
     const tr = tracker(E.PAGESIZE, `Writing page ${page + 1}`);
     await E.restorePage(state.cart, page, bytes, { signal, onProgress: (n) => tr.add(n) });
     tr.finish();
-    await readPage(page, signal);
+    setPage(page, await E.listPageImage(bytes));
     return `Restored page ${page + 1} from ${file.name}`;
   });
 }
@@ -934,6 +952,11 @@ pageEls.forEach((el, page) => {
   el.querySelector('input[data-act="add"]').onchange = (e) => { const fl = [...e.target.files]; e.target.value = ""; addRoms(page, fl); };
   el.querySelector('input[data-act="restore"]').onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; el.querySelector("details").open = false; if (f) restorePage(page, f); };
   el.querySelector('button[data-act="dump"]').onclick = () => { el.querySelector("details").open = false; dumpPage(page); };
+  el.querySelector('button[data-act="reread"]').onclick = () => runJob(`Re-reading page ${page + 1}`, async (signal) => {
+    const l = await readPage(page, signal);
+    const n = l.roms.filter((r) => r !== l.menu).length;
+    return `Page ${page + 1}: ${n} game${n === 1 ? "" : "s"}, ${kb(l.free)} free`;
+  });
   el.querySelector('button[data-act="games"]').onclick = () => { el.querySelector("details").open = false; downloadGames(page); };
   el.querySelector('button[data-act="format"]').onclick = () => { el.querySelector("details").open = false; formatPage(page); };
 
