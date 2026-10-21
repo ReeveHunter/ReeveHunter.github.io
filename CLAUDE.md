@@ -6,6 +6,7 @@ Reeve Hunter's site (GitHub Pages, custom domain in `CNAME`). Each top-level fol
 |---|---|
 | `C64/` | **Cynthcart Controller** — Web MIDI editor for Cynthcart on Reeve's C64 (patches, setup, screen editing). Notes: `C64/CLAUDE.md`; the firmware is in Reeve's private local repo `cynthcart-kerberos`. |
 | `flash/` | **Kerberos Flash** — flashes PRGs and EasyFlash CRTs to the Kerberos C64/C128 MIDI cartridge over Web MIDI (a port of Frank Buß's Kerberos App). Each slot stores a MIDI emulation; Cynthcart needs **DATEL / Siel / JMS** (with "None" the cartridge's MIDI is off). |
+| `fatchip/` | **Fat Chip** tools. `fatchip/linktest/` = **Link Test**: one self-contained page that sends known MIDI bursts (notes, CCs/bends, clock, SysEx) to a Game Boy running Fat Chip GB (Setup > LINK TEST) and shows what its counters should read, to check what the MIDI adapter passes. Bursts must match `test/test_link.py` in the private local repo `~/Documents/GitHub/fat-chip-gb`. Plans: `~/Documents/GitHub/fat-chip/fat-chip-brief.md`. |
 | `CZ/` | CZ-101 Patch Editor — SysEx editor for the Casio CZ-101/1000/5000. |
 | `sightreading/` | Sight Reading — piano sight-reading practice with a MIDI keyboard. |
 | `stumped/` | Stumped — Game Boy-style Sokoban (WebAssembly build). |
@@ -17,4 +18,4 @@ Reeve Hunter's site (GitHub Pages, custom domain in `CNAME`). Each top-level fol
 | `CheckItBU/` | CheckIt course material (`Cal-I`). |
 | `assets/` | Shared images, favicon and the home page's styles. |
 
-Web MIDI pages (`C64/`, `flash/`, `CZ/`, `sightreading/`) need Chrome, Edge or Opera on a computer (or a Web MIDI browser app on iPad), and `https://` or `localhost`. To try a page locally: `python3 -m http.server` in the repo root, then open `http://localhost:8000/<folder>/`.
+Web MIDI pages (`C64/`, `flash/`, `CZ/`, `sightreading/`, `fatchip/linktest/`) need Chrome, Edge or Opera on a computer (or a Web MIDI browser app on iPad), and `https://` or `localhost`. To try a page locally: `python3 -m http.server` in the repo root, then open `http://localhost:8000/<folder>/`.
