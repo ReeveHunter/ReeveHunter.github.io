@@ -5,7 +5,11 @@
       "kind": "gb",
       "name": "Fat Chip GB",
       "file": "gb/fat-chip-gb.gb",
-      "note": "The Game Boy half of Fat Chip. Latest build from the fat-chip-gb repo."
+      "note": "The Game Boy half of Fat Chip. Latest build pushed to the fat-chip-gb repo.",
+      "github": {
+        "repo": "ReeveHunter/fat-chip-gb",
+        "path": "fat-chip-gb.gb"
+      }
     },
     {
       "id": "mgb",
@@ -31,7 +35,11 @@
       "name": "Fat Chip 64",
       "file": "c64/fatchip64.prg",
       "emu": 3,
-      "note": "The C64 half of Fat Chip. Latest build from the fat-chip-64 repo. Flash with DATEL MIDI."
+      "note": "The C64 half of Fat Chip. Latest build pushed to the fat-chip-64 repo. Flash with DATEL MIDI.",
+      "github": {
+        "repo": "ReeveHunter/fat-chip-64",
+        "path": "bin/fatchip64.prg"
+      }
     }
   ]
 }

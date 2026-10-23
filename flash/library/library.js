@@ -97,9 +97,38 @@ export async function loadBuiltIns(kind) {
   };
   const manifest = await get("manifest.json");
   const builds = await get("builds.json").catch(() => ({}));
-  return manifest.entries
+  const entries = manifest.entries
     .filter((e) => !kind || e.kind === kind)
-    .map((e) => ({ ...e, ...(builds[e.id] || {}), url: new URL(e.file, BASE).href }));
+    .map((e) => ({ ...e, ...(builds[e.id] || {}), url: new URL(e.file, BASE).href, from: "site" }));
+  // Entries with a GitHub repo use the newest build pushed there; the copy on
+  // this site is only the fallback (repo private or unreachable, rate limit).
+  await Promise.all(entries.filter((e) => e.github).map(async (e) => {
+    try { Object.assign(e, await latestFromGitHub(e.github)); }
+    catch (err) { e.fallbackWhy = err.message; }
+  }));
+  return entries;
+}
+
+// Newest commit that changed the build file: its version (from the commit
+// message, e.g. "v0.07: ..."), date, and a raw URL pinned to that commit so
+// no cache can serve an older build.
+async function latestFromGitHub({ repo, path }) {
+  const api = `https://api.github.com/repos/${repo}/commits?path=${encodeURIComponent(path)}&per_page=10`;
+  const r = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
+  if (!r.ok) throw new Error(r.status === 404 ? `${repo} isn't public on GitHub` : `GitHub said ${r.status}`);
+  const commits = await r.json();
+  if (!commits.length) throw new Error(`${path} isn't in ${repo} yet`);
+  const newest = commits[0];
+  const withVer = commits.find((c) => /v\d+(\.\d+)+/.test(c.commit.message));
+  const ver = withVer ? withVer.commit.message.match(/v\d+(\.\d+)+/)[0] : null;
+  return {
+    version: ver,
+    date: (newest.commit.committer?.date || newest.commit.author?.date || "").slice(0, 10),
+    commit: newest.sha.slice(0, 7),
+    url: `https://raw.githubusercontent.com/${repo}/${newest.sha}/${path}`,
+    from: "github",
+    link: `https://github.com/${repo}`,
+  };
 }
 
 export async function fetchBuiltIn(entry) {
@@ -144,10 +173,11 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
     if (item.version) top.append(el("span", "lib-ver", vtext(item.version)));
     if (item.date) top.append(el("span", "lib-date", item.date));
     if (item.dated && item.fileDate) top.append(el("span", "lib-date", `built ${fmtDate(item.fileDate)}`));
-    top.append(el("span", `lib-src ${src}`, src === "mine" ? "my file" : "built in"));
+    top.append(el("span", `lib-src ${src}`, src === "mine" ? "my file" : item.from === "github" ? "from GitHub" : "built in"));
     main.append(top);
     const sub = el("p", "lib-note");
     if (item.note) sub.append(item.note + " ");
+    if (item.fallbackWhy) sub.append(el("span", "lib-file", `Using the copy on this site (${item.fallbackWhy}).`));
     if (item.link) { const a = el("a", null, "Source"); a.href = item.link; a.target = "_blank"; a.rel = "noopener"; sub.append(a); }
     if (src === "mine") sub.append(el("span", "lib-file", `${item.name} · ${(item.bytes.length / 1024).toFixed(item.bytes.length < 10240 ? 1 : 0)} KB · added ${fmtDate(item.added)}`));
     if (sub.childNodes.length) main.append(sub);
