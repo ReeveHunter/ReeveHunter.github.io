@@ -12,7 +12,7 @@ Reeve Hunter's site (GitHub Pages, custom domain in `CNAME`). Each top-level fol
 | `stumped/` | Stumped — Game Boy-style Sokoban (WebAssembly build). |
 | `tunes/` | Tunes — browse and play Reeve's songs. Intentionally unlinked from the rest of the site. |
 | `projects/` | Projects in progress and ideas. Its `style.css` is also used by `tools/`. |
-| `tools/` | Index of the browser tools, grouped (music gear, flashers and tests, classroom, home), each with a one-color inline SVG icon. Add new tools here. |
+| `tools/` | Index of the browser tools, grouped (music gear, flashers and tests, utilities, home), each with a one-color inline SVG icon. Add new tools here. |
 | `music/` | Music landing page (Bandcamp link). |
 | `math/` | Math resources: CheckIt practice problems and Baylor page link. |
 | `clock/`, `stopwatch/` | Classroom clock and exam stopwatch. |
