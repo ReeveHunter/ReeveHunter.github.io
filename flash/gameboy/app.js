@@ -1,7 +1,7 @@
 import * as E from "./ems.js";
 
 // Bump on every change so the page shows which build the browser is running.
-const BUILD = "v1.8 · 2026-10-21";
+const BUILD = "v1.9 · 2026-10-22";
 document.getElementById("buildTag").textContent = `Build ${BUILD}`;
 console.info("Game Boy Flash build", BUILD);
 

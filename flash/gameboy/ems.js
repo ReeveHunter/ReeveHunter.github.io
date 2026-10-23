@@ -528,7 +528,7 @@ class Flasher {
     }
     await this.w(TO_ROM, offset + 0x100, hold.subarray(0, 32));
     await this.w(TO_ROM, offset + 0x120, hold.subarray(32, 64));
-    await this.deleteRom(origoffset, 2);
+    await this.deleteRom(origoffset);
   }
 
   async read(slot, size, offset) {
@@ -538,11 +538,12 @@ class Flasher {
   async write(offset, size, slot) {
     const buf = this.slots[slot];
     for (let b = 0; b < size; b += WRITEBLOCKSIZE) {
-      if (b === 0x100) continue;
+      if (b === 0x100 || b === 0x120) continue; // header pair goes last
       await this.w(TO_ROM, offset + b, buf.subarray(b, b + WRITEBLOCKSIZE));
       if ((b + WRITEBLOCKSIZE) % READBLOCKSIZE === 0) this.onProgress(READBLOCKSIZE);
     }
     await this.w(TO_ROM, offset + 0x100, buf.subarray(0x100, 0x120));
+    await this.w(TO_ROM, offset + 0x120, buf.subarray(0x120, 0x140));
   }
 
   async erase(offset) {
@@ -552,12 +553,17 @@ class Flasher {
     await this.w(TO_ROM, offset + 32, blank);
   }
 
-  // Zero part of the header (title area) so the menu no longer sees the ROM.
-  async deleteRom(offset, blocks) {
+  // Hide a ROM from the menu by zeroing 0x100-0x13F (entry point, most of the
+  // Nintendo logo and the start of the title) with one aligned 64-byte pair of
+  // writes. Two rules from the hardware: the cart takes writes in pairs, and
+  // writing at the start of a 128 KB block erases the whole block, so a delete
+  // must never write at the ROM's offset 0 (ROMs often start on a block
+  // boundary). ems-flasher's original 0x110/0x130 avoids offset 0 but
+  // straddles two pairs, which appears to leave the cart stuck.
+  async deleteRom(offset) {
     const zero = new Uint8Array(32);
-    while (blocks--) {
-      await this.dev.write(TO_ROM, offset + 0x130 - blocks * 32, zero);
-    }
+    await this.w(TO_ROM, offset + 0x100, zero);
+    await this.w(TO_ROM, offset + 0x120, zero);
   }
 }
 
@@ -625,14 +631,25 @@ export async function deleteRoms(dev, page, offsets) {
   for (const ofs of offsets) {
     const raw = await dev.read(FROM_ROM, page * PAGESIZE + ofs, HEADER_SIZE);
     if (!headerValid(raw)) throw new Error(`No ROM at bank ${ofs / BANKSIZE}.`);
-    await f.deleteRom(page * PAGESIZE + ofs, 2);
+    await f.deleteRom(page * PAGESIZE + ofs);
   }
   await dev.flush?.();
+  // Confirm the cart still answers and the ROMs are gone.
+  for (const ofs of offsets) {
+    const raw = await dev.read(FROM_ROM, page * PAGESIZE + ofs, HEADER_SIZE);
+    if (headerValid(raw)) throw new Error(`The cart still shows a ROM at bank ${ofs / BANKSIZE} after deleting it.`);
+  }
 }
 
+// Clear every valid header on the page (only where there is one, so free
+// space stays erased).
 export async function formatPage(dev, page, { signal } = {}) {
   const f = new Flasher(dev, { signal });
-  for (let ofs = 0; ofs <= PAGESIZE - 32768; ofs += 32768) await f.deleteRom(page * PAGESIZE + ofs, 1);
+  for (let ofs = 0; ofs <= PAGESIZE - 32768; ofs += 32768) {
+    f.check();
+    const raw = await dev.read(FROM_ROM, page * PAGESIZE + ofs, HEADER_SIZE);
+    if (headerValid(raw)) await f.deleteRom(page * PAGESIZE + ofs);
+  }
   await dev.flush?.();
 }
 
@@ -1007,6 +1024,13 @@ export class MemoryCart {
   async write(to, offset, data) {
     this.writes++;
     this.stats.writes++;
+    // Strict: writes must come as aligned 64-byte pairs (offset, offset + 32).
+    if (this.strict) {
+      if (this.writes % 2) this.pairStart = offset;
+      else if (this.pairStart % 64 !== 0 || offset !== this.pairStart + 32) {
+        throw new Error(`Misaligned write pair: 0x${this.pairStart.toString(16)} then 0x${offset.toString(16)}.`);
+      }
+    }
     if (to === TO_SRAM) { this.sram.set(data, offset); return; }
     if (offset % ERASEBLOCKSIZE === 0) {
       this.rom.fill(0xff, offset, offset + ERASEBLOCKSIZE);
