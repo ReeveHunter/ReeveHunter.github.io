@@ -527,7 +527,7 @@ function setExpandedBlock(block) {
 /** Editing an envelope goes "full screen": everything else on the page -
  * MIDI, the patch library, Voice basics, both oscillator cards - is hidden
  * until you back out (the "Done" button), leaving only the one envelope
- * being edited. midi/library/global/oscGrid are declared later in this file
+ * being edited. midi/library/global/oscStack are declared later in this file
  * (Assemble section) but, as with resetOscillator()/copyOtherOscillator()
  * elsewhere, this function is only ever called from a click handler, long
  * after the whole module - and those consts - have finished loading. */
@@ -535,7 +535,7 @@ function setFocusMode(active) {
   midiSection.classList.toggle("is-hidden", active);
   librarySection.classList.toggle("is-hidden", active);
   globalSection.classList.toggle("is-hidden", active);
-  oscGrid.classList.toggle("is-hidden", active);
+  oscStack.classList.toggle("is-hidden", active);
 }
 
 // ---------------------------------------------------------------------
@@ -1114,8 +1114,9 @@ const osc2Section = buildOscillatorSection(2);
 const midiSection = buildMidiSection();
 const librarySection = buildLibrarySection();
 
-const oscGrid = el("div", { className: "two-col" }, [osc1Section, osc2Section]);
-root.append(midiSection, librarySection, globalSection, expandedHost, oscGrid);
+const oscStack = el("div", { className: "osc-stack" }, [osc1Section, osc2Section]);
+const editorLayout = el("div", { className: "editor-layout" }, [globalSection, oscStack]);
+root.append(midiSection, librarySection, editorLayout, expandedHost);
 
 const envelopeEditors = {};
 const envelopeStrips = {};

@@ -21,9 +21,10 @@ html, body {
 
 /* Generic force-hide utility, used to hide whole top-level sections while
    an envelope is being edited "full screen" (see setFocusMode() in
-   app.js). !important because some targets (e.g. .two-col) set their own
-   `display`, and this utility's effect shouldn't depend on which of two
-   same-specificity rules happens to come later in the file. */
+   app.js). !important because some targets (e.g. .editor-layout,
+   .osc-stack) set their own `display`, and this utility's effect
+   shouldn't depend on which of two same-specificity rules happens to
+   come later in the file. */
 .is-hidden {
   display: none !important;
 }
@@ -844,16 +845,23 @@ button.primary-btn:hover {
   word-break: break-all;
 }
 
+/* Voice basics (skinny, left) next to both oscillator cards stacked on
+   top of each other (fat, right). Below the breakpoint this is just two
+   stacked block-level divs - Voice basics above the oscillator stack -
+   which is the right fallback for a narrow/mobile layout anyway. */
 @media (min-width: 760px) {
-  .two-col {
+  .editor-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(220px, 300px) 1fr;
     gap: 20px;
-    /* Without this, a grid item stretches to match its row's tallest
-       sibling - so whichever oscillator currently has its envelope row
-       hidden (moved into the shared expanded-envelope-host) would be
-       stretched to match the other one's full height, leaving an empty
-       gap at its bottom instead of just ending after its own content. */
+    /* Voice basics is much shorter than the oscillator stack beside it -
+       without this it would stretch to match the taller column. */
     align-items: start;
   }
+}
+
+.osc-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
