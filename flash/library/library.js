@@ -31,6 +31,7 @@ export function identify(name) {
     const m = stem.match(/v?(\d+(?:[._-]\d+)+[a-z]?)(?!.*\d)/i);
     if (m) version = m[1].replace(/[_-]/g, ".");
   }
+  if (fam.key === "lsdj" && version) version += /stable/i.test(stem) ? " stable" : /lsdj\d+_\d+_\w+$/i.test(stem) ? " develop" : "";
   return {
     key: fam.key || `file:${kind}:${name.toLowerCase()}`,
     kind,
@@ -97,22 +98,27 @@ export async function loadBuiltIns(kind) {
   };
   const manifest = await get("manifest.json");
   const builds = await get("builds.json").catch(() => ({}));
+  const site = (e) => ({
+    url: e.file ? new URL(e.file, BASE).href : null,
+    fileName: e.file ? e.file.split("/").pop() : null,
+    from: e.file ? "site" : null,
+  });
   const entries = manifest.entries
     .filter((e) => !kind || e.kind === kind)
-    .map((e) => ({
-      ...e, ...(builds[e.id] || {}),
-      url: e.file ? new URL(e.file, BASE).href : null,
-      fileName: e.file ? e.file.split("/").pop() : null,
-      from: e.file ? "site" : null,
-    }));
-  // Entries with a GitHub repo (or the LSDj site) use the newest build there;
+    .map((e) => {
+      const out = { ...e, ...(builds[e.id] || {}), ...site(e) };
+      // Entries with versions to pick from: each variant is its own build.
+      if (e.variants) out.variants = e.variants.map((v) => ({ kind: e.kind, emu: e.emu, ...v, ...(builds[`${e.id}:${v.id}`] || {}), ...site(v) }));
+      return out;
+    });
+  // Builds from a GitHub repo use the newest one there;
   // the copy on this site, if any, is only the fallback.
-  await Promise.all(entries.map(async (e) => {
+  const resolve = async (e) => {
     try {
       if (e.github) Object.assign(e, await latestFromGitHub(e.github));
-      else if (e.lsdj) Object.assign(e, await latestLsdj(e.lsdj));
     } catch (err) { e.fallbackWhy = err.message; }
-  }));
+  };
+  await Promise.all(entries.flatMap((e) => (e.variants ? e.variants.map(resolve) : [resolve(e)])));
   return entries;
 }
 
@@ -182,27 +188,6 @@ async function latestFromGitHub({ repo, path, dir = "", pattern }) {
   };
 }
 
-// LSDj from littlesounddj.com's public download folders: the newest
-// lsdjX_Y_Z(-stable).zip, unzipped in the browser. Nothing is hosted here.
-const LSDJ_ROOT = "https://www.littlesounddj.com/lsd/latest/rom_images/";
-async function latestLsdj({ channel }) {
-  const folder = `${LSDJ_ROOT}${channel}/`;
-  let html;
-  try {
-    const r = await fetch(folder, { cache: "no-cache" });
-    if (!r.ok) throw new Error(`littlesounddj.com said ${r.status}`);
-    html = await r.text();
-  } catch (e) {
-    throw new Error(/said/.test(e.message) ? e.message : "littlesounddj.com doesn't let other sites download from it");
-  }
-  const names = [...html.matchAll(/href="(lsdj\d+_\d+_[0-9a-z]+(?:-stable)?\.zip)"/gi)].map((m) => m[1]);
-  if (!names.length) throw new Error("no LSDj builds found on littlesounddj.com");
-  names.sort((a, b) => cmpVer(b, a));
-  const name = names[0];
-  const v = name.match(/lsdj(\d+)_(\d+)_([0-9a-z]+)/i);
-  return { version: `${v[1]}.${v[2]}.${v[3]}`, url: folder + name, zip: true, fileName: name.replace(/\.zip$/i, ".gb"), from: "lsdj", link: folder };
-}
-
 export async function fetchBuiltIn(entry) {
   if (!entry.url) throw new Error(`${entry.name} isn't available right now${entry.fallbackWhy ? ` (${entry.fallbackWhy})` : ""}.`);
   const r = await fetch(entry.url, { cache: "no-cache" });
@@ -270,27 +255,33 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
   const mineNote = el("p", "hint lib-hint", mineHint);
   root.append(builtList, mineHead, mineList, mineNote);
 
-  const row = (item, { src, onRemove }) => {
+  const row = (item, { src, onRemove, picker }) => {
     const li = el("li", "lib-item");
     const main = el("div", "lib-main");
     const top = el("div", "lib-top");
     top.append(el("strong", null, item.label));
+    if (picker) top.append(picker);
     if (item.version) top.append(el("span", "lib-ver", vtext(item.version)));
     if (item.date) top.append(el("span", "lib-date", item.date));
     if (item.dated && item.fileDate) top.append(el("span", "lib-date", `built ${fmtDate(item.fileDate)}`));
-    top.append(el("span", `lib-src ${src}`, src === "mine" ? "my file" : { github: "from GitHub", lsdj: "from littlesounddj.com", site: "built in" }[item.from] || "unavailable"));
+    top.append(el("span", `lib-src ${src}`, src === "mine" ? "my file" : { github: "from GitHub", site: "built in", yours: "your copy" }[item.from] || "not added yet"));
     main.append(top);
     const sub = el("p", "lib-note");
     if (item.note) sub.append(item.note + " ");
     if (item.fallbackWhy) sub.append(el("span", "lib-file", item.url ? `Using the copy on this site (${item.fallbackWhy}).` : `Can't fetch it here: ${item.fallbackWhy}. Download it from the link and add the .zip under My files.`));
-    if (item.link) { const a = el("a", null, item.from === "lsdj" || item.lsdj ? "Download page" : "Source"); a.href = item.link; a.target = "_blank"; a.rel = "noopener"; sub.append(a); }
-    if (src === "mine") sub.append(el("span", "lib-file", `${item.name} · ${(item.bytes.length / 1024).toFixed(item.bytes.length < 10240 ? 1 : 0)} KB · added ${fmtDate(item.added)}`));
+    if (item.link) { const a = el("a", null, "Source"); a.href = item.link; a.target = "_blank"; a.rel = "noopener"; sub.append(a); }
+    if (item.links) {
+      const span = el("span", "lib-links", "Get it from littlesounddj.com: ");
+      item.links.forEach((l, i) => { const a = el("a", null, `${l.label} ↗`); a.href = l.url; a.target = "_blank"; a.rel = "noopener"; if (i) span.append(" · "); span.append(a); });
+      sub.append(span);
+    }
+    if (src === "mine" || item.from === "yours") sub.append(el("span", "lib-file", `${item.name} · ${(item.bytes.length / 1024).toFixed(item.bytes.length < 10240 ? 1 : 0)} KB · added ${fmtDate(item.added)}`));
     if (sub.childNodes.length) main.append(sub);
     const acts = el("div", "lib-acts");
     for (const a of actions) {
       const b = el("button", `btn small${a.primary ? " primary" : ""}`, a.label);
       b.type = "button";
-      if (src !== "mine" && !item.url) b.disabled = true;
+      if (src !== "mine" && !item.url && item.from !== "yours") b.disabled = true;
       b.onclick = async () => {
         if (busy()) return;
         try { await a.run(await item.load()); }
@@ -298,6 +289,7 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
       };
       acts.append(b);
     }
+    if (item.adder) acts.append(item.adder);
     if (onRemove) {
       const x = el("button", "btn small ghost lib-remove", "✕");
       x.type = "button"; x.title = `Remove ${item.label} from this browser`; x.setAttribute("aria-label", x.title);
@@ -309,14 +301,60 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
   };
 
   async function renderBuilt() {
-    builtList.innerHTML = "";
     let entries;
     try { entries = await loadBuiltIns(kind); }
     catch (e) { builtList.append(el("li", "lib-empty", "The built-in library couldn't be loaded.")); log(`Library: ${e.message}`, "err"); return; }
+    let recs = [];
+    try { recs = await listMine(kind); } catch {}
+    familyKeys = new Set(entries.filter((e) => e.mine).map((e) => e.mine));
+    builtList.innerHTML = "";
     for (const e of entries) {
-      const item = { ...e, label: e.name };
-      item.load = async () => ({ ...(await fetchBuiltIn(e)), entry: item });
-      builtList.append(row(item, { src: "built" }));
+      if (e.mine) {
+        // A program that can't be hosted or fetched by a web page (LSDj): the
+        // row links to the official downloads and uses the copy you add.
+        const rec = recs.find((r) => r.key === e.mine);
+        const adder = fileButton(rec ? "Update…" : "Add .zip…", `Add the ${e.name} .zip or .gb you downloaded`);
+        const item = rec
+          ? { ...rec, label: e.name, note: e.note, links: e.links, from: "yours", adder }
+          : { ...e, label: e.name, note: `${e.note} ${e.howTo}`, adder };
+        if (rec) item.load = async () => ({ name: rec.name, bytes: rec.bytes, entry: item });
+        builtList.append(row(item, rec ? {
+          src: "built",
+          onRemove: async () => { if (busy()) return; await removeMine(rec.key); log(`Removed ${rec.label} from this browser's library.`); refresh(); },
+        } : { src: "built" }));
+        continue;
+      }
+      if (!e.variants) {
+        const item = { ...e, label: e.name };
+        item.load = async () => ({ ...(await fetchBuiltIn(e)), entry: item });
+        builtList.append(row(item, { src: "built" }));
+        continue;
+      }
+      // One row, with a dropdown for which version to use (remembered).
+      const key = `flash-lib:variant:${e.id}`;
+      let pick = e.default;
+      try { pick = localStorage.getItem(key) || pick; } catch {}
+      let li = null;
+      const make = () => {
+        const v = e.variants.find((x) => x.id === pick) || e.variants[0];
+        const item = { ...v, name: e.name, label: e.name };
+        item.load = async () => ({ ...(await fetchBuiltIn({ ...v, name: `${e.name} ${v.label}` })), entry: item });
+        const sel = el("select", "lib-variant");
+        sel.setAttribute("aria-label", `${e.name} version`);
+        for (const x of e.variants) sel.append(new Option(x.label, x.id));
+        sel.value = v.id;
+        sel.onchange = () => {
+          pick = sel.value;
+          try { localStorage.setItem(key, pick); } catch {}
+          const n = make();
+          li.replaceWith(n);
+          li = n;
+          n.querySelector("select").focus();
+        };
+        return row(item, { src: "built", picker: sel });
+      };
+      li = make();
+      builtList.append(li);
     }
   }
 
@@ -329,6 +367,7 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
       addLabel.hidden = true;
       return;
     }
+    recs = recs.filter((r) => !familyKeys.has(r.key));
     mineNote.hidden = recs.length > 0;
     for (const r of recs) {
       const item = { ...r, load: async () => ({ name: r.name, bytes: r.bytes, entry: r }) };
@@ -338,15 +377,25 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
           if (busy()) return;
           await removeMine(r.key);
           log(`Removed ${r.label} from this browser's library.`);
-          renderMine();
+          refresh();
         },
       }));
     }
   }
 
-  input.onchange = async () => {
-    const files = [...input.files];
-    input.value = "";
+  let familyKeys = new Set();
+  const fileButton = (label, title) => {
+    const lab = el("label", "btn small ghost file-btn", label);
+    lab.title = title;
+    const inp = el("input");
+    inp.type = "file"; inp.multiple = true; inp.accept = accept; inp.hidden = true;
+    inp.onchange = () => { const files = [...inp.files]; inp.value = ""; addFiles(files); };
+    lab.append(inp);
+    return lab;
+  };
+  const refresh = async () => { await renderBuilt(); await renderMine(); };
+  input.onchange = () => { const files = [...input.files]; input.value = ""; addFiles(files); };
+  async function addFiles(files) {
     for (let f of files) {
       try {
         if (/\.zip$/i.test(f.name)) {
@@ -358,10 +407,9 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
         log(replaced ? `Updated ${rec.label} in your library (${replaced.name} → ${rec.name}).` : `Added ${rec.label} to your library.`, "ok");
       } catch (e) { log(e.message || String(e), "err"); }
     }
-    renderMine();
-  };
+    refresh();
+  }
 
-  renderBuilt();
-  renderMine();
-  return { refresh: () => { renderBuilt(); renderMine(); } };
+  refresh();
+  return { refresh };
 }

@@ -15,53 +15,73 @@
       "id": "mgb",
       "kind": "gb",
       "name": "mGB",
-      "file": "gb/mGB-v1.4.0-ts.gb",
-      "note": "tstirrat's maintained fork: current GBDK, wrong-pitch and memory-access fixes. Channels 1\u20135. GPL-2.0.",
-      "github": {
-        "repo": "tstirrat/mGB",
-        "dir": "",
-        "pattern": "^mGB-v.*\\.gb$"
-      }
+      "default": "ts",
+      "variants": [
+        {
+          "id": "ts",
+          "label": "1.4.0-ts (tstirrat) · ch 1–5",
+          "file": "gb/mGB-v1.4.0-ts.gb",
+          "github": {
+            "repo": "tstirrat/mGB",
+            "dir": "",
+            "pattern": "^mGB-v.*\\.gb$"
+          },
+          "note": "tstirrat's maintained fork: current GBDK, wrong-pitch and memory-access fixes. MIDI channels 1–5."
+        },
+        {
+          "id": "hydra",
+          "label": "Hydra (any channels)",
+          "github": {
+            "repo": "AP-AAiS/mGB_Hydra",
+            "dir": "Releases",
+            "pattern": "^mGB_Hydra_V\\d+.*\\.gb$"
+          },
+          "note": "Fork of tstirrat's mGB: pick the MIDI channel for each Game Boy voice on screen (or by CC).",
+          "file": "gb/mGB_Hydra_V2.gb"
+        },
+        {
+          "id": "ch6-10",
+          "label": "1.3.0 · ch 6–10",
+          "version": "1.3.0",
+          "file": "gb/mGB_1_3_0-ch6-10.gb",
+          "link": "https://github.com/defensem3ch/mGB/releases/tag/v1.3.4-unofficial",
+          "note": "nitro2k01's fixed-channel build of mGB 1.3.0: listens on MIDI channels 6–10 (from defensem3ch's v1.3.4-unofficial release)."
+        },
+        {
+          "id": "ch11-15",
+          "label": "1.3.0 · ch 11–15",
+          "version": "1.3.0",
+          "file": "gb/mGB_1_3_0-ch11-15.gb",
+          "link": "https://github.com/defensem3ch/mGB/releases/tag/v1.3.4-unofficial",
+          "note": "nitro2k01's fixed-channel build of mGB 1.3.0: listens on MIDI channels 11–15 (from defensem3ch's v1.3.4-unofficial release)."
+        },
+        {
+          "id": "orig",
+          "label": "1.3.3 (trash80 original) · ch 1–5",
+          "version": "1.3.3",
+          "file": "gb/mGB-1.3.3.gb",
+          "link": "https://github.com/trash80/mGB",
+          "note": "trash80's last release (2012). MIDI channels 1–5."
+        }
+      ]
     },
     {
-      "id": "mgb-hydra",
+      "id": "lsdj",
       "kind": "gb",
-      "name": "mGB Hydra",
-      "note": "Fork of tstirrat's mGB: pick the MIDI channel for each Game Boy voice on screen (or by CC), so it can sit on any channels. GPL-2.0.",
-      "github": {
-        "repo": "AP-AAiS/mGB_Hydra",
-        "dir": "Releases",
-        "pattern": "^mGB_Hydra_V\\d+.*\\.gb$"
-      }
-    },
-    {
-      "id": "mgb-original",
-      "kind": "gb",
-      "name": "mGB (original)",
-      "version": "1.3.3",
-      "file": "gb/mGB-1.3.3.gb",
-      "note": "trash80's last release (2012), as a fallback. GPL-2.0.",
-      "link": "https://github.com/trash80/mGB"
-    },
-    {
-      "id": "lsdj-stable",
-      "kind": "gb",
-      "name": "LSDj (stable)",
-      "note": "Little Sound Dj, newest stable build, downloaded from littlesounddj.com. Best alone on a page with no menu.",
-      "lsdj": {
-        "channel": "stable"
-      },
-      "link": "https://www.littlesounddj.com/lsd/latest/rom_images/stable/"
-    },
-    {
-      "id": "lsdj-develop",
-      "kind": "gb",
-      "name": "LSDj (develop)",
-      "note": "Newest development (beta) build from littlesounddj.com.",
-      "lsdj": {
-        "channel": "develop"
-      },
-      "link": "https://www.littlesounddj.com/lsd/latest/rom_images/develop/"
+      "name": "LSDj",
+      "mine": "lsdj",
+      "note": "Little Sound Dj. Best alone on a page with no menu.",
+      "howTo": "littlesounddj.com doesn't let other websites download LSDj, so get the .zip there and add it here once; this browser keeps it. Add a newer one the same way to update.",
+      "links": [
+        {
+          "label": "Stable",
+          "url": "https://www.littlesounddj.com/lsd/latest/rom_images/stable/"
+        },
+        {
+          "label": "Develop (beta)",
+          "url": "https://www.littlesounddj.com/lsd/latest/rom_images/develop/"
+        }
+      ]
     },
     {
       "id": "fat-chip-64",
@@ -75,5 +95,6 @@
         "path": "bin/fatchip64.prg"
       }
     }
-  ]
+  ],
+  "note": "mGB builds are GPL-2.0 (see LICENSE-mGB.md); sources: github.com/trash80/mGB, tstirrat/mGB, AP-AAiS/mGB_Hydra, defensem3ch/mGB."
 }

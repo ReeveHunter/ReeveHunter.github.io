@@ -40,3 +40,5 @@
 .lib-section > h3 { margin: 0 0 4px; font-size: 15px; }
 .lib-section > .hint { margin: 0 0 10px; }
 .file-btn { display: inline-flex; align-items: center; }
+.lib-top select.lib-variant { width: auto; max-width: 100%; padding: 4px 28px 4px 8px; font-size: 13px; min-height: 0; }
+.lib-links { display: block; margin-top: 2px; }
