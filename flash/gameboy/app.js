@@ -1,7 +1,8 @@
 import * as E from "./ems.js";
+import { mountLibrary } from "../library/library.js";
 
 // Bump on every change so the page shows which build the browser is running.
-const BUILD = "v1.9 · 2026-10-22";
+const BUILD = "v2.0 · 2026-10-22";
 document.getElementById("buildTag").textContent = `Build ${BUILD}`;
 console.info("Game Boy Flash build", BUILD);
 
@@ -525,17 +526,29 @@ const needsOwnPage = (h) => /^LSDJ/i.test(h.title) || h.ramKB >= 128;
 const ownPageNote = (names) =>
   `${names} works best alone on a page with no menu. Menus have a poor track record with LSDJ, and launching from a menu limits save RAM based on the game's header, which risks the save. Keep it on its own page (like your page 1).`;
 
-// Titles must be unique on a page (the menu lists games by title). When new
-// files clash with each other or with games already on the page, ask for a
-// different title for each clashing file and patch only the copy we write.
-async function resolveTitles(listing, files) {
+// Titles must be unique on a page (the menu lists games by title). When a new
+// file has the same title as a game already on the page, offer to replace that
+// game (e.g. a newer build of the same program) or keep both under a new
+// title. Clashes between the new files themselves can only be renamed.
+// `held` are games read off the cart that will be written back (rebuild), and
+// count as "on the page". Returns { files, replace: [offsets], drop: [held] }
+// or null if the person backed out.
+async function resolveTitles(listing, files, { held = [] } = {}) {
+  const onPage = new Map();
+  for (const r of listing.roms) if (r !== listing.menu) onPage.set(r.header.title, { rom: r });
+  for (const h of held) onPage.set(h.header.title, { held: h });
   const taken = new Set(listing.roms.map((r) => r.header.title));
+  for (const h of held) taken.add(h.header.title);
   const clashes = [];
+  const seen = new Set();
   for (const f of files) {
-    if (taken.has(f.header.title)) clashes.push(f);
-    else taken.add(f.header.title);
+    if (held.includes(f)) continue;
+    const t = f.header.title;
+    if (onPage.has(t) && !seen.has(t)) clashes.push({ f, target: onPage.get(t) });
+    else if (taken.has(t) || seen.has(t)) clashes.push({ f, target: null });
+    seen.add(t);
   }
-  if (!clashes.length) return files;
+  if (!clashes.length) return { files, replace: [], drop: [] };
 
   const suggest = (f, used) => {
     const max = f.header.enhancements & E.ENH_GBC ? 15 : 16;
@@ -545,37 +558,71 @@ async function resolveTitles(listing, files) {
     for (let i = 2; used.has(t); i++) { const suffix = ` ${i}`; t = base.slice(0, max - suffix.length) + suffix; }
     return t;
   };
-  const used = new Set(taken);
-  const inputs = clashes.map((f) => {
+  const used = new Set([...taken, ...files.map((f) => f.header.title)]);
+  let group = 0;
+  const rows = clashes.map(({ f, target }) => {
     const max = f.header.enhancements & E.ENH_GBC ? 15 : 16;
-    const label = document.createElement("label");
-    label.className = "field rename-field";
-    const span = document.createElement("span");
-    span.textContent = `${f.name} — currently “${f.header.title || "(untitled)"}” (up to ${max} characters)`;
+    const wrap = document.createElement("div");
+    wrap.className = "clash-row";
+    const head = document.createElement("p");
+    head.className = "clash-head";
+    head.textContent = `${f.name} — “${f.header.title || "(untitled)"}”`;
+    wrap.append(head);
+    const name = `clash${group++}`;
+    let replaceRadio = null;
+    if (target) {
+      const oldSize = target.rom ? target.rom.header.romsize : target.held.header.romsize;
+      const lab = document.createElement("label");
+      lab.className = "check";
+      replaceRadio = document.createElement("input");
+      replaceRadio.type = "radio"; replaceRadio.name = name; replaceRadio.checked = true;
+      lab.append(replaceRadio, ` Replace the ${f.header.title || "(untitled)"} on the cart (${kb(oldSize)}) with this one`);
+      wrap.append(lab);
+    }
+    const lab2 = document.createElement("label");
+    lab2.className = "check";
+    const keepRadio = document.createElement("input");
+    keepRadio.type = "radio"; keepRadio.name = name; keepRadio.checked = !target;
+    lab2.append(keepRadio, target ? " Keep both, with a new title for this one:" : " Use a new title for this one:");
+    if (!target) keepRadio.hidden = true;
     const input = document.createElement("input");
+    input.className = "clash-title";
     input.maxLength = max;
     input.spellcheck = false;
     input.autocomplete = "off";
     input.value = suggest(f, used);
+    input.setAttribute("aria-label", `New title for ${f.name} (up to ${max} characters)`);
     used.add(input.value);
-    label.append(span, input);
-    return { f, input, label };
+    // dimmed (not disabled, so clicking it picks "keep both") while replacing
+    input.classList.toggle("dim", !!target);
+    if (replaceRadio) replaceRadio.onchange = () => input.classList.add("dim");
+    keepRadio.onchange = () => { input.classList.remove("dim"); input.focus(); input.select(); };
+    input.onfocus = () => { if (!keepRadio.checked) { keepRadio.checked = true; input.classList.remove("dim"); } };
+    wrap.append(lab2, input);
+    return { f, target, replaceRadio, input, wrap };
   });
+  const anyReplace = rows.some((r) => r.target);
   for (;;) {
     const box = document.createElement("div");
-    box.append(...inputs.map((x) => x.label));
-    const ok = await confirmBox("Same title as another game", [
-      `The menu lists games by title, so each one on a page needs its own. Pick a title for ${clashes.length > 1 ? "these copies" : "this copy"}. Only what's written to the cart changes; your file${clashes.length > 1 ? "s stay" : " stays"} as ${clashes.length > 1 ? "they are" : "it is"}.`,
+    box.append(...rows.map((x) => x.wrap));
+    const ok = await confirmBox(anyReplace ? "Already on this page" : "Same title as another game", [
+      anyReplace
+        ? "The menu lists games by title, so a page can't hold two with the same one. Replace the copy on the cart (e.g. with a newer build), or keep both by giving this one a new title. Renaming only changes what's written to the cart, not your file."
+        : `The menu lists games by title, so each one on a page needs its own. Pick a title for ${rows.length > 1 ? "these copies" : "this copy"}. Only what's written to the cart changes; your file${rows.length > 1 ? "s stay" : " stays"} as ${rows.length > 1 ? "they are" : "it is"}.`,
       box,
-    ], "Use these titles");
+    ], "Continue");
     if (!ok) return null;
-    const final = new Set(taken);
-    for (const x of inputs) final.delete(x.f.header.title);
-    for (const f of files) if (!clashes.includes(f)) final.add(f.header.title);
+    const replacing = rows.filter((x) => x.target && x.replaceRadio.checked);
+    const renaming = rows.filter((x) => !replacing.includes(x));
+    // titles that stay on the page after this write
+    const final = new Set();
     for (const r of listing.roms) final.add(r.header.title);
+    for (const h of held) final.add(h.header.title);
+    for (const x of replacing) final.add(x.f.header.title);
+    for (const f of files) if (!held.includes(f) && !rows.some((x) => x.f === f)) final.add(f.header.title);
     let problem = null;
     const chosen = new Set();
-    for (const x of inputs) {
+    for (const x of renaming) {
       const t = x.input.value.replace(/\s+$/, "");
       if (!t) problem = "Titles can't be empty.";
       else if (!/^[\x20-\x7e]+$/.test(t)) problem = "Use plain letters, numbers and punctuation.";
@@ -583,13 +630,16 @@ async function resolveTitles(listing, files) {
       chosen.add(t);
     }
     if (problem) { log(problem, "err"); continue; }
-    return files.map((f) => {
-      const x = inputs.find((y) => y.f === f);
+    const out = files.map((f) => {
+      const x = renaming.find((y) => y.f === f);
       if (!x) return f;
       const bytes = Uint8Array.from(f.bytes);
       E.setHeaderTitle(bytes, x.input.value.replace(/\s+$/, ""));
       return { ...f, bytes, header: E.decodeHeader(bytes), renamedFrom: f.header.title };
     });
+    const replace = replacing.filter((x) => x.target.rom).map((x) => x.target.rom.offset);
+    const drop = replacing.filter((x) => x.target.held).map((x) => x.target.held);
+    return { files: out.filter((f) => !drop.includes(f)), replace, drop };
   }
 }
 
@@ -651,20 +701,33 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
     if (!ok) return false;
   }
 
-  files = await resolveTitles(listing, files);
-  if (!files) return false;
-  const plan = await makePlan(listing, files);
+  const titled = await resolveTitles(listing, files);
+  if (!titled) return false;
+  files = titled.files;
+  // Replacing: plan as if the old copies were already gone; they're deleted
+  // just before the write.
+  const replaced = listing.roms.filter((r) => titled.replace.includes(r.offset));
+  const planListing = replaced.length ? E.describePage(listing.roms.filter((r) => !replaced.includes(r))) : listing;
+  const plan = await makePlan(planListing, files);
   if (!plan) return false;
   const t = E.summarizeUpdates(plan.updates);
   const notes = [];
+  if (replaced.length) notes.push(`Replaces ${replaced.map((r) => `${r.header.title} (${kb(r.header.romsize)})`).join(", ")}: the old copy is deleted first, then the new one is written.`);
   if (plan.menuAdded) notes.push(`The page is empty, so the boot menu is added first (page mode: ${E.enhName(plan.menuAdded.header.enhancements)}).`);
   if (t.moves) notes.push(`${t.moves} game${t.moves > 1 ? "s" : ""} already on the page will be moved to make room.`);
   const preserved = plan.updates.filter((u) => u.cmd === "read").length;
   if (preserved) notes.push(`${preserved} small game${preserved > 1 ? "s" : ""} sharing a 128 KB erase block will be held in memory and rewritten.`);
   notes.push(`About ${kb(t.bytes)} to transfer${state.demo ? "" : ` (≈ ${fmtDuration((t.bytes / state.rate) * 1000)})`}. ${kb(plan.free)} will be left free.`);
   if (extraNote) notes.push(extraNote);
-  const go = await confirmBox(title || `Add ${files.length} ROM${files.length > 1 ? "s" : ""} to page ${page + 1}?`, [bullets(files.map(fileLine)), ...notes], `Write to page ${page + 1}`);
+  const verb = replaced.length === files.length ? "Replace" : "Add";
+  const go = await confirmBox(title || `${verb} ${files.length === 1 ? files[0].header.title || "1 ROM" : `${files.length} ROMs`} ${verb === "Replace" ? "on" : "to"} page ${page + 1}?`, [bullets(files.map(fileLine)), ...notes], `Write to page ${page + 1}`);
   if (!go) return false;
+  if (replaced.length) {
+    $("progStage").textContent = `Deleting the old ${replaced.map((r) => r.header.title).join(", ")}`;
+    await E.deleteRoms(state.cart, page, replaced.map((r) => r.offset));
+    setPage(page, planListing);
+    log(`Deleted the old ${replaced.map((r) => r.header.title).join(", ")} from page ${page + 1}.`);
+  }
   await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
   setPage(page, E.describePage(plan.result));
   return files; // the files as written (titles may have been changed)
@@ -691,8 +754,10 @@ async function rebuildWithMenu(page, games, files, signal) {
     const header = E.inspectRomFile(r.header.title, bytes);
     held.push({ name: romFilename(header), bytes, header });
   }
-  const all = await resolveTitles(E.describePage([]), [...held, ...files]);
-  if (!all) return false;
+  const titled = await resolveTitles(E.describePage([]), [...held, ...files], { held });
+  if (!titled) return false;
+  const all = titled.files;
+  const keptHeld = held.filter((h) => !titled.drop.includes(h));
   const plan = await makePlan(E.describePage([]), all);
   if (!plan) return false;
   const t = E.summarizeUpdates(plan.updates);
@@ -712,7 +777,7 @@ async function rebuildWithMenu(page, games, files, signal) {
     throw err;
   }
   setPage(page, E.describePage(plan.result));
-  return all.slice(held.length);
+  return all.slice(keptHeld.length);
 }
 
 async function filesFromList(fileList) {
@@ -734,7 +799,7 @@ async function addRoms(page, fileList) {
     const done = await writeFiles(page, files, signal);
     if (!done) return null;
     const written = Array.isArray(done) ? done : files;
-    return `Added ${written.map((f) => f.header.title).join(", ")} to page ${page + 1}`;
+    return `Wrote ${written.map((f) => f.header.title).join(", ")} to page ${page + 1}`;
   });
 }
 
@@ -1011,9 +1076,25 @@ function updateUi() {
   $("sramRestoreLabel").classList.toggle("disabled", busy || !have);
 }
 
+function initLibrary() {
+  const use = (page) => (item) => {
+    if (!state.cart) { log("Connect the cart first.", "err"); return; }
+    addRoms(page, [new File([item.bytes], item.name)]);
+  };
+  mountLibrary($("library"), {
+    kind: "gb",
+    accept: ".gb,.gbc,.GB,.GBC",
+    actions: [{ label: "Add to page 1", run: use(0) }, { label: "Add to page 2", run: use(1) }],
+    mineHint: "LSDj can't be hosted here (its licence doesn't allow sharing the ROM). Download it from littlesounddj.com and add it here once; this browser keeps it. Adding a newer LSDj later replaces the old one.",
+    log,
+    busy: () => state.busy,
+  });
+}
+
 async function init() {
   renderPages();
   updateUi();
+  initLibrary();
   if (!navigator.usb) {
     $("unsupported").hidden = false;
     $("connectBtn").disabled = true;

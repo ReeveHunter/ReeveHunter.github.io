@@ -1,7 +1,8 @@
 import * as K from "./protocol.js";
+import { mountLibrary } from "../library/library.js";
 
 // Bump on every change so the page shows which build the browser is running.
-const BUILD = "v1.4 · 2026-10-21";
+const BUILD = "v1.5 · 2026-10-22";
 document.getElementById("buildTag").textContent = `Build ${BUILD}`;
 console.info("Kerberos Flash build", BUILD);
 
@@ -788,12 +789,31 @@ $("runBtn").onclick = () => {
   });
 };
 
+// Names match ignoring case and a trailing .prg ("FATCHIP64" = "fatchip64.prg").
+const progKey = (n) => (n || "").trim().toLowerCase().replace(/\.prg$/, "");
+const sameProgram = (a, b) => progKey(a) !== "" && progKey(a) === progKey(b);
+
 $("flashPrgBtn").onclick = async () => {
   if (!needOut() || !hexOk() || state.file?.kind !== "prg") return;
   const { name, bytes } = state.file;
-  const slot = state.slot;
+  let slot = state.slot;
+  // Same program already in another slot (e.g. an older build): offer to
+  // replace that one instead of filling the selected slot.
+  const dup = Object.entries(state.slots)
+    .map(([s, info]) => [Number(s), info])
+    .find(([s, info]) => s !== slot && info?.kind === "prg" && sameProgram(info.name, name));
+  let replacing = false;
+  if (dup) {
+    const [ds, info] = dup;
+    const target = state.slots[slot];
+    const choice = await choiceBox(`${info.name} is already in slot ${ds}`,
+      `Replace it in slot ${ds} with this ${name}, or flash it to slot ${slot} as well${target?.kind === "prg" ? ` (overwriting “${target.name}”)` : ""}?`,
+      [{ value: "here", label: `Flash to slot ${slot} too`, kind: "ghost" }, { value: "replace", label: `Replace slot ${ds}` }]);
+    if (!choice) return;
+    if (choice === "replace") { slot = ds; replacing = true; }
+  }
   const existing = state.slots[slot];
-  if (existing?.kind === "prg" && !(await confirmBox(`Replace slot ${slot}?`, `Slot ${slot} currently holds “${existing.name}”. It will be overwritten with ${name}.`, "Replace", true))) return;
+  if (!replacing && existing?.kind === "prg" && !(await confirmBox(`Replace slot ${slot}?`, `Slot ${slot} currently holds “${existing.name}”. It will be overwritten with ${name}.`, "Replace", true))) return;
   if (isEfSlot(slot) && state.ef?.present !== false) {
     const body = state.ef?.present
       ? `Slots 10–25 hold the installed EasyFlash CRT${state.ef.name ? ` (${state.ef.name})` : ""}. Flashing here will damage it.`
@@ -976,7 +996,37 @@ function updateUi() {
   $("fileInput").disabled = busy;
 }
 
+// Library: built-in programs (Fat Chip 64) plus the person's own files.
+async function useLibraryItem(item, flash) {
+  if (state.busy) return;
+  await loadFile(new File([item.bytes], item.name));
+  if (state.file?.kind !== "prg" && state.file?.kind !== "crt") return;
+  const emu = item.entry?.emu;
+  if (emu != null && Number($("emuSelect").value) !== emu) {
+    $("emuSelect").value = String(emu);
+    saveSettings();
+    log(`MIDI emulation set to ${K.MIDI_EMULATIONS[emu].label} for ${item.entry.label || item.name}.`);
+  }
+  if (!flash) { $("fileCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
+  (state.file.kind === "crt" ? $("flashCrtBtn") : $("flashPrgBtn")).click();
+}
+
+function initLibrary() {
+  mountLibrary($("library"), {
+    kind: "prg",
+    accept: ".prg,.crt,.PRG,.CRT",
+    actions: [
+      { label: "Load", run: (item) => useLibraryItem(item, false) },
+      { label: "Flash", primary: true, run: (item) => useLibraryItem(item, true) },
+    ],
+    mineHint: "Cynthcart and other programs whose licences don't allow sharing go here. Add your .prg files once (e.g. cynthcart2.0.1_kerberos.prg, cynthcart2.0.1F_kerberos.prg and your custom cynthcart_kerberos.prg from cynthcart-kerberos/bin); this browser keeps them. Adding a newer build of the same file replaces the old one.",
+    log,
+    busy: () => state.busy,
+  });
+}
+
 function init() {
+  initLibrary();
   for (const [i, e] of K.MIDI_EMULATIONS.entries()) $("emuSelect").append(new Option(e.label, i));
   $("emuSelect").value = store.get("emu", "0");
   $("cartDisks").checked = store.get("cartDisks", false);

@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../library/library.css">
 </head>
 <body>
 
@@ -42,6 +43,12 @@
     <p class="hint">Cart not in Chrome's list? <button id="anyDeviceBtn" type="button" class="linkish">Show every USB device</button> to see what Chrome can find.
       No cart handy? <button id="demoBtn" type="button" class="linkish">Try it with a simulated cart</button> — nothing is sent anywhere.</p>
   </section>
+
+  <!-- Library -->
+  <details class="card lib-card" id="libraryCard" open>
+    <summary class="card-head lib-summary"><h2>Library</h2><span class="hint">Ready-made ROMs, one click to add. If the page already has one with the same title, you can replace it.</span></summary>
+    <div id="library"></div>
+  </details>
 
   <!-- Pages -->
   <div class="pages" id="pages">

@@ -450,3 +450,11 @@ dialog { max-width: min(520px, calc(100vw - 32px)); }
 .page.rereading [data-meta]::after { content: " · re-reading…"; color: var(--muted); }
 
 .build { margin: 6px 0 0; font: 12px/1.3 var(--mono); color: var(--muted); }
+
+/* Title-clash dialog: replace or keep both */
+.clash-row { padding: 10px 0 12px; border-top: 1px solid var(--border); }
+.clash-row:first-child { border-top: 0; padding-top: 2px; }
+.clash-head { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.clash-row .check { margin-top: 8px; }
+.clash-title { margin: 6px 0 0 26px; width: calc(100% - 26px); max-width: 260px; font-family: var(--mono); }
+.clash-title.dim { opacity: 0.5; }
