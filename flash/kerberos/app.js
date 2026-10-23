@@ -2,7 +2,7 @@ import * as K from "./protocol.js";
 import { mountLibrary } from "../library/library.js";
 
 // Bump on every change so the page shows which build the browser is running.
-const BUILD = "v1.5 · 2026-10-22";
+const BUILD = "v1.6 · 2026-10-22";
 document.getElementById("buildTag").textContent = `Build ${BUILD}`;
 console.info("Kerberos Flash build", BUILD);
 
@@ -1014,7 +1014,7 @@ async function useLibraryItem(item, flash) {
 function initLibrary() {
   mountLibrary($("library"), {
     kind: "prg",
-    accept: ".prg,.crt,.PRG,.CRT",
+    accept: ".prg,.crt,.zip,.PRG,.CRT,.ZIP",
     actions: [
       { label: "Load", run: (item) => useLibraryItem(item, false) },
       { label: "Flash", primary: true, run: (item) => useLibraryItem(item, true) },

@@ -99,42 +99,147 @@ export async function loadBuiltIns(kind) {
   const builds = await get("builds.json").catch(() => ({}));
   const entries = manifest.entries
     .filter((e) => !kind || e.kind === kind)
-    .map((e) => ({ ...e, ...(builds[e.id] || {}), url: new URL(e.file, BASE).href, from: "site" }));
-  // Entries with a GitHub repo use the newest build pushed there; the copy on
-  // this site is only the fallback (repo private or unreachable, rate limit).
-  await Promise.all(entries.filter((e) => e.github).map(async (e) => {
-    try { Object.assign(e, await latestFromGitHub(e.github)); }
-    catch (err) { e.fallbackWhy = err.message; }
+    .map((e) => ({
+      ...e, ...(builds[e.id] || {}),
+      url: e.file ? new URL(e.file, BASE).href : null,
+      fileName: e.file ? e.file.split("/").pop() : null,
+      from: e.file ? "site" : null,
+    }));
+  // Entries with a GitHub repo (or the LSDj site) use the newest build there;
+  // the copy on this site, if any, is only the fallback.
+  await Promise.all(entries.map(async (e) => {
+    try {
+      if (e.github) Object.assign(e, await latestFromGitHub(e.github));
+      else if (e.lsdj) Object.assign(e, await latestLsdj(e.lsdj));
+    } catch (err) { e.fallbackWhy = err.message; }
   }));
   return entries;
 }
 
-// Newest commit that changed the build file: its version (from the commit
-// message, e.g. "v0.07: ..."), date, and a raw URL pinned to that commit so
-// no cache can serve an older build.
-async function latestFromGitHub({ repo, path }) {
-  const api = `https://api.github.com/repos/${repo}/commits?path=${encodeURIComponent(path)}&per_page=10`;
-  const r = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
-  if (!r.ok) throw new Error(r.status === 404 ? `${repo} isn't public on GitHub` : `GitHub said ${r.status}`);
-  const commits = await r.json();
-  if (!commits.length) throw new Error(`${path} isn't in ${repo} yet`);
-  const newest = commits[0];
-  const withVer = commits.find((c) => /v\d+(\.\d+)+/.test(c.commit.message));
-  const ver = withVer ? withVer.commit.message.match(/v\d+(\.\d+)+/)[0] : null;
+// GitHub API with conditional requests: an unchanged answer (304) doesn't
+// count against GitHub's 60-lookups-an-hour limit for pages without a login.
+async function gh(path) {
+  const url = `https://api.github.com${path}`;
+  const key = `flash-lib:gh:${url}`;
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+  const headers = { Accept: "application/vnd.github+json" };
+  if (cached?.etag) headers["If-None-Match"] = cached.etag;
+  let r;
+  try { r = await fetch(url, { headers, cache: "no-store" }); }
+  catch (e) { if (cached) return cached.body; throw new Error("GitHub couldn't be reached"); }
+  if (r.status === 304 && cached) return cached.body;
+  if (!r.ok) {
+    if (cached && r.status === 403) return cached.body; // rate-limited: last answer
+    throw new Error(r.status === 404 ? `${path.split("/").slice(2, 4).join("/")} isn't public on GitHub` : r.status === 403 ? "GitHub's hourly lookup limit was reached" : `GitHub said ${r.status}`);
+  }
+  const body = await r.json();
+  try { localStorage.setItem(key, JSON.stringify({ etag: r.headers.get("ETag"), body })); } catch {}
+  return body;
+}
+
+const verOf = (text) => text.match(/v?\d+(?:[._]\d+)+[a-z0-9-]*/i)?.[0] || null;
+const cmpVer = (a, b) => {
+  const pa = a.match(/\d+/g).map(Number), pb = b.match(/\d+/g).map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
+  return 0;
+};
+
+// Either { repo, path }: the newest commit that changed that file (version
+// from the commit message, e.g. "v0.07: ..."), or { repo, dir, pattern }: the
+// highest-versioned file matching `pattern` in `dir` (version from its name).
+// Raw URLs are pinned to the commit so no cache can serve an older build.
+async function latestFromGitHub({ repo, path, dir = "", pattern }) {
+  if (path) {
+    const commits = await gh(`/repos/${repo}/commits?path=${encodeURIComponent(path)}&per_page=10`);
+    if (!commits.length) throw new Error(`${path} isn't in ${repo} yet`);
+    const newest = commits[0];
+    const withVer = commits.find((c) => /v\d+(\.\d+)+/.test(c.commit.message));
+    return {
+      version: withVer ? withVer.commit.message.match(/v\d+(\.\d+)+/)[0] : null,
+      date: (newest.commit.committer?.date || newest.commit.author?.date || "").slice(0, 10),
+      url: `https://raw.githubusercontent.com/${repo}/${newest.sha}/${path}`,
+      fileName: path.split("/").pop(),
+      from: "github",
+      link: `https://github.com/${repo}`,
+    };
+  }
+  const head = await gh(`/repos/${repo}/commits?per_page=1`);
+  const sha = head[0].sha;
+  const list = await gh(`/repos/${repo}/contents${dir ? `/${dir}` : ""}?ref=${sha}`);
+  const re = new RegExp(pattern, "i");
+  const files = list.filter((f) => f.type === "file" && re.test(f.name) && /\d/.test(f.name));
+  if (!files.length) throw new Error(`no build found in ${repo}`);
+  files.sort((a, b) => cmpVer(b.name, a.name));
+  const f = files[0];
   return {
-    version: ver,
-    date: (newest.commit.committer?.date || newest.commit.author?.date || "").slice(0, 10),
-    commit: newest.sha.slice(0, 7),
-    url: `https://raw.githubusercontent.com/${repo}/${newest.sha}/${path}`,
+    version: verOf(f.name.replace(/\.[^.]+$/, ""))?.replace(/_/g, ".") || f.name.match(/v(\d+)/i)?.[1] || null,
+    date: (head[0].commit.committer?.date || "").slice(0, 10),
+    url: `https://raw.githubusercontent.com/${repo}/${sha}/${f.path}`,
+    fileName: f.name,
     from: "github",
     link: `https://github.com/${repo}`,
   };
 }
 
+// LSDj from littlesounddj.com's public download folders: the newest
+// lsdjX_Y_Z(-stable).zip, unzipped in the browser. Nothing is hosted here.
+const LSDJ_ROOT = "https://www.littlesounddj.com/lsd/latest/rom_images/";
+async function latestLsdj({ channel }) {
+  const folder = `${LSDJ_ROOT}${channel}/`;
+  let html;
+  try {
+    const r = await fetch(folder, { cache: "no-cache" });
+    if (!r.ok) throw new Error(`littlesounddj.com said ${r.status}`);
+    html = await r.text();
+  } catch (e) {
+    throw new Error(/said/.test(e.message) ? e.message : "littlesounddj.com doesn't let other sites download from it");
+  }
+  const names = [...html.matchAll(/href="(lsdj\d+_\d+_[0-9a-z]+(?:-stable)?\.zip)"/gi)].map((m) => m[1]);
+  if (!names.length) throw new Error("no LSDj builds found on littlesounddj.com");
+  names.sort((a, b) => cmpVer(b, a));
+  const name = names[0];
+  const v = name.match(/lsdj(\d+)_(\d+)_([0-9a-z]+)/i);
+  return { version: `${v[1]}.${v[2]}.${v[3]}`, url: folder + name, zip: true, fileName: name.replace(/\.zip$/i, ".gb"), from: "lsdj", link: folder };
+}
+
 export async function fetchBuiltIn(entry) {
+  if (!entry.url) throw new Error(`${entry.name} isn't available right now${entry.fallbackWhy ? ` (${entry.fallbackWhy})` : ""}.`);
   const r = await fetch(entry.url, { cache: "no-cache" });
   if (!r.ok) throw new Error(`Couldn't download ${entry.name} (${r.status}).`);
-  return new Uint8Array(await r.arrayBuffer());
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  if (!entry.zip) return { bytes, name: entry.fileName };
+  return unzipRom(bytes, entry.kind);
+}
+
+// Pull the program out of a .zip (stored or deflated entries).
+export async function unzipRom(zip, kind) {
+  const dv = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  let eocd = -1;
+  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error("That .zip couldn't be read.");
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const want = kind === "prg" ? /\.(prg|crt)$/i : /\.(gb|gbc)$/i;
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), usize = dv.getUint32(p + 24, true);
+    const nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const local = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(zip.subarray(p + 46, p + 46 + nlen));
+    p += 46 + nlen + elen + clen;
+    const base = name.split("/").pop();
+    if (!want.test(base) || base.startsWith("._")) continue;
+    const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+    const data = zip.subarray(start, start + csize);
+    let bytes;
+    if (method === 0) bytes = data.slice();
+    else if (method === 8) bytes = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+    else throw new Error(`${base}: unsupported zip compression.`);
+    if (bytes.length !== usize) throw new Error(`${base}: the zip looks damaged.`);
+    return { bytes, name: base };
+  }
+  throw new Error(`No ${kind === "prg" ? ".prg" : ".gb"} file in that .zip.`);
 }
 
 // --------------------------------------------------------------------- UI
@@ -173,18 +278,19 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
     if (item.version) top.append(el("span", "lib-ver", vtext(item.version)));
     if (item.date) top.append(el("span", "lib-date", item.date));
     if (item.dated && item.fileDate) top.append(el("span", "lib-date", `built ${fmtDate(item.fileDate)}`));
-    top.append(el("span", `lib-src ${src}`, src === "mine" ? "my file" : item.from === "github" ? "from GitHub" : "built in"));
+    top.append(el("span", `lib-src ${src}`, src === "mine" ? "my file" : { github: "from GitHub", lsdj: "from littlesounddj.com", site: "built in" }[item.from] || "unavailable"));
     main.append(top);
     const sub = el("p", "lib-note");
     if (item.note) sub.append(item.note + " ");
-    if (item.fallbackWhy) sub.append(el("span", "lib-file", `Using the copy on this site (${item.fallbackWhy}).`));
-    if (item.link) { const a = el("a", null, "Source"); a.href = item.link; a.target = "_blank"; a.rel = "noopener"; sub.append(a); }
+    if (item.fallbackWhy) sub.append(el("span", "lib-file", item.url ? `Using the copy on this site (${item.fallbackWhy}).` : `Can't fetch it here: ${item.fallbackWhy}. Download it from the link and add the .zip under My files.`));
+    if (item.link) { const a = el("a", null, item.from === "lsdj" || item.lsdj ? "Download page" : "Source"); a.href = item.link; a.target = "_blank"; a.rel = "noopener"; sub.append(a); }
     if (src === "mine") sub.append(el("span", "lib-file", `${item.name} · ${(item.bytes.length / 1024).toFixed(item.bytes.length < 10240 ? 1 : 0)} KB · added ${fmtDate(item.added)}`));
     if (sub.childNodes.length) main.append(sub);
     const acts = el("div", "lib-acts");
     for (const a of actions) {
       const b = el("button", `btn small${a.primary ? " primary" : ""}`, a.label);
       b.type = "button";
+      if (src !== "mine" && !item.url) b.disabled = true;
       b.onclick = async () => {
         if (busy()) return;
         try { await a.run(await item.load()); }
@@ -209,7 +315,7 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
     catch (e) { builtList.append(el("li", "lib-empty", "The built-in library couldn't be loaded.")); log(`Library: ${e.message}`, "err"); return; }
     for (const e of entries) {
       const item = { ...e, label: e.name };
-      item.load = async () => ({ name: e.file.split("/").pop(), bytes: await fetchBuiltIn(e), entry: item });
+      item.load = async () => ({ ...(await fetchBuiltIn(e)), entry: item });
       builtList.append(row(item, { src: "built" }));
     }
   }
@@ -241,8 +347,12 @@ export function mountLibrary(root, { kind, actions, accept, mineHint, log = cons
   input.onchange = async () => {
     const files = [...input.files];
     input.value = "";
-    for (const f of files) {
+    for (let f of files) {
       try {
+        if (/\.zip$/i.test(f.name)) {
+          const { bytes, name } = await unzipRom(new Uint8Array(await f.arrayBuffer()), kind);
+          f = new File([bytes], name, { lastModified: f.lastModified });
+        }
         if (kindOf(f.name) !== kind) { log(`${f.name}: not a ${kind === "gb" ? "Game Boy ROM" : "C64 program"}.`, "err"); continue; }
         const { rec, replaced } = await addMine(f);
         log(replaced ? `Updated ${rec.label} in your library (${replaced.name} → ${rec.name}).` : `Added ${rec.label} to your library.`, "ok");

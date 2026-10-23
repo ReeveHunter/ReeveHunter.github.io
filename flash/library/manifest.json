@@ -15,10 +15,24 @@
       "id": "mgb",
       "kind": "gb",
       "name": "mGB",
-      "version": "1.4.0-ts",
       "file": "gb/mGB-v1.4.0-ts.gb",
-      "note": "tstirrat's maintained fork: current GBDK, wrong-pitch and memory-access fixes. GPL-2.0.",
-      "link": "https://github.com/tstirrat/mGB"
+      "note": "tstirrat's maintained fork: current GBDK, wrong-pitch and memory-access fixes. Channels 1\u20135. GPL-2.0.",
+      "github": {
+        "repo": "tstirrat/mGB",
+        "dir": "",
+        "pattern": "^mGB-v.*\\.gb$"
+      }
+    },
+    {
+      "id": "mgb-hydra",
+      "kind": "gb",
+      "name": "mGB Hydra",
+      "note": "Fork of tstirrat's mGB: pick the MIDI channel for each Game Boy voice on screen (or by CC), so it can sit on any channels. GPL-2.0.",
+      "github": {
+        "repo": "AP-AAiS/mGB_Hydra",
+        "dir": "Releases",
+        "pattern": "^mGB_Hydra_V\\d+.*\\.gb$"
+      }
     },
     {
       "id": "mgb-original",
@@ -28,6 +42,26 @@
       "file": "gb/mGB-1.3.3.gb",
       "note": "trash80's last release (2012), as a fallback. GPL-2.0.",
       "link": "https://github.com/trash80/mGB"
+    },
+    {
+      "id": "lsdj-stable",
+      "kind": "gb",
+      "name": "LSDj (stable)",
+      "note": "Little Sound Dj, newest stable build, downloaded from littlesounddj.com. Best alone on a page with no menu.",
+      "lsdj": {
+        "channel": "stable"
+      },
+      "link": "https://www.littlesounddj.com/lsd/latest/rom_images/stable/"
+    },
+    {
+      "id": "lsdj-develop",
+      "kind": "gb",
+      "name": "LSDj (develop)",
+      "note": "Newest development (beta) build from littlesounddj.com.",
+      "lsdj": {
+        "channel": "develop"
+      },
+      "link": "https://www.littlesounddj.com/lsd/latest/rom_images/develop/"
     },
     {
       "id": "fat-chip-64",

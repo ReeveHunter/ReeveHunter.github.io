@@ -2,7 +2,7 @@ import * as E from "./ems.js";
 import { mountLibrary } from "../library/library.js";
 
 // Bump on every change so the page shows which build the browser is running.
-const BUILD = "v2.0 · 2026-10-22";
+const BUILD = "v2.1 · 2026-10-22";
 document.getElementById("buildTag").textContent = `Build ${BUILD}`;
 console.info("Game Boy Flash build", BUILD);
 
@@ -1083,9 +1083,9 @@ function initLibrary() {
   };
   mountLibrary($("library"), {
     kind: "gb",
-    accept: ".gb,.gbc,.GB,.GBC",
+    accept: ".gb,.gbc,.zip,.GB,.GBC,.ZIP",
     actions: [{ label: "Add to page 1", run: use(0) }, { label: "Add to page 2", run: use(1) }],
-    mineHint: "LSDj can't be hosted here (its licence doesn't allow sharing the ROM). Download it from littlesounddj.com and add it here once; this browser keeps it. Adding a newer LSDj later replaces the old one.",
+    mineHint: "Your own ROMs (.gb or .zip): add them once and this browser keeps them. Adding a newer version of the same file replaces the old one.",
     log,
     busy: () => state.busy,
   });
