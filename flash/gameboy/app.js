@@ -2,7 +2,7 @@ import * as E from "./ems.js";
 import { mountLibrary } from "../library/library.js";
 
 // Bump on every change so the page shows which build the browser is running.
-const BUILD = "v2.2 · 2026-10-23";
+const BUILD = "v2.3 · 2026-10-24";
 document.getElementById("buildTag").textContent = `Build ${BUILD}`;
 console.info("Game Boy Flash build", BUILD);
 
@@ -193,6 +193,7 @@ async function loadMenu() {
 
 async function attach(cart, demo = false) {
   state.cart = cart;
+  cart.note = (text) => log(text);
   state.demo = demo;
   state.pages = [null, null];
   $("cartStatus").textContent = demo ? "Simulated cart — changes only live in this tab." : `Connected: ${cart.name}`;
@@ -727,8 +728,15 @@ async function writeFiles(page, files, signal, { title = null, extraNote = null 
     await E.deleteRoms(state.cart, page, replaced.map((r) => r.offset));
     setPage(page, planListing);
     log(`Deleted the old ${replaced.map((r) => r.header.title).join(", ")} from page ${page + 1}.`);
+    try {
+      await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
+    } catch (err) {
+      log(`The old ${replaced.map((r) => r.header.title).join(", ")} was deleted but the new one wasn't written. Reconnect the cart and add it again.`, "err");
+      throw err;
+    }
+  } else {
+    await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
   }
-  await applyPlan(page, plan, signal, `Writing page ${page + 1}`);
   setPage(page, E.describePage(plan.result));
   return files; // the files as written (titles may have been changed)
 }

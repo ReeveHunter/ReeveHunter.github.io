@@ -932,24 +932,42 @@ export class WebUsbCart {
     for (let a = start; a < end; a += READBLOCKSIZE) out.set(await this.readChunk(from, a), a - start);
     return out.slice(offset - start, offset - start + count);
   }
+  // The first read after a run of writes can come back as an empty USB packet
+  // (seen on real carts after deleting or writing). Empty packets are skipped;
+  // if the data still doesn't come, the read command is sent once more.
   readChunk(from, offset, size = READBLOCKSIZE) {
     return this.run(async () => {
       const cmd = from === FROM_ROM ? CMD_READ : CMD_READ_SRAM;
-      const out = await withTimeout(this.device.transferOut(this.epOut, command(cmd, offset, size)));
-      if (out.status !== "ok") throw new Error(`USB write failed (${out.status}).`);
+      const sendCmd = async () => {
+        const out = await withTimeout(this.device.transferOut(this.epOut, command(cmd, offset, size)));
+        if (out.status !== "ok") throw new Error(`USB write failed (${out.status}).`);
+      };
+      await sendCmd();
       const buf = new Uint8Array(size);
-      let got = 0;
+      let got = 0, empties = 0, resent = false;
       while (got < size) {
         let r;
         try {
-          r = await withTimeout(this.device.transferIn(this.epIn, size - got));
+          // after an empty packet, don't wait the full 15 s for data
+          r = await withTimeout(this.device.transferIn(this.epIn, size - got), empties ? 3000 : 15000);
         } catch (err) {
-          throw new Error(`USB read failed at ${offset} (endpoint in ${this.epIn}, ${got} of ${size} bytes received): ${err.message}`);
+          if (empties && !resent && got === 0) {
+            resent = true;
+            this.note?.(`Read at ${offset}: no data after an empty packet; sending the read again.`);
+            await sendCmd();
+            continue;
+          }
+          throw new Error(`USB read failed at ${offset} (endpoint in ${this.epIn}, ${got} of ${size} bytes received${empties ? `, ${empties} empty packet${empties > 1 ? "s" : ""}` : ""}): ${err.message}`);
         }
         if (r.status === "stall") { await this.device.clearHalt("in", this.epIn); throw new Error("USB read stalled."); }
         if (r.status === "babble") throw new Error("USB read overflowed (the cart sent more than asked for).");
         const chunk = new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
-        if (!chunk.length) throw new Error("USB read returned no data.");
+        if (!chunk.length) {
+          empties++;
+          if (empties === 1) this.note?.(`Read at ${offset}: the cart sent an empty packet (${this.writeCount} writes so far); skipping it.`);
+          if (empties > 8) throw new Error(`USB read returned no data (${empties} empty packets at ${offset}).`);
+          continue;
+        }
         buf.set(chunk.subarray(0, size - got), got);
         got += chunk.length;
       }
