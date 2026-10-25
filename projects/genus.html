@@ -25,11 +25,13 @@
 
 <h2>Three kinds of portal</h2>
 <table>
-<tr><th>Portal</th><th>What it does</th><th>Feel</th></tr>
-<tr><td>Wraparound</td><td>Translation only. The world loops (cylinder, then torus). You can see around the loop.</td><td>Seamless.</td></tr>
-<tr><td>Flip</td><td>Mirrors the world without resizing (Möbius / Klein seams).</td><td>Abrupt: a mirror flip can't be smoothed, so these look distinct (curtain, falling water, dark threshold).</td></tr>
-<tr><td>Scaling</td><td>A 2:1 or 1:2 portal: you and what you carry shrink or grow relative to the world.</td><td>Smooth: the size change can happen gradually, e.g. in a tapering passage.</td></tr>
+<tr><th>Portal</th><th>What it does</th><th>Through the doorway</th></tr>
+<tr><td>Wraparound</td><td>Translation only. The world loops (cylinder, then torus). You can see around the loop.</td><td>The same room repeating.</td></tr>
+<tr><td>Flip</td><td>Mirrors the world without resizing (Möbius / Klein seams).</td><td>A mirrored room.</td></tr>
+<tr><td>Scaling</td><td>A 2:1 or 1:2 portal: you and what you carry shrink or grow relative to the world.</td><td>A bigger or smaller room.</td></tr>
 </table>
+<p>All portals can be <strong>open doorways</strong>: you see the room beyond already transformed, so stepping through causes no visual jump. A doorway 2 units wide on your side and 1 on the far side shows the far room twice as big, because you'll be half size there. Curtains, falling water or tapering passages are optional style choices, not requirements.</p>
+<p>Per door, the designer can make the change <strong>obvious</strong> (the far room uses the usual furniture, so it looks giant or tiny through the door) or <strong>hidden</strong> (the far room is built at the matching scale, like a dollhouse, so it looks normal; the change shows only in carried items, familiar objects, or the quail, which never scales).</p>
 <p>Later portals combine flip and scaling. Each loop through the level has a net scale and a net flip, depending only on the route taken. In log₂ units a 2:1 portal is +1 or &minus;1, so sizes are whole numbers and levels can be checked by a solver.</p>
 
 <h2>Size</h2>
