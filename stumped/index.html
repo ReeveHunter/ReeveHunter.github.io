@@ -93,7 +93,7 @@
 </head>
 <body>
 <div id="app">
-  <header><h1>STUMPED</h1><span>v0.56</span></header>
+  <header><h1>STUMPED</h1><span>v0.57</span></header>
 
   <div id="screen-wrap">
     <canvas id="screen" width="640" height="480" aria-label="Stumped game screen"></canvas>
@@ -116,8 +116,9 @@
   </div>
 
   <div id="help">
-    <p><kbd>Arrows</kbd>/<kbd>WASD</kbd> move &nbsp; <kbd>Enter</kbd> choose &nbsp; <kbd>Esc</kbd> back, pause &nbsp; <kbd>Z</kbd> undo &nbsp; <kbd>Y</kbd> redo</p>
+    <p><kbd>Arrows</kbd>/<kbd>WASD</kbd> move &nbsp; <kbd>Enter</kbd> choose &nbsp; <kbd>Esc</kbd> back, pause &nbsp; <kbd>Z</kbd> undo &nbsp; <kbd>X</kbd>/<kbd>Y</kbd> redo</p>
     <p>hold <kbd>R</kbd> restart &nbsp; hold <kbd>M</kbd> map &nbsp; <kbd>-</kbd>/<kbd>=</kbd> zoom &nbsp; <kbd>[</kbd>/<kbd>]</kbd> level &nbsp; <kbd>L</kbd> level list</p>
+    <p>In the lists: <kbd>M</kbd> menu (progress codes, clearing) &nbsp; <kbd>[</kbd>/<kbd>]</kbd> or <kbd>Page Up</kbd>/<kbd>Down</kbd> page &nbsp; Level maker: <kbd>T</kbd> test play</p>
     <p>Game controllers work too. Puzzles by David W. Skinner. Progress is saved in this browser. Also plays on the Miyoo Mini.
        <a href="#" id="touch-toggle">Touch controls</a></p>
   </div>
@@ -135,14 +136,15 @@
   var KA = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, OK: 4, ESC: 5, BACK: 6, UNDO: 7, REDO: 8, RESTART: 9, MAP: 10,
              ZOOM_OUT: 11, ZOOM_IN: 12, PREV: 13, NEXT: 14, PAUSE: 15, LEVELS: 16, CLEAR: 17,
              D0: 18, D1: 19, D2: 20, D3: 21, D4: 22, D5: 23, D6: 24, D7: 25, D8: 26, D9: 27, RIM: 28, NEW: 29,
-             KX: 30, KC: 31, KV: 32 };
+             KX: 30, KC: 31, KV: 32, PGUP: 33, PGDN: 34, TEST: 35 };
   var KEYS = {
     ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', KeyW: 'UP', KeyS: 'DOWN', KeyA: 'LEFT', KeyD: 'RIGHT',
     Enter: 'OK', NumpadEnter: 'OK', Space: 'OK', Escape: 'ESC', Backspace: 'BACK',
     KeyZ: 'UNDO', KeyU: 'UNDO', KeyY: 'REDO', KeyR: 'RESTART', KeyM: 'MAP', Tab: 'MAP',
     Minus: 'ZOOM_OUT', NumpadSubtract: 'ZOOM_OUT', Equal: 'ZOOM_IN', NumpadAdd: 'ZOOM_IN',
     BracketLeft: 'PREV', BracketRight: 'NEXT', KeyP: 'PAUSE', KeyL: 'LEVELS', Delete: 'CLEAR',
-    /* Listen plays along on the number keys (top row or ten-key); Z X C V are its A B X Y */
+    PageUp: 'PGUP', PageDown: 'PGDN', KeyT: 'TEST',
+    /* X also redoes; Listen plays along on the number keys (top row or ten-key), and Z X C V are its A B X Y */
     KeyX: 'KX', KeyC: 'KC', KeyV: 'KV'
   };
   for (var d = 0; d <= 9; d++) { KEYS['Digit' + d] = 'D' + d; KEYS['Numpad' + d] = 'D' + d; }
@@ -693,7 +695,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261027205752'; },
+    locateFile: function (path) { return path + '?v=20261027212222'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -739,6 +741,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261027205752" async></script>
+<script src="stumped.js?v=20261027212222" async></script>
 </body>
 </html>
