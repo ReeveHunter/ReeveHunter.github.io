@@ -372,14 +372,21 @@ function stepPlan(m, dt) {
 
 function updatePlayer(dt) {
   // look
-  const a = lookX * 0.0022; lookX = 0;
+  let a = view === 'overhead' ? 0 : lookX * 0.0022; lookX = 0;
+  if (view === 'overhead' && turnLeft) {
+    const stp = Math.sign(turnLeft) * Math.min(Math.abs(turnLeft), dt * 7);
+    a = stp; turnLeft -= stp;
+    if (Math.abs(turnLeft) < 1e-6) { turnLeft = 0; P.snapAfterTurn = true; }
+  }
   if (a) {
     const par = parity(), c = Math.cos(a), s = Math.sin(a);
     const fx = P.fx * c + P.rx * s, fy = P.fy * c + P.ry * s;
     [P.fx, P.fy] = norm(fx, fy);
     P.rx = par * P.fy; P.ry = -par * P.fx;
   }
-  P.pitch = Math.max(thirdPerson ? -1.1 : -1.25, Math.min(thirdPerson ? 0.45 : 1.25, P.pitch - lookY * 0.0022)); lookY = 0;
+  if (P.snapAfterTurn) { P.snapAfterTurn = false; snapView(); }
+  if (view !== 'overhead') P.pitch = Math.max(view === 'follow' ? -1.1 : -1.25, Math.min(view === 'follow' ? 0.45 : 1.25, P.pitch - lookY * 0.0022));
+  lookY = 0;
 
   const ox = P.riding ? Q.x : P.x, oy = P.riding ? Q.y : P.y;
   const mover = P.riding ? Q : P;
@@ -405,6 +412,13 @@ function updatePlayer(dt) {
   // collect things by walking onto them
   if (!logged.plant && Math.hypot(plant.x - P.x, plant.y - P.y) < 0.45 * P.s + 0.2 && Math.abs(P.z - plant.z) < 0.1) logSpecimen('plant');
   if (!logged.quail && Math.hypot(P.x - Q.x, P.y - Q.y) < 1.2) logSpecimen('quail');
+}
+
+// keep the overhead camera exactly on a grid axis
+function snapView() {
+  const par = parity();
+  const [fx, fy] = Math.abs(P.fx) >= Math.abs(P.fy) ? [Math.sign(P.fx), 0] : [0, Math.sign(P.fy)];
+  P.fx = fx; P.fy = fy; P.rx = par * fy; P.ry = -par * fx;
 }
 
 function autoDismount() {
@@ -669,7 +683,9 @@ out vec4 fragColor;
 uniform vec2 uRes;
 uniform vec3 uCam;
 uniform vec2 uF, uR;
-uniform float uPitch, uScale;
+uniform float uPitch, uScale, uFog;
+uniform vec4 uCut;   // cutaway: player x, y, and the horizontal direction from her toward the camera
+uniform float uCutH; // walls on the camera's side of her are drawn only this high (0 = off)
 uniform int uNS, uNB, uNE;
 uniform highp sampler2D uSeg; // row 0: x0 y0 x1 y1; row 1: isDoor, doorHeight, portal, glyph position (or -1)
 uniform vec4 uPL[${MAXP}];   // linear part, row-major
@@ -699,6 +715,11 @@ float pwave(float x, float k, float ph){ return sin(x * 2.0*PI*k/20.0 + ph); }
 
 // slow rise, quick fall: a lopsided (chiral) wave with no hard steps
 float asym(float x){ x = fract(x); return min(x / 0.8, (1.0 - x) / 0.2); }
+
+bool inLevel(vec2 p){
+  return (p.x >= -8.0 && p.x <= 10.0 && p.y >= 0.0 && p.y <= 8.0) ||
+         (p.x >= 0.0 && p.x <= 20.0 && p.y >= -4.0 && p.y <= 12.0 && (p.y >= 8.0 || p.y <= 0.0));
+}
 
 int roomOf(vec2 p){
   if (p.y > 8.0) return 2;
@@ -839,6 +860,7 @@ void main(){
   vec3 d = normalize(fw + uv.x*TH*rt + uv.y*TH*up);
   vec3 o = uCam;
   float tmin = 0.0;
+  int glued = 0;
   vec3 col = HAZE;
   float tHit = 1e9;
   bool found = false;
@@ -857,6 +879,15 @@ void main(){
       float t = cross2(q, e) / den;
       float u = cross2(q, d.xy) / den;
       if (u < 0.0 || u > 1.0 || t <= tmin + 1e-5 || t >= h.t) continue;
+      // cutaway: walls between the camera and her are only stubs
+      if (uCutH > 0.0 && glued == 0 && dot((o.xy + t*d.xy) - uCut.xy, uCut.zw) > 0.2 && o.z + t*d.z > uCutH) {
+        vec4 Bc = texelFetch(uSeg, ivec2(i, 1), 0);
+        if (!(Bc.x > 0.5 && Bc.z > 0.5)) continue;
+      }
+      if (o.z + t*d.z > CEIL) {   // above the walls: only full-height seams still count
+        vec4 Bq = texelFetch(uSeg, ivec2(i, 1), 0);
+        if (!(Bq.x > 0.5 && Bq.z > 0.5 && Bq.y >= CEIL - 1e-3)) continue;
+      }
       h.t = t; h.type = 3; h.idx = i;
     }
     vec3 sd = sign(d) * max(abs(d), vec3(1e-7));
@@ -903,7 +934,7 @@ void main(){
 
     if (h.type == 3) {
       vec4 B = texelFetch(uSeg, ivec2(h.idx, 1), 0);
-      if (B.x > 0.5 && p.z < B.y) {          // through a doorway
+      if (B.x > 0.5 && (p.z < B.y || B.y >= CEIL - 1e-3)) {          // through a doorway
         int pi = int(B.z + 0.5);
         if (pi > 0) {
           vec4 L = uPL[pi], O = uPO[pi];
@@ -911,6 +942,7 @@ void main(){
           d = vec3(L.x*d.x + L.y*d.y, L.z*d.x + L.w*d.y, d.z * O.z);
           sd = sign(d) * max(abs(d), vec3(1e-7));
           inv = 1.0 / sd;
+          glued++;
         }
         tmin = h.t;
         continue;
@@ -919,6 +951,7 @@ void main(){
 
     found = true; tHit = h.t;
     float lit = 1.0;
+    if (h.type == 1 && !inLevel(p.xy)) { fragColor = vec4(vec3(0.13,0.11,0.10), 1.0); return; }
     if (h.type == 1) {
       int r = roomOf(p.xy);
       col = floorColor(r, p.xy);
@@ -1023,7 +1056,7 @@ void main(){
   }
 
   float dist = found ? tHit / uScale : 1e9;
-  float fog = 1.0 - exp(-dist * 0.03);
+  float fog = 1.0 - exp(-dist * 0.03 * uFog);
   col = mix(col, HAZE, clamp(fog, 0.0, 1.0));
   float vig = 1.0 - 0.18*dot(uv*0.6, uv*0.6);
   fragColor = vec4(pow(col * vig, vec3(0.95)), 1.0);
@@ -1050,7 +1083,7 @@ gl.enableVertexAttribArray(aPos);
 gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
 const U = {};
-for (const n of ['uRes', 'uCam', 'uF', 'uR', 'uPitch', 'uScale', 'uNS', 'uNB', 'uNE', 'uNC', 'uCA', 'uCB', 'uSeg', 'uPL', 'uPO', 'uBA', 'uBB', 'uEC', 'uER', 'uEB'])
+for (const n of ['uRes', 'uCam', 'uF', 'uR', 'uPitch', 'uScale', 'uFog', 'uCut', 'uCutH', 'uNS', 'uNB', 'uNE', 'uNC', 'uCA', 'uCB', 'uSeg', 'uPL', 'uPO', 'uBA', 'uBB', 'uEC', 'uER', 'uEB'])
   U[n] = gl.getUniformLocation(prog, n);
 
 // static: segments (in a float texture) and portals
@@ -1135,6 +1168,10 @@ function playerParts(out, caps) {
 }
 
 let resScale = 0.5, thirdPerson = true;
+const VIEWS = ['overhead', 'follow', 'first'];
+let view = 'overhead';
+const OVERHEAD_PITCH = -0.9;
+let turnLeft = 0;   // remaining quarter-turn of the overhead camera, in radians
 
 // Follow camera: start at her head and back away along the view direction. The camera ray can
 // pass through a glued doorway, in which case the camera ends up in another part of the level
@@ -1145,13 +1182,17 @@ function cameraPose() {
   if (P.riding) { x = Q.x; y = Q.y; z = Q.z + 0.36 + 0.55 * H; }
   else { x = P.x; y = P.y; z = P.z + (P.crawl ? 0.5 : 0.88) * H; }
   let fx = P.fx, fy = P.fy, rx = P.rx, ry = P.ry, k = 1;
-  if (!thirdPerson) {
+  if (view === 'first') {
     if (P.riding) { x = Q.x - Q.fx * 0.12; y = Q.y - Q.fy * 0.12; }
-    return { x, y, z: P.eye, fx, fy, rx, ry, k, hideSelf: true };
+    return { x, y, z: P.eye, fx, fy, rx, ry, k, pitch: P.pitch, fog: 1, hideSelf: true };
   }
-  const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
+  const over = view === 'overhead';
+  const pitch = over ? OVERHEAD_PITCH : P.pitch;
+  if (over) z = (P.riding ? Q.z : P.z) + 0.4 * H;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
   let dx = -fx * cp, dy = -fy * cp, dz = -sp;
-  const D = 2.2 * P.s + (P.riding ? 0.35 : 0);
+  const D = over ? 7 * P.s + (P.riding ? 1 : 0) : 2.2 * P.s + (P.riding ? 0.35 : 0);
+  const zmax = over ? 1e9 : CEIL - 0.06, fog = over ? 0.45 : 1;
   let tmin = 0;
   for (let bounce = 0; bounce < 12; bounce++) {
     let tb = D, hit = -1;
@@ -1166,7 +1207,8 @@ function cameraPose() {
     }
     if (hit < 0) break;
     const s = segs[hit], hz = z + tb * dz;
-    if (s.door && hz < s.h) {
+    if ((hz > CEIL || over) && !(s.door && s.portal && (s.h >= CEIL || hz < s.h))) { tmin = tb; continue; }   // over (or, overhead, through) a wall
+    if (s.door && (hz < s.h || s.h >= CEIL)) {
       if (s.portal) {
         const T = portals[s.portal];
         [x, y] = applyP(T, x, y); [dx, dy] = applyL(T, dx, dy);
@@ -1178,9 +1220,9 @@ function cameraPose() {
       continue;
     }
     const t = Math.max(tmin, tb - 0.12 * P.s);
-    return { x: x + dx * t, y: y + dy * t, z: Math.max(0.06 * k, Math.min(CEIL - 0.06, z + dz * t)), fx, fy, rx, ry, k, hideSelf: tb < 0.5 * P.s };
+    return { x: x + dx * t, y: y + dy * t, z: Math.max(0.06 * k, Math.min(zmax, z + dz * t)), fx, fy, rx, ry, k, pitch, fog, hideSelf: tb < 0.5 * P.s };
   }
-  return { x: x + dx * D, y: y + dy * D, z: Math.max(0.06 * k, Math.min(CEIL - 0.06, z + dz * D)), fx, fy, rx, ry, k, hideSelf: false };
+  return { x: x + dx * D, y: y + dy * D, z: Math.max(0.06 * k, Math.min(zmax, z + dz * D)), fx, fy, rx, ry, k, pitch, fog, hideSelf: false };
 }
 
 function resize() {
@@ -1196,7 +1238,13 @@ function render() {
   gl.uniform3f(U.uCam, cam.x, cam.y, cam.z);
   gl.uniform2f(U.uF, cam.fx, cam.fy);
   gl.uniform2f(U.uR, cam.rx, cam.ry);
-  gl.uniform1f(U.uPitch, P.pitch);
+  gl.uniform1f(U.uPitch, cam.pitch);
+  gl.uniform1f(U.uFog, cam.fog);
+  if (view === 'overhead') {
+    const px = P.riding ? Q.x : P.x, py = P.riding ? Q.y : P.y;
+    gl.uniform4f(U.uCut, px, py, -P.fx, -P.fy);
+    gl.uniform1f(U.uCutH, 0.3);
+  } else gl.uniform1f(U.uCutH, 0);
   gl.uniform1f(U.uScale, cam.k);
 
   const boxes = worldBoxes();
@@ -1249,7 +1297,13 @@ addEventListener('keydown', e => {
   if (journalOpen) return;
   if (e.code === 'KeyQ') quailAction();
   if (e.code === 'KeyR') { reset(); toast('Restarted.'); }
-  if (e.code === 'KeyV') { thirdPerson = !thirdPerson; toast(thirdPerson ? 'Follow view' : 'First-person view'); }
+  if (e.code === 'KeyV') {
+    view = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+    if (view === 'overhead') { turnLeft = 0; snapView(); }
+    if (view === 'follow') P.pitch = -0.2;
+    toast(view === 'overhead' ? 'Overhead view' : view === 'follow' ? 'Follow view' : 'First-person view');
+  }
+  if (view === 'overhead' && !turnLeft && (e.code === 'KeyZ' || e.code === 'KeyC')) turnLeft = (e.code === 'KeyZ' ? -1 : 1) * Math.PI / 2;
   if (e.code === 'Backquote') { debugOn = !debugOn; debugEl.style.display = debugOn ? 'block' : 'none'; }
   if (e.code === 'BracketLeft') resScale = Math.max(0.25, resScale - 0.125);
   if (e.code === 'BracketRight') resScale = Math.min(1.5, resScale + 0.125);
@@ -1279,6 +1333,6 @@ requestAnimationFrame(frame);
 window.GENUS = { get P() { return P; }, get Q() { return Q; }, get crates() { return crates; }, segs, portals, bfs,
   step(dt, keyList = []) { keyList.forEach(k => keys.add(k)); tick(dt); keyList.forEach(k => keys.delete(k)); },
   hold(k) { keys.add(k); }, release(k) { keys.delete(k); },
-  turn(px) { lookX += px; }, quailAction, render, reset, drawMap, setJournal, probe, playerBody,
+  turn(px) { lookX += px; }, setView(v) { view = v; if (v === 'overhead') snapView(); }, quailAction, render, reset, drawMap, setJournal, probe, playerBody,
   start() { titleEl.style.display = 'none'; playing = true; } };
 })();
