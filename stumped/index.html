@@ -78,6 +78,8 @@
   .gest #help, .gest header, .gest .pad { display: none; }
   .gest #app { grid-template-areas: "screen"; align-content: center; }
   .gest #screen { touch-action: none; }
+  html:has(body.gest), body.gest { touch-action: none; overscroll-behavior: none; }
+  body.gest { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   /* the controls switch, bottom right, while on-screen controls of either kind are in use */
   #ctl-switch { display: none; }
   .touch #ctl-switch, .gest #ctl-switch {
@@ -91,7 +93,7 @@
 </head>
 <body>
 <div id="app">
-  <header><h1>STUMPED</h1><span>v0.55</span></header>
+  <header><h1>STUMPED</h1><span>v0.56</span></header>
 
   <div id="screen-wrap">
     <canvas id="screen" width="640" height="480" aria-label="Stumped game screen"></canvas>
@@ -501,9 +503,11 @@
     a.addEventListener('click', function (e) { e.preventDefault(); chooseCtl(a.getAttribute('data-m')); });
   });
 
-  /* ---------- gestures on the game screen ----------
+  /* ---------- gestures, anywhere on the page ----------
      tap: step toward it (menus: choose what you tap) · swipe: walk, and keep walking while you hold ·
-     two-finger tap: undo · touch and hold: map · pinch: zoom. Menus: swipe up/down to move, right to go back. */
+     two-finger tap: undo · touch and hold: map · pinch: zoom. Menus: swipe up/down to move, right to go back.
+     They work on the whole page, not just the game screen, so a thumb below or beside it still plays.
+     Links and the start overlay keep their own clicks; Listen's finger-play stays on the screen. */
   function gestOn() { return ctlMode === 'g'; }
   var pts = {}, gs = null, SWIPE = 18, raw = {};
   function gameXY(cx, cy) {
@@ -512,13 +516,16 @@
   }
   function npts() { return Object.keys(pts).length; }
   function pdist() { var k = Object.keys(pts); if (k.length < 2) return 0; var a = pts[k[0]], b = pts[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
-  canvas.addEventListener('pointerdown', function (e) {
+  function onScreen(e) { var r = canvas.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom; }
+  document.addEventListener('pointerdown', function (e) {
     if (!gestOn() || !ready) return;
+    if (e.target.closest && e.target.closest('a, button, input, #start, #ctl-switch')) return;
     e.preventDefault();
     if (begin()) return;                         /* the tap that starts the game doesn't also play */
     setMode(2);
-    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    try { document.documentElement.setPointerCapture(e.pointerId); } catch (err) {}
     if (Module._web_listen_raw()) {               /* Listen: every finger plays, no gestures */
+      if (!onScreen(e)) return;
       raw[e.pointerId] = true;
       var q = gameXY(e.clientX, e.clientY); Module._web_ltouch(e.pointerId, q[0], q[1], 0);
       return;
@@ -541,7 +548,7 @@
       gs = { kind: 2, t0: Date.now(), d0: pdist(), moved: false, pinched: false };
     }
   });
-  canvas.addEventListener('pointermove', function (e) {
+  document.addEventListener('pointermove', function (e) {
     if (raw[e.pointerId]) { var q = gameXY(e.clientX, e.clientY); Module._web_ltouch(e.pointerId, q[0], q[1], 1); return; }
     if (!gestOn() || !pts[e.pointerId]) return;
     pts[e.pointerId].x = e.clientX; pts[e.pointerId].y = e.clientY;
@@ -577,9 +584,9 @@
       gs = null;
     }
   }
-  canvas.addEventListener('pointerup', gestEnd);
-  canvas.addEventListener('pointercancel', gestEnd);
-  canvas.addEventListener('contextmenu', function (e) { if (gestOn()) e.preventDefault(); });
+  document.addEventListener('pointerup', gestEnd);
+  document.addEventListener('pointercancel', gestEnd);
+  document.addEventListener('contextmenu', function (e) { if (gestOn()) e.preventDefault(); });
 
   /* ---------- sizes: the screen as big as fits (whole-pixel steps where possible), then the pads ---------- */
   var PAD_W = 56, PAD_H = 14 + 6 + 56 + 6 + 11;     /* the right-hand pad, the bigger one, in art pixels */
@@ -686,7 +693,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261023071735'; },
+    locateFile: function (path) { return path + '?v=20261027205752'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -732,6 +739,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261023071735" async></script>
+<script src="stumped.js?v=20261027205752" async></script>
 </body>
 </html>
