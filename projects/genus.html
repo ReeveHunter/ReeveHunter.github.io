@@ -17,7 +17,7 @@
 
 <h1>Genus</h1>
 <p class="lede">A first-person puzzle game where each level is a strange flat surface: rooms that wrap around, seams that mirror you, and portals that grow or shrink you. A quail is the one thing that never changes size.</p>
-<p class="meta"><span class="status">Idea</span> &nbsp;Last updated October 26, 2026</p>
+<p class="meta"><span class="status">Prototype</span> &nbsp;Last updated October 27, 2026 &middot; <a href="../genus/">Try the prototype</a></p>
 
 <h2>The idea</h2>
 <p>A Doom-style first-person game: every level is a flat floor plan with heights (stairs, ledges, sills), and gravity always holds you to the floor. What's unusual is how the level is glued together. Its edges are portals that join up into a torus, a Möbius band, or a surface where some loops make you bigger or smaller. The player never sees a map of the topology; they learn it by walking, looking, and carrying things around.</p>
@@ -37,11 +37,14 @@
 <h2>Size</h2>
 <ul>
 <li><strong>No HUD.</strong> You learn your size only from your surroundings: familiar crates, chairs, doors, and the quail.</li>
-<li><strong>Items scale with you</strong> while you carry them. Once put down, an item keeps its size in the world as you keep changing yours. Items are how you bring a size from one place to another.</li>
-<li><strong>Interaction depends on relative size:</strong> small crates are carried, medium crates pushed or pulled, huge crates can't be moved. The same crate changes category as you change.</li>
+<li><strong>A grid the size of your body.</strong> You walk one square at a time, like a chessboard, but a square is one body-width: 1 unit at normal size, &frac12; at half size, and so on. Movement chains smoothly while you hold a direction and always ends at the centre of a square. Walls and doorways sit on grid lines at every allowed size, and glued doorways map grid lines to grid lines.</li>
+<li><strong>Four sizes:</strong> double, normal, half and quarter (quail-riding size) for most levels. An eighth is reserved for the finale.</li>
+<li><strong>Crates are never carried.</strong> A crate one square wide (your size) can be pushed or pulled one square at a time (walk into it to push; hold to grab and step back to pull). A crate half your size is a step you can climb onto. A crate bigger than you is a wall. The same crate changes role as you change size, and it keeps its size in the world.</li>
+<li><strong>Climbing:</strong> you can step up half your own height. A sill or ledge can therefore be a size gate.</li>
+<li><strong>Collecting is automatic:</strong> walk onto a specimen to log it.</li>
 <li><strong>Doors have a size window.</strong> Too small: can't reach the handle or step over the threshold. Too big: can't fit through. Near the top of the window you crawl.</li>
 <li><strong>One-way sills.</strong> A threshold with a step on one side and a ramp on the other. Placed so routes toward shrinking close behind a size floor, which means walking through the wrong door can never leave you stuck too small.</li>
-<li><strong>Speed scales with size.</strong> Small you is slow.</li>
+<li><strong>Speed scales with size.</strong> Steps take the same time at every size, so small you covers less ground.</li>
 </ul>
 <h3>Everyday doorways and openings</h3>
 <p>Size gates should look like ordinary architecture, not puzzle machinery.</p>
@@ -66,7 +69,10 @@
 <li>A <strong>scaled quail</strong> (<em>Callipepla squamata</em>), nicknamed &ldquo;cottontop&rdquo; or &ldquo;blue quail&rdquo;: scaly blue-grey feathers and a white tufted crest. A runner rather than a flier, living in coveys. Right for a game about scaling.</li>
 <li>One quail buddy, met full-grown partway through the game (no hatching).</li>
 <li>It goes through portals with you and flips with you, but <strong>never changes size</strong>. It's your ruler. The reason is a <strong>leg band</strong> it wears from the start, with a tiny clasp too small to handle at any normal size. The band is on one leg, so it also shows mirroring.</li>
-<li>Small you rides it, and it's fast. Medium you walks with it. Big you carries it.</li>
+<li>At quarter size you can ride it, and it's fast. At other sizes it follows you. It can't be picked up.</li>
+<li>It moves on the quarter-size grid and is stopped by exactly what stops you at quarter size. Riding, you both obey those rules.</li>
+<li>If you grow while riding, you drop off automatically.</li>
+<li>It follows by the shortest route, through glued doorways when that's shorter (a breadth-first search over quarter-size squares, redone a few times a second).</li>
 <li>It has its own fixed door window, so sometimes it can't follow and you come back for it.</li>
 <li>Flocks of quail appear at certain points as landmarks and charm. Not a collecting game.</li>
 </ul>
@@ -135,7 +141,7 @@
 
 <h3>The finale</h3>
 <ol>
-<li><strong>Tiny rider.</strong> You go through shrinking doors more times than ever before, so the quail towers over you.</li>
+<li><strong>Tiny rider.</strong> You shrink to an eighth, smaller than anywhere else in the game, so the quail towers over you.</li>
 <li><strong>The clasp.</strong> You fall off (the quail stumbles or bucks you) and land at its foot, at eye level with the leg band's clasp. Only now are you small enough to work it. You unlock the band, using the same size-window logic as everything else.</li>
 <li><strong>Losing the ruler.</strong> With the band off, the quail scales like everything else. Your one fixed reference is gone.</li>
 <li><strong>Growing together.</strong> Get back on the quail and take the growing portals together (or grow first and bring the quail through the same portals to catch up).</li>
@@ -154,7 +160,7 @@
 <li>Every portal is a transformation of the floor plan only, so &ldquo;down&rdquo; is always down.</li>
 <li>Recursion through portals needs a cap. Through scaling portals the repeats shrink and fade out naturally; on a plain torus, use walls, haze, or a cap.</li>
 <li>Details to handle: the player's own body (you can see your back around a loop), sprites flipping on mirror portals, collision while straddling a portal, and the quail crossing at a different moment from you.</li>
-<li>First step: a tiny browser raycaster with one 2:1 portal, to see whether it's fun.</li>
+<li><strong>Prototype</strong> (<a href="../genus/">genus/</a>): a WebGL 2 fragment-shader ray tracer. Rays cross glued doorways by applying each doorway's similarity transform; walking, carrying and the quail use the same transforms in JavaScript. One level: a start room, a cylinder passage, a Möbius passage, and a room with a 2:1 doorway glued to itself. Grid movement in body-width squares, push/pull crates, thick doorways, a ledge, a sill as the quarter-size floor, a follow camera, a poncho-wearing player on procedural noodle legs, the quail (shortest-path following, riding, automatic drop-off when you grow), and a journal with the flat diagram.</li>
 </ul>
 
 <h2>Open questions</h2>

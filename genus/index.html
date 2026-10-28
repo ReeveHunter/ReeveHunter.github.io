@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genus — prototype</title>
+<meta name="description" content="A first-person prototype of Genus: rooms that wrap around, a corridor that mirrors you, a doorway that halves you, and a scaled quail.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<style>
+  :root { --paper:#f2e8d5; --ink:#2b241d; --muted:#6f6353; --accent:#b4532f; }
+  html, body { margin:0; height:100%; background:#1d1915; overflow:hidden; }
+  body { font:16px/1.5 Georgia, "Times New Roman", serif; color:var(--ink); }
+  canvas#view { position:fixed; inset:0; width:100vw; height:100vh; display:block; image-rendering:pixelated; }
+
+  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(29,25,21,.62); padding:16px; box-sizing:border-box; }
+  .card { max-width:560px; width:100%; background:var(--paper); border-radius:10px; padding:26px 30px;
+    box-shadow:0 16px 40px rgba(0,0,0,.35); box-sizing:border-box; }
+  .card h1 { margin:0 0 4px; font-size:2.1rem; letter-spacing:.01em; }
+  .card .sub { margin:0 0 16px; color:var(--muted); font-style:italic; }
+  .card p { margin:8px 0; }
+  .keys { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:14px 0 18px; font-size:15px; }
+  .keys kbd { font:600 13px ui-monospace, Menlo, monospace; background:#e3d6bd; border-radius:4px; padding:1px 6px; white-space:nowrap; }
+  .go { display:inline-block; background:var(--accent); color:#fff; border-radius:6px; padding:8px 16px; font-weight:600; }
+  .small { font-size:13px; color:var(--muted); }
+
+  #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:rgba(242,232,213,.94);
+    color:var(--ink); padding:8px 16px; border-radius:6px; font-style:italic; opacity:0; transition:opacity .4s; pointer-events:none; }
+  #toast.on { opacity:1; }
+
+  #journal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;
+    background:rgba(29,25,21,.7); }
+  #journal .book { display:flex; gap:24px; width:min(1100px,100%); max-height:100%; overflow:auto; background:var(--paper);
+    border-radius:10px; padding:22px 26px; box-sizing:border-box; box-shadow:0 16px 40px rgba(0,0,0,.35); }
+  #journal canvas { flex:1 1 60%; min-width:0; width:100%; aspect-ratio: 30 / 17; background:#f7f0e2; border:1px solid #d8c9ad; border-radius:6px; }
+  #journal .notes { flex:1 1 38%; min-width:240px; }
+  #journal h2 { margin:0 0 6px; font-size:1.3rem; }
+  #journal h3 { margin:16px 0 4px; font-size:1rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  #journal .entry { margin:6px 0 10px; }
+  #journal .entry i { font-size:1.05rem; }
+  #journal .locked { color:#a99a83; }
+  #journal ul { padding-left:1.1em; margin:4px 0; }
+  @media (max-width:760px) { #journal .book { flex-direction:column; } }
+
+  #debug { position:fixed; left:8px; top:8px; font:12px/1.4 ui-monospace, Menlo, monospace; color:#fff;
+    background:rgba(0,0,0,.55); padding:6px 8px; border-radius:4px; display:none; white-space:pre; }
+  #nogl { display:none; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="title" class="overlay">
+  <div class="card">
+    <h1>Genus</h1>
+    <p class="sub">A prototype. One small level, three kinds of doorway, one quail.</p>
+    <p>The room you start in has three ways out. One passage loops back on itself. One loops back mirrored. One room has a doorway that leads into itself at a different size.</p>
+    <div class="keys">
+      <kbd>W A S D</kbd><span>walk (mouse to look)</span>
+      <kbd>E</kbd><span>pick up / put down a crate, or log a specimen</span>
+      <kbd>Q</kbd><span>the quail: ride it when you're small, lift it when you're big</span>
+      <kbd>J</kbd><span>field journal (level diagram)</span>
+      <kbd>V</kbd><span>switch between follow view and first person</span>
+      <kbd>R</kbd><span>restart</span>
+      <kbd>[ ]</kbd><span>lower / raise resolution</span>
+      <kbd>`</kbd><span>debug readout</span>
+    </div>
+    <p><span class="go" id="startLabel">Click to start</span></p>
+    <p class="small">Needs a computer with a keyboard and mouse, and a browser with WebGL 2. Esc frees the mouse.</p>
+  </div>
+</div>
+
+<div id="nogl" class="overlay">
+  <div class="card"><h1>Genus</h1><p>This browser doesn't support WebGL 2, which the prototype needs. Try a recent Chrome, Edge, Firefox or Safari.</p></div>
+</div>
+
+<div id="journal">
+  <div class="book">
+    <canvas id="map" width="1200" height="680"></canvas>
+    <div class="notes">
+      <h2>Field journal</h2>
+      <h3>Specimens</h3>
+      <div id="specimens"></div>
+      <h3>This surface</h3>
+      <ul>
+        <li><b>North passage:</b> its ends are glued straight across (a cylinder). Arrows point the same way.</li>
+        <li><b>South passage:</b> its ends are glued with a flip (a Möbius band). Arrows point opposite ways. Go around once and the world is mirrored.</li>
+        <li><b>West room:</b> its north doorway is glued to its own west doorway, which is half the size. Each trip north halves you; each trip west doubles you.</li>
+      </ul>
+      <p class="small">Your mark on the map is an L. If it reads as a J, you've been mirrored. Press J to close.</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="debug"></div>
+
+<script src="genus.js"></script>
+</body>
+</html>

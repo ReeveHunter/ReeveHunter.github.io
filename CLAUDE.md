@@ -15,6 +15,7 @@ Reeve Hunter's site (GitHub Pages, custom domain in `CNAME`). Each top-level fol
 | `tools/` | Index of the browser tools, grouped (music gear, flashers and tests, utilities, home), each with a one-color inline SVG icon. Add new tools here. |
 | `music/` | Redirects to Bandcamp (home page links Bandcamp directly). |
 | `games/` | Games page (links Stumped). |
+| `genus/` | **Genus** prototype — first-person game on glued surfaces (WebGL 2 ray tracer in `genus.js`, no build). Brief: `projects/genus.html`. Unlinked except from the brief. |
 | `math/` | Math resources: Baylor page link (CheckItBU/ is no longer linked). |
 | `clock/`, `stopwatch/` | Classroom clock and exam stopwatch. |
 | `dinner/`, `mixup/`, `feelings/` | Family dinner planner, group shuffler, feelings wheel. |
