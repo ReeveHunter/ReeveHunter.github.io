@@ -21,7 +21,7 @@ const OPEN = 1e4;          // "height" of an open gap
 const FRAME = 0.1;         // doorway thickness on each side of a wall
 const segs = [];
 function seg(x0, y0, x1, y1, o = {}) {
-  segs.push({ x0, y0, x1, y1, door: !!o.door, h: o.h ?? OPEN, portal: 0, glyph: o.glyph || 0, gu: o.gu || 0, frame: !!o.frame });
+  segs.push({ x0, y0, x1, y1, door: !!o.door, h: o.h ?? OPEN, portal: 0, glyph: o.glyph || 0, gu: o.gu || 0, frame: !!o.frame, mural: !!o.mural });
   return segs.length - 1;
 }
 // A gap in a wall, with short jamb walls so it has some thickness (only on the yard side, for
@@ -71,7 +71,7 @@ seg(-2, 6, 0, 6);
 seg(-6, 0, -6, 2);
 const gSmall = door(-6, 3, -6, 2, true);
 seg(-6, 3, -6, 6);
-seg(-6, 0, 0, 0);
+seg(-6, 0, 0, 0, { mural: true });
 seg(0, 0, 0, 2);
 door(0, 2, 0, 4);                         // G <-> A
 seg(0, 4, 0, 6);
@@ -86,7 +86,7 @@ door(2, 0, 4, 0);                         // A <-> south passage
 seg(4, 0, 12, 0);
 // Pillar yard: an L of three 2x2 squares. The missing square's two edges are glued by a quarter
 // turn about the inner corner, so there is only 270 degrees of ground around that corner.
-seg(6, 4, 8, 4);
+seg(8, 4, 6, 4, { mural: true });
 seg(10, 0, 10, 2);
 const pA = seg(8, 2, 8, 4, { door: true });
 const pB = seg(10, 2, 8, 2, { door: true });
@@ -142,7 +142,7 @@ let P, Q, crates, plant, logged;
 function reset() {
   P = { x: 2.5, y: 1.5, z: 0, fx: 0, fy: 1, rx: 1, ry: 0, bx: 0, by: 1, pitch: -0.3, s: 1, crawl: false,
         riding: false, plan: null, eye: 1.58, vx: 0, vy: 0 };
-  Q = { x: 1.625, y: 2.375, z: 0, fx: 1, fy: 0, m: 1, phase: 0, moving: false, peck: 0, peckT: 2, plan: null };
+  Q = { x: 1.625, y: 2.375, z: 0, fx: 1, fy: 0, m: 1, phase: 0, moving: false, peck: 0, peckT: 2, plan: null, queue: [] };
   crates = [
     { x: 2.75, y: 4.25, size: 0.5, z0: 0 },
     { x: -2.5, y: 1.5, size: 1, z0: 0 },
@@ -269,7 +269,6 @@ function crateCanMove(c, vx, vy, ignoreAt) {
   }
   for (const p of pillars) if (Math.abs(p.x - nx) < hs + p.r && Math.abs(p.y - ny) < hs + p.r) return false;
   // don't run over the quail or the player
-  if (Math.abs(Q.x - nx) < hs && Math.abs(Q.y - ny) < hs && Q.z < c.z0 + c.size) return false;
   if (!P.riding && Math.abs(P.x - nx) < hs && Math.abs(P.y - ny) < hs && ignoreAt !== 'player') return false;
   return true;
 }
@@ -291,7 +290,7 @@ function transformPlayer(T) {
   P.eye *= T.s;
   if (T.s !== 1) {
     P.s = snapSize(P.s * T.s);
-    if (P.riding) P.dismountAfter = true;
+    if (P.riding && P.s > 0.25 + EPS) P.dismountAfter = true;   // too big to ride now
   }
 }
 function transformQuail(T) {
@@ -316,7 +315,33 @@ function inputDir() {
   return Math.abs(mx) >= Math.abs(my) ? [Math.sign(mx), 0] : [0, Math.sign(my)];
 }
 
-function occupiedByQuail(x, y) { return Math.abs(Q.x - x) < 0.13 && Math.abs(Q.y - y) < 0.13; }
+// The quail never blocks anything. If you (or a crate you push) are about to land where it
+// is standing, it hops out of the way: sideways if it can, otherwise ahead or back.
+function dodgeQuail(cx, cy, half, mx, my) {
+  if (P.riding || Q.queue.length) return;
+  if (Math.abs(Q.x - cx) >= half || Math.abs(Q.y - cy) >= half) return;
+  if (Q.plan) stepPlan(Q, 1);
+  const tries = [[-my, mx], [my, -mx], [mx, my], [-mx, -my]];
+  for (const [dx, dy] of tries) {
+    let x = Q.x, y = Q.y, z = Q.z;
+    const steps = [];
+    for (let k = 0; k < 16; k++) {
+      if (Math.abs(x - cx) >= half || Math.abs(y - cy) >= half) break;
+      const pr = probe(quailBody(), x, y, z, dx * QCELL, dy * QCELL, { noPush: true, noPortals: true });
+      if (!pr) { steps.length = 0; break; }
+      steps.push({ pr, dx, dy }); x = pr.ex; y = pr.ey; z = pr.z;
+    }
+    if (steps.length && !(Math.abs(x - cx) < half && Math.abs(y - cy) < half)) { Q.queue = steps; return; }
+  }
+}
+function inHerSquare(x, y) {
+  const half = 0.5 * P.s + 0.01;
+  if (Math.abs(x - P.x) < half && Math.abs(y - P.y) < half) return true;
+  const pl = P.plan;
+  if (pl && !pl.crossings.length && Math.abs(x - pl.bx) < half && Math.abs(y - pl.by) < half) return true;
+  return false;
+}
+const snapTo = (v, cell) => (Math.floor(v / cell + 1e-6) + 0.5) * cell;
 
 function tryStartPlayerStep(dir) {
   const b = playerBody();
@@ -345,6 +370,8 @@ function tryStartPlayerStep(dir) {
       } else pr = null;
       if (!pr) return false;
       if (pull) pr.push = pull;
+      dodgeQuail(pr.ex, pr.ey, 0.5 * pr.cell + 0.05, dir[0], dir[1]);
+      if (pr.push) dodgeQuail(pr.push.crate.x + pr.push.vx, pr.push.crate.y + pr.push.vy, pr.push.crate.size / 2 + 0.05, dir[0], dir[1]);
       startPlan(P, pr, PUSH_T, P.z, transformPlayer);
       return true;
     }
@@ -352,7 +379,8 @@ function tryStartPlayerStep(dir) {
   pr = probe(b, P.x, P.y, P.z, dir[0] * cell, dir[1] * cell);
   [P.bx, P.by] = dir;
   if (!pr) return false;
-  if (P.s <= 0.25 + EPS && occupiedByQuail(pr.ex, pr.ey)) return false;
+  dodgeQuail(pr.ex, pr.ey, 0.5 * pr.cell + 0.05, dir[0], dir[1]);
+  if (pr.push) dodgeQuail(pr.push.crate.x + pr.push.vx, pr.push.crate.y + pr.push.vy, pr.push.crate.size / 2 + 0.05, dir[0], dir[1]);
   const H = PLAYER_H * pr.cell;
   P.crawl = CEIL - pr.z < H || segs.some(s => s.door && s.h - pr.z < H && nearSeg(pr.ex, pr.ey, s, 0.55 * pr.cell));
   startPlan(P, pr, pr.push ? PUSH_T : (P.crawl ? CRAWL_T : STEP_T), P.z, transformPlayer);
@@ -441,28 +469,29 @@ function updatePlayer(dt) {
 
 function autoDismount() {
   P.riding = false; P.dismountAfter = false;
-  P.x = Q.x; P.y = Q.y; P.z = Q.z; feet = null;
+  // land on her own grid, on the square that contains the quail, and the quail hops aside
+  P.x = snapTo(Q.x, P.s); P.y = snapTo(Q.y, P.s); P.z = Q.z; feet = null;
   toast('Too big to ride now.');
-  // the quail hops off to a free neighbouring cell
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const pr = probe(quailBody(), Q.x, Q.y, Q.z, dx * QCELL, dy * QCELL);
-    if (pr) { startPlan(Q, pr, QUAIL_T, Q.z, transformQuail); faceQuailTo(dx, dy, 1); return; }
-  }
+  const mx = Math.round(P.bx), my = Math.round(P.by);
+  dodgeQuail(P.x, P.y, 0.5 * P.s + 0.05, mx || 1, my);
 }
 
 function quailAction() {
   if (P.riding) {
     if (Q.plan) return;
-    const b = { cell: QCELL, h: PLAYER_H * 0.25 * CRAWL, climb: 0.5 * QCELL, scales: true, pusher: false };
+    const cell = P.s;
+    const b = { cell, h: PLAYER_H * cell * CRAWL, climb: 0.5 * cell, scales: true, pusher: false };
     for (const [dx, dy] of [[P.rx, P.ry], [-P.rx, -P.ry], [-P.bx, -P.by], [P.bx, P.by]].map(([a, b]) => Math.abs(a) > Math.abs(b) ? [Math.sign(a), 0] : [0, Math.sign(b)])) {
-      const pr = probe(b, Q.x, Q.y, Q.z, dx * QCELL, dy * QCELL, { noPortals: true, noPush: true });
+      // the square next to the quail, on her own grid
+      const tx = snapTo(Q.x + dx * (QCELL + cell) / 2, cell), ty = snapTo(Q.y + dy * (QCELL + cell) / 2, cell);
+      const pr = probe(b, Q.x, Q.y, Q.z, tx - Q.x, ty - Q.y, { noPortals: true, noPush: true });
       if (pr) { P.riding = false; P.x = pr.ex; P.y = pr.ey; P.z = pr.z; feet = null; return; }
     }
     toast('No room to climb down here.');
     return;
   }
   if (P.plan) return;
-  if (Math.abs(P.s - 0.25) > EPS) { toast(P.s > 0.25 ? 'Too big to ride the quail.' : 'Too small to climb on.'); return; }
+  if (P.s > 0.25 + EPS) { toast('Too big to ride the quail.'); return; }
   if (Q.plan) stepPlan(Q, 1);
   const d = Math.hypot(Q.x - P.x, Q.y - P.y);
   if (d < QCELL * 1.05 && Math.abs(Q.z - P.z) < 0.05) { P.riding = true; feet = null; return; }
@@ -504,6 +533,12 @@ function updateQuail(dt, now) {
   Q.phase += dt * (Q.moving ? 24 : 0);
   if (P.riding) return;
   if (Q.plan) { stepPlan(Q, dt); if (Q.plan) return; }
+  if (Q.queue.length) {
+    const h = Q.queue.shift();
+    startPlan(Q, h.pr, QUAIL_T * 0.6, Q.z, transformQuail);
+    faceQuailTo(h.dx, h.dy, 1); Q.moving = true; stepPlan(Q, 0);
+    return;
+  }
   Q.moving = false;
   if (bfs.at < 0 || (now - bfs.at > 0.3 && bfs.key !== qkey(P.x, P.y))) computeBFS(now);
   const here = bfs.dist.get(qkey(Q.x, Q.y));
@@ -522,7 +557,7 @@ function updateQuail(dt, now) {
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
     const pr = probe(quailBody(), Q.x, Q.y, Q.z, dx * QCELL, dy * QCELL, { noPush: true });
     if (!pr) continue;
-    if (P.s <= 0.25 + EPS && Math.abs(pr.ex - P.x) < 0.13 && Math.abs(pr.ey - P.y) < 0.13) continue;
+    if (inHerSquare(pr.ex, pr.ey)) continue;   // never wander into her square, or the one she's stepping into
     const d = bfs.dist.get(qkey(pr.ex, pr.ey));
     if (d !== undefined && (d < bd || (d === bd && best && dx === Q.fx && dy === Q.fy))) { bd = d; best = { pr, dx, dy }; }
   }
@@ -875,15 +910,21 @@ vec3 adobe(vec2 q, float px, float lit, float per, vec3 dark, vec3 light){
   return ramp4(dark, light, t * lit);
 }
 
-vec3 wallColor(int r, vec2 p, float uw, float z, float gu, float useg, float px, float lit){
+vec3 wallColor(int r, vec2 p, float uw, float z, float gu, float useg, float px, float lit, float mural, float len){
   float per = perOf(r);
   vec2 q = (floor(vec2(uw, z) / px) + 0.5) * px;
   vec3 dark = (r == 1) ? vec3(0.62,0.60,0.56) : (r == 3 ? vec3(0.48,0.32,0.24) : vec3(0.50,0.38,0.26));
   vec3 light = (r == 1) ? vec3(0.98,0.96,0.92) : (r == 3 ? vec3(0.92,0.74,0.60) : vec3(0.94,0.84,0.66));
-  vec3 c;
-  if (q.y < 0.95 || q.y > 3.78) c = adobe(q, px, lit, per, dark, light);
-  else if (q.y < 1.05) c = (r == 1) ? ramp4(vec3(0.34,0.40,0.48), vec3(0.62,0.70,0.78), 0.7*lit) : ramp4(vec3(0.38,0.18,0.12), vec3(0.74,0.40,0.26), 0.7*lit);
-  else c = muralColor(r, q.x, q.y, px, lit, 0.25 * fbm(q, px, 1.0, per));
+  // plain adobe, a little darker at the foot and along the coping at the top
+  float band = (q.y < 0.35) ? 0.82 : (q.y > 3.8 ? 0.9 : 1.0);
+  vec3 c = adobe(q, px, lit * band, per, dark, light);
+  // the odd framed mural
+  float us = (floor(useg / px) + 0.5) * px;
+  if (mural > 0.5 && us > 0.35 && us < len - 0.35 && q.y > 1.2 && q.y < 3.3) {
+    bool frame = us < 0.43 || us > len - 0.43 || q.y < 1.28 || q.y > 3.22;
+    c = frame ? ramp4(vec3(0.30,0.20,0.12), vec3(0.62,0.44,0.28), 0.7*lit)
+              : muralColor(r, q.x, (q.y - 1.28) / 1.94 * 2.6 + 1.05, px, lit, 0.25 * fbm(q, px, 1.0, per));
+  }
   if (gu >= 0.0 && glyphL(useg - gu, q.y) > 0.5) c = ramp4(vec3(0.26,0.12,0.08), vec3(0.56,0.28,0.18), 0.7*lit);
   return c;
 }
@@ -1032,7 +1073,8 @@ void main(){
       float useg = dot(p.xy - A.xy, e);
       float lit = 0.8 + 0.2*dot(n2, normalize(vec2(0.6, 0.8)));
       lit *= 0.8 + 0.2*smoothstep(0.0, 0.3, p.z);
-      col = wallColor(r, p.xy, uw, p.z, B.w, useg, px, lit);
+      vec4 M = texelFetch(uSeg, ivec2(h.idx, 2), 0);
+      col = wallColor(r, p.xy, uw, p.z, B.w, useg, px, lit, M.x, M.y);
     } else if (h.type == 4) {
       vec4 BA = uBA[h.idx], BB = uBB[h.idx];
       vec3 bmin = vec3(BA.xy, BB.x), bmax = vec3(BA.zw, BB.y);
@@ -1143,10 +1185,11 @@ for (const n of ['uRes', 'uCam', 'uF', 'uR', 'uPitch', 'uScale', 'uPS', 'uNS', '
 // static: segments (in a float texture) and portals
 {
   if (segs.length > MAXS) throw new Error('too many segments');
-  const data = new Float32Array(segs.length * 4 * 2);
+  const data = new Float32Array(segs.length * 4 * 3);
   segs.forEach((s, i) => {
     data.set([s.x0, s.y0, s.x1, s.y1], i * 4);
     data.set([s.door ? 1 : 0, s.h, s.portal, s.glyph ? s.gu : -1], (segs.length + i) * 4);
+    data.set([s.mural ? 1 : 0, Math.hypot(s.x1 - s.x0, s.y1 - s.y0), 0, 0], (2 * segs.length + i) * 4);
   });
   const tex = gl.createTexture();
   gl.activeTexture(gl.TEXTURE0);
@@ -1155,7 +1198,7 @@ for (const n of ['uRes', 'uCam', 'uF', 'uR', 'uPitch', 'uScale', 'uPS', 'uNS', '
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, segs.length, 2, 0, gl.RGBA, gl.FLOAT, data);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, segs.length, 3, 0, gl.RGBA, gl.FLOAT, data);
   gl.uniform1i(U.uSeg, 0);
   const PL = new Float32Array(MAXP * 4), PO = new Float32Array(MAXP * 4);
   portals.forEach((T, i) => { PL.set(T.L, i * 4); PO.set([T.ox, T.oy, T.s, T.det], i * 4); });
