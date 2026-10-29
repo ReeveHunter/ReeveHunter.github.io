@@ -15,23 +15,24 @@
 // ======================================================================
 // Level
 // ======================================================================
-const CEIL = 3.0;
-const FRAME = 0.1;          // doorway thickness on each side of a wall
+const CEIL = 1e4;          // no roof: the sky is open
+const WALL = 4.0;          // wall height: above her eyes and the camera even at double size, so nothing is seen over a wall
+const OPEN = 1e4;          // "height" of an open gap
+const FRAME = 0.1;         // doorway thickness on each side of a wall
 const segs = [];
 function seg(x0, y0, x1, y1, o = {}) {
-  segs.push({ x0, y0, x1, y1, door: !!o.door, h: o.h ?? CEIL, portal: 0, glyph: o.glyph || 0, gu: o.gu || 0, frame: !!o.frame });
+  segs.push({ x0, y0, x1, y1, door: !!o.door, h: o.h ?? OPEN, portal: 0, glyph: o.glyph || 0, gu: o.gu || 0, frame: !!o.frame });
   return segs.length - 1;
 }
-// A doorway with thickness: the opening itself, plus short jamb walls and a lintel face a
-// little way out from the wall on each side (only the room side, for a glued doorway).
-// Glued doorways must be listed with the room's interior on their left (walking p0 to p1).
-function door(x0, y0, x1, y1, h, glued) {
-  const i = seg(x0, y0, x1, y1, { door: true, h });
+// A gap in a wall, with short jamb walls so it has some thickness (only on the yard side, for
+// a glued gap). Glued gaps must be listed with the yard's interior on their left (p0 to p1).
+// A gap's width is the largest size that fits through it.
+function door(x0, y0, x1, y1, glued) {
+  const i = seg(x0, y0, x1, y1, { door: true });
   const ex = x1 - x0, ey = y1 - y0, l = Math.hypot(ex, ey), nx = -ey / l * FRAME, ny = ex / l * FRAME;
   for (const sd of glued ? [1] : [1, -1]) {
-    seg(x0, y0, x0 + sd * nx, y0 + sd * ny);
-    seg(x1, y1, x1 + sd * nx, y1 + sd * ny);
-    seg(x0 + sd * nx, y0 + sd * ny, x1 + sd * nx, y1 + sd * ny, { door: true, h, frame: true });
+    seg(x0, y0, x0 + sd * nx, y0 + sd * ny, { frame: true });
+    seg(x1, y1, x1 + sd * nx, y1 + sd * ny, { frame: true });
   }
   return i;
 }
@@ -60,50 +61,65 @@ function link(i, j, flip) {
   pairs.push({ i, j, flip });
 }
 
-// West room G (x -8..0, y 0..8). Its north doorway (2 wide) is glued to its own west doorway (1 wide).
-seg(-8, 8, -6, 8);
-const gBig = door(-4, 8, -6, 8, 2.4, true);
-seg(-4, 8, 0, 8);
-seg(-8, 0, -8, 4);
-const gSmall = door(-8, 5, -8, 4, 1.2, true);
-seg(-8, 5, -8, 8);
-seg(-8, 0, 0, 0);
-seg(0, 0, 0, 4);
-door(0, 4, 0, 6, 2.4);                    // G <-> A
-seg(0, 6, 0, 8);
-// Start room A (x 0..10, y 0..8), with the passages' inner walls.
-seg(0, 8, 4, 8);
-door(4, 8, 6, 8, 2.4);                    // A <-> north passage
-seg(6, 8, 20, 8);
-seg(10, 8, 10, 0, { glyph: 1, gu: 4 });
-seg(0, 0, 4, 0);
-door(4, 0, 6, 0, 2.4);                    // A <-> south passage
-seg(6, 0, 20, 0);
-// North passage C (y 8..12): ends glued straight (a cylinder).
-seg(0, 12, 20, 12, { glyph: 1, gu: 10 });
-const cE = seg(20, 8, 20, 12, { door: true });
-const cW = seg(0, 12, 0, 8, { door: true });
-// South passage F (y -4..0): ends glued with a flip (a Möbius band).
-seg(20, -4, 0, -4, { glyph: 1, gu: 10 });
-const fE = seg(20, -4, 20, 0, { door: true });
-const fW = seg(0, 0, 0, -4, { door: true });
+// Everything is sized for double size (a 2-unit square), so every wall and gap sits on even
+// coordinates, apart from the one gap meant only for normal size and smaller.
+//
+// West yard G (x -6..0, y 0..6). Its north gap (2 wide) is glued to its own west gap (1 wide).
+seg(-6, 6, -4, 6);
+const gBig = door(-2, 6, -4, 6, true);
+seg(-2, 6, 0, 6);
+seg(-6, 0, -6, 2);
+const gSmall = door(-6, 3, -6, 2, true);
+seg(-6, 3, -6, 6);
+seg(-6, 0, 0, 0);
+seg(0, 0, 0, 2);
+door(0, 2, 0, 4);                         // G <-> A
+seg(0, 4, 0, 6);
+// Start yard A (x 0..6, y 0..6), with the passages' inner walls.
+seg(0, 6, 2, 6);
+door(2, 6, 4, 6);                         // A <-> north passage
+seg(4, 6, 12, 6);
+seg(6, 6, 6, 2, { glyph: 1, gu: 1 });
+door(6, 0, 6, 2);                         // A <-> pillar yard
+seg(0, 0, 2, 0);
+door(2, 0, 4, 0);                         // A <-> south passage
+seg(4, 0, 12, 0);
+// Pillar yard: an L of three 2x2 squares. The missing square's two edges are glued by a quarter
+// turn about the inner corner, so there is only 270 degrees of ground around that corner.
+seg(6, 4, 8, 4);
+seg(10, 0, 10, 2);
+const pA = seg(8, 2, 8, 4, { door: true });
+const pB = seg(10, 2, 8, 2, { door: true });
+// North passage C (y 6..8): ends glued straight (a cylinder).
+seg(0, 8, 12, 8, { glyph: 1, gu: 6 });
+const cE = seg(12, 6, 12, 8, { door: true });
+const cW = seg(0, 8, 0, 6, { door: true });
+// South passage F (y -2..0): ends glued with a flip (a Möbius band).
+seg(12, -2, 0, -2, { glyph: 1, gu: 6 });
+const fE = seg(12, -2, 12, 0, { door: true });
+const fW = seg(0, 0, 0, -2, { door: true });
 
 link(gBig, gSmall, false);
 link(cE, cW, false);
 link(fE, fW, true);
+link(pA, pB, false);
 
 const rooms = [
-  { x0: 0, y0: 0, x1: 10, y1: 8, fill: '#ead8b9' },
-  { x0: -8, y0: 0, x1: 0, y1: 8, fill: '#f1ece0' },
-  { x0: 0, y0: 8, x1: 20, y1: 12, fill: '#e3d7b4' },
-  { x0: 0, y0: -4, x1: 20, y1: 0, fill: '#e8cdb8' },
+  { x0: 0, y0: 0, x1: 6, y1: 6, fill: '#ead8b9' },
+  { x0: -6, y0: 0, x1: 0, y1: 6, fill: '#f1ece0' },
+  { x0: 0, y0: 6, x1: 12, y1: 8, fill: '#e3d7b4' },
+  { x0: 0, y0: -2, x1: 12, y1: 0, fill: '#e8cdb8' },
+  { x0: 6, y0: 0, x1: 10, y1: 2, fill: '#e6d3b0' },
+  { x0: 6, y0: 2, x1: 8, y1: 4, fill: '#e6d3b0' },
 ];
 const staticBoxes = [
-  { minx: 8.0, miny: 6.0, maxx: 9.995, maxy: 7.995, z0: 0, z1: 1.0, kind: 0 },   // ledge in A
-  // a low sill just inside the small west doorway. Arriving there at quarter size you can step
+  { minx: 4.0, miny: 4.0, maxx: 5.995, maxy: 5.995, z0: 0, z1: 1.0, kind: 0 },   // ledge in A
+  // a low sill just inside the small west gap. Arriving there at quarter size you can step
   // onto it; arriving at an eighth you can't, so quarter size is the smallest you can get.
-  { minx: -7.995, miny: 4.0, maxx: -7.75, maxy: 5.0, z0: 0, z1: 0.1, kind: 0 },
+  { minx: -5.995, miny: 2.0, maxx: -5.75, maxy: 3.0, z0: 0, z1: 0.1, kind: 0 },
 ];
+// round obstacles: the pillar sits on the cone point
+const pillars = [{ x: 8, y: 2, r: 0.42, h: 3.2 }];
 
 // ======================================================================
 // Rules
@@ -124,14 +140,14 @@ const quailBody = () => ({ cell: QCELL, h: QUAIL_H, climb: 0.5 * QCELL, scales: 
 let P, Q, crates, plant, logged;
 
 function reset() {
-  P = { x: 5.5, y: 1.5, z: 0, fx: 0, fy: 1, rx: 1, ry: 0, bx: 0, by: 1, pitch: -0.2, s: 1, crawl: false,
+  P = { x: 2.5, y: 1.5, z: 0, fx: 0, fy: 1, rx: 1, ry: 0, bx: 0, by: 1, pitch: -0.3, s: 1, crawl: false,
         riding: false, plan: null, eye: 1.58, vx: 0, vy: 0 };
-  Q = { x: 4.125, y: 3.125, z: 0, fx: 1, fy: 0, m: 1, phase: 0, moving: false, peck: 0, peckT: 2, plan: null };
+  Q = { x: 1.625, y: 2.375, z: 0, fx: 1, fy: 0, m: 1, phase: 0, moving: false, peck: 0, peckT: 2, plan: null };
   crates = [
-    { x: 6.25, y: 4.25, size: 0.5, z0: 0 },
-    { x: -3.5, y: 2.5, size: 1, z0: 0 },
+    { x: 2.75, y: 4.25, size: 0.5, z0: 0 },
+    { x: -2.5, y: 1.5, size: 1, z0: 0 },
   ];
-  plant = { x: 9.5, y: 7.5, z: 1.0 };
+  plant = { x: 5.5, y: 5.5, z: 1.0 };
   logged = { quail: false, plant: false };
   feet = null; bfs.at = -1;
   renderJournalText();
@@ -187,6 +203,14 @@ function probe(b, x, y, z, dx, dy, opts = {}) {
             bx.z1 > zz + climb + EPS && bx.z0 < zz + h) return null;
       }
     }
+    // her body has width: the path can't pass close to the end of a wall (a gap narrower
+    // than her square stops her), and can't pass through a pillar
+    const qx = sx + (ex - sx) * uEnd, qy = sy + (ey - sy) * uEnd;
+    for (const w of segs) {
+      if (w.door || w.frame) continue;
+      if (distToPath(w.x0, w.y0, sx, sy, qx, qy) < 0.4 * cell || distToPath(w.x1, w.y1, sx, sy, qx, qy) < 0.4 * cell) return null;
+    }
+    for (const c of pillars) if (distToPath(c.x, c.y, sx, sy, qx, qy) < c.r) return null;
     if (best < 0) break;
     const s = segs[best];
     if (blocks(s, zz, h)) return null;
@@ -223,6 +247,12 @@ function probe(b, x, y, z, dx, dy, opts = {}) {
   return { ex, ey, z: floor, crossings, push, cell };
 }
 
+function distToPath(px, py, ax, ay, bx, by) {
+  const ex = bx - ax, ey = by - ay, l2 = ex * ex + ey * ey;
+  let t = l2 > 0 ? ((px - ax) * ex + (py - ay) * ey) / l2 : 0; t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * ex), py - (ay + t * ey));
+}
+
 function crateCanMove(c, vx, vy, ignoreAt) {
   const nx = c.x + vx, ny = c.y + vy, hs = c.size / 2;
   for (const s of segs) {
@@ -237,6 +267,7 @@ function crateCanMove(c, vx, vy, ignoreAt) {
     if (b.crate === c || b.z1 <= c.z0 + EPS || b.z0 >= c.z0 + c.size - EPS) continue;
     if (nx - hs < b.maxx - EPS && nx + hs > b.minx + EPS && ny - hs < b.maxy - EPS && ny + hs > b.miny + EPS) return false;
   }
+  for (const p of pillars) if (Math.abs(p.x - nx) < hs + p.r && Math.abs(p.y - ny) < hs + p.r) return false;
   // don't run over the quail or the player
   if (Math.abs(Q.x - nx) < hs && Math.abs(Q.y - ny) < hs && Q.z < c.z0 + c.size) return false;
   if (!P.riding && Math.abs(P.x - nx) < hs && Math.abs(P.y - ny) < hs && ignoreAt !== 'player') return false;
@@ -372,20 +403,14 @@ function stepPlan(m, dt) {
 
 function updatePlayer(dt) {
   // look
-  let a = view === 'overhead' ? 0 : lookX * 0.0022; lookX = 0;
-  if (view === 'overhead' && turnLeft) {
-    const stp = Math.sign(turnLeft) * Math.min(Math.abs(turnLeft), dt * 7);
-    a = stp; turnLeft -= stp;
-    if (Math.abs(turnLeft) < 1e-6) { turnLeft = 0; P.snapAfterTurn = true; }
-  }
+  const a = lookX * 0.0022; lookX = 0;
   if (a) {
     const par = parity(), c = Math.cos(a), s = Math.sin(a);
     const fx = P.fx * c + P.rx * s, fy = P.fy * c + P.ry * s;
     [P.fx, P.fy] = norm(fx, fy);
     P.rx = par * P.fy; P.ry = -par * P.fx;
   }
-  if (P.snapAfterTurn) { P.snapAfterTurn = false; snapView(); }
-  if (view !== 'overhead') P.pitch = Math.max(view === 'follow' ? -1.1 : -1.25, Math.min(view === 'follow' ? 0.45 : 1.25, P.pitch - lookY * 0.0022));
+  P.pitch = Math.max(view === 'follow' ? -0.8 : -1.25, Math.min(view === 'follow' ? 0.5 : 1.25, P.pitch - lookY * 0.0022));
   lookY = 0;
 
   const ox = P.riding ? Q.x : P.x, oy = P.riding ? Q.y : P.y;
@@ -412,13 +437,6 @@ function updatePlayer(dt) {
   // collect things by walking onto them
   if (!logged.plant && Math.hypot(plant.x - P.x, plant.y - P.y) < 0.45 * P.s + 0.2 && Math.abs(P.z - plant.z) < 0.1) logSpecimen('plant');
   if (!logged.quail && Math.hypot(P.x - Q.x, P.y - Q.y) < 1.2) logSpecimen('quail');
-}
-
-// keep the overhead camera exactly on a grid axis
-function snapView() {
-  const par = parity();
-  const [fx, fy] = Math.abs(P.fx) >= Math.abs(P.fy) ? [Math.sign(P.fx), 0] : [0, Math.sign(P.fy)];
-  P.fx = fx; P.fy = fy; P.rx = par * fy; P.ry = -par * fx;
 }
 
 function autoDismount() {
@@ -586,7 +604,7 @@ let journalOpen = false;
 
 function drawMap() {
   const W = mapEl.width, H = mapEl.height;
-  const bx0 = -9.5, bx1 = 21, by0 = -5.2, by1 = 13.2;
+  const bx0 = -7, bx1 = 13, by0 = -3, by1 = 9;
   const k = Math.min(W / (bx1 - bx0), H / (by1 - by0));
   const ox = (W - k * (bx1 - bx0)) / 2, oy = (H - k * (by1 - by0)) / 2;
   const X = x => ox + (x - bx0) * k, Y = y => H - (oy + (y - by0) * k);
@@ -642,10 +660,12 @@ function drawMap() {
   mctx.strokeStyle = '#1f1a15'; mctx.lineWidth = 5; mctx.lineJoin = 'round';
   mctx.beginPath(); mctx.moveTo(px + fx * L, py + fy * L); mctx.lineTo(px, py); mctx.lineTo(px + rx * L * 0.55, py + ry * L * 0.55); mctx.stroke();
   mctx.fillStyle = '#6f6353'; mctx.font = 'italic 18px Georgia, serif';
-  mctx.fillText('start room', X(3.2), Y(2.3));
-  mctx.fillText('west room', X(-5.6), Y(2.3));
-  mctx.fillText('north passage', X(12.5), Y(9.6));
-  mctx.fillText('south passage', X(12.5), Y(-2.4));
+  mctx.fillText('start yard', X(0.6), Y(3.1));
+  mctx.fillText('west yard', X(-5.4), Y(5.1));
+  mctx.fillText('north passage', X(7), Y(7.2));
+  mctx.fillText('south passage', X(7), Y(-1.2));
+  mctx.fillText('pillar', X(8.3), Y(3.2));
+  for (const c of pillars) { mctx.fillStyle = '#8a6a4a'; mctx.beginPath(); mctx.arc(X(c.x), Y(c.y), c.r * k, 0, 7); mctx.fill(); }
 }
 
 const debugEl = document.getElementById('debug');
@@ -671,7 +691,7 @@ if (!gl) {
   return;
 }
 
-const MAXS = 160, MAXP = 8, MAXB = 12, MAXE = 32, MAXC = 16;
+const MAXS = 160, MAXP = 12, MAXB = 12, MAXE = 32, MAXC = 16;
 
 const VS = `#version 300 es
 in vec2 aPos; void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }`;
@@ -683,11 +703,10 @@ out vec4 fragColor;
 uniform vec2 uRes;
 uniform vec3 uCam;
 uniform vec2 uF, uR;
-uniform float uPitch, uScale, uFog;
-uniform vec4 uCut;   // cutaway: player x, y, and the horizontal direction from her toward the camera
-uniform float uCutH; // walls on the camera's side of her are drawn only this high (0 = off)
-uniform int uNS, uNB, uNE;
-uniform highp sampler2D uSeg; // row 0: x0 y0 x1 y1; row 1: isDoor, doorHeight, portal, glyph position (or -1)
+uniform float uPitch, uScale;
+uniform float uPS;          // her size in the camera's frame; sets how fine the world's pixels are
+uniform int uNS, uNB, uNE, uNC;
+uniform highp sampler2D uSeg; // row 0: x0 y0 x1 y1; row 1: isGap, gapHeight, portal, glyph position (or -1)
 uniform vec4 uPL[${MAXP}];   // linear part, row-major
 uniform vec4 uPO[${MAXP}];   // offset x, offset y, scale, det
 uniform vec4 uBA[${MAXB}];   // minx miny maxx maxy
@@ -695,139 +714,178 @@ uniform vec4 uBB[${MAXB}];   // z0 z1 kind
 uniform vec4 uEC[${MAXE}];   // centre, kind
 uniform vec4 uER[${MAXE}];   // radii
 uniform vec4 uEB[${MAXE}];   // forward.xy, side.xy
-uniform int uNC;
 uniform vec4 uCA[${MAXC}];   // capsule end a, radius
 uniform vec4 uCB[${MAXC}];   // capsule end b, kind
 
-const float CEIL = 3.0;
+const float WALL = ${WALL.toFixed(2)};
 const float PI = 3.14159265;
-const vec3 HAZE = vec3(0.86, 0.79, 0.69);
+const float PERIOD = 12.0;   // length of the glued passages: their patterns repeat with this period
+const vec3 HAZE = vec3(0.88, 0.82, 0.72);
 const vec3 SUN = normalize(vec3(0.35, 0.55, 0.76));
+const float TEX = 16.0;      // world pixels per body-width, at every size
 
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float vnoise(vec2 p){
+// value noise on a lattice that can wrap with period n (n = 0: no wrap)
+float vnoise(vec2 p, float n){
   vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
-  return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+  vec2 i1 = i + 1.0;
+  if (n > 0.0) { i = mod(i, n); i1 = mod(i1, n); }
+  return mix(mix(hash(i), hash(vec2(i1.x, i.y)), f.x), mix(hash(vec2(i.x, i1.y)), hash(i1), f.x), f.y);
+}
+// layered noise that stops at the pixel size: smaller you, more layers
+float fbm(vec2 p, float px, float f0, float per){
+  float v = 0.0, amp = 0.5, f = f0;
+  for (int i = 0; i < 9; i++) {
+    if (1.0 / f < 2.0 * px) break;
+    v += amp * (vnoise(p * f, per > 0.0 ? per * f : 0.0) - 0.5);
+    amp *= 0.55; f *= 2.0;
+  }
+  return v;
 }
 float cross2(vec2 a, vec2 b){ return a.x*b.y - a.y*b.x; }
-// periodic in x with period 20, so the glued passages show no seam
-float pwave(float x, float k, float ph){ return sin(x * 2.0*PI*k/20.0 + ph); }
-
-// slow rise, quick fall: a lopsided (chiral) wave with no hard steps
+float pwave(float x, float k, float ph){ return sin(x * 2.0*PI*k/PERIOD + ph); }
 float asym(float x){ x = fract(x); return min(x / 0.8, (1.0 - x) / 0.2); }
-
-bool inLevel(vec2 p){
-  return (p.x >= -8.0 && p.x <= 10.0 && p.y >= 0.0 && p.y <= 8.0) ||
-         (p.x >= 0.0 && p.x <= 20.0 && p.y >= -4.0 && p.y <= 12.0 && (p.y >= 8.0 || p.y <= 0.0));
-}
+// four shades between a dark and a light colour
+vec3 ramp4(vec3 dark, vec3 light, float t){ return mix(dark, light, clamp(floor(t * 4.0), 0.0, 3.0) / 3.0); }
 
 int roomOf(vec2 p){
-  if (p.y > 8.0) return 2;
-  if (p.y < 0.0) return 3;
-  if (p.x < 0.0) return 1;
-  return 0;
+  if (p.y > 6.0) return 2;   // north passage
+  if (p.y < 0.0) return 3;   // south passage
+  if (p.x < 0.0) return 1;   // west yard
+  if (p.x > 6.0) return 4;   // pillar yard
+  return 0;                  // start yard
+}
+// patterns in the passages must line up across their glued ends: periodic along x, and in the
+// flipped passage symmetric across its centre line
+vec2 patCoord(int r, vec2 p){
+  if (r == 3) return vec2(p.x, abs(p.y + 1.0));
+  return p;
+}
+float perOf(int r){ return (r == 2 || r == 3) ? PERIOD : 0.0; }
+
+vec3 skyColor(vec3 d){
+  float e = normalize(d).z;
+  vec3 c = mix(vec3(0.93,0.86,0.74), vec3(0.46,0.66,0.88), smoothstep(0.0, 0.55, e));
+  return mix(c, vec3(0.34,0.52,0.80), smoothstep(0.55, 1.0, e));
 }
 
-vec3 plasterOf(int r){
-  if (r == 1) return vec3(0.91, 0.89, 0.84);
-  if (r == 2) return vec3(0.83, 0.73, 0.57);
-  if (r == 3) return vec3(0.84, 0.67, 0.53);
-  return vec3(0.87, 0.77, 0.61);
+// ---------- ground ----------
+vec3 groundColor(int r, vec2 p, float px, float lit){
+  vec2 pc = patCoord(r, p);
+  vec2 q = (floor(pc / px) + 0.5) * px;            // snap to the world's pixel grid
+  float per = perOf(r);
+  float t = 0.6 + 0.75 * fbm(q, px, 0.5, per);
+  // pebbles: visible at normal size and smaller
+  if (px < 0.07) {
+    float cs = 0.375; vec2 c = floor(q / cs), f = fract(q / cs) - 0.5;
+    vec2 ch = per > 0.0 ? mod(c, per / cs) : c;
+    float hh = hash(ch), rr = 0.12 + 0.16 * hash(ch + 1.3);
+    vec2 off = vec2(hash(ch + 3.1), hash(ch + 7.7)) - 0.5;
+    if (hh > 0.55 && length(f - off * 0.45) < rr) t += hh > 0.8 ? 0.25 : -0.25;
+  }
+  // grit: half size and smaller
+  if (px < 0.035) {
+    float cs = 0.09375; vec2 c = floor(q / cs), f = fract(q / cs) - 0.5;
+    vec2 ch = per > 0.0 ? mod(c, per / cs) : c;
+    float hh = hash(ch + 11.0);
+    if (hh > 0.72 && length(f) < 0.28) t -= 0.2; else if (hh < 0.08 && length(f) < 0.22) t += 0.22;
+  }
+  // single grains, and the odd ant: quarter size
+  if (px < 0.02) {
+    float cs = 0.0234375; vec2 c = floor(q / cs);
+    vec2 ch = per > 0.0 ? mod(c, per / cs) : c;
+    float hh = hash(ch + 5.0);
+    if (hh > 0.86) t += 0.14;
+    if (hh < 0.0015) return vec3(0.10,0.06,0.05);
+  }
+  // grass tufts in the north passage
+  if (r == 2) {
+    float g = fbm(q + 7.0, max(px, 0.03), 0.75, per);
+    if (g > 0.12) return ramp4(vec3(0.33,0.33,0.18), vec3(0.78,0.74,0.46), (0.55 + g) * lit);
+  }
+  t *= lit;
+  if (r == 1) return ramp4(vec3(0.66,0.65,0.62), vec3(0.98,0.96,0.91), t);   // white gypsum sand
+  if (r == 2) return ramp4(vec3(0.44,0.36,0.22), vec3(0.86,0.75,0.52), t);   // dry grassland
+  if (r == 3) return ramp4(vec3(0.42,0.22,0.16), vec3(0.88,0.60,0.46), t);   // red earth
+  if (r == 4) {                                                             // flagstones
+    vec2 cc = floor(q / 0.5); vec2 ff = fract(q / 0.5);
+    float joint = step(min(min(ff.x, 1.0-ff.x), min(ff.y, 1.0-ff.y)), max(0.05, px / 0.5));
+    return ramp4(vec3(0.40,0.30,0.24), vec3(0.86,0.76,0.62), (t + 0.15*(hash(cc)-0.5)) * (1.0 - 0.45*joint));
+  }
+  return ramp4(vec3(0.46,0.30,0.20), vec3(0.90,0.74,0.56), t);              // caliche earth
 }
 
-// The painted landscape above the wainscot. Shapes are deliberately lopsided (slow rise,
-// sharp drop) so that a mirrored room looks mirrored.
-vec3 mural(int r, float u, float z){
-  vec3 skyLo, skyHi, far, near, ground;
+// ---------- walls ----------
+// Adobe up to 1 unit, a painted landscape above, a coping along the top. The landscape's
+// shapes are lopsided (slow rise, quick fall) so a mirrored wall looks mirrored.
+vec3 muralColor(int r, float u, float z, float px, float lit, float n){
   float hFar, hNear;
-  if (r == 1) {        // white sands
-    skyLo = vec3(0.93,0.91,0.86); skyHi = vec3(0.62,0.76,0.90);
-    far = vec3(0.66,0.71,0.78); near = vec3(0.97,0.95,0.90); ground = vec3(0.95,0.93,0.86);
-    hFar = 1.75 + 0.18*sin(u*0.9) + 0.10*sin(u*2.3+1.0);
-    hNear = 1.32 + 0.16*asym(u*0.35);
-  } else if (r == 2) { // grassland under a monsoon sky
-    skyLo = vec3(0.78,0.76,0.72); skyHi = vec3(0.42,0.47,0.56);
-    far = vec3(0.56,0.55,0.62); near = vec3(0.70,0.63,0.45); ground = vec3(0.80,0.71,0.46);
-    hFar = 1.68 + 0.22*pwave(u,3.0,0.4) + 0.12*pwave(u,7.0,1.3) + 0.25*asym(u*4.0/20.0);
-    hNear = 1.28 + 0.05*pwave(u,11.0,0.0);
-  } else if (r == 3) { // red mesas
-    skyLo = vec3(0.95,0.82,0.66); skyHi = vec3(0.56,0.70,0.86);
-    far = vec3(0.70,0.47,0.38); near = vec3(0.64,0.36,0.27); ground = vec3(0.82,0.62,0.46);
-    float m = fract(u*3.0/20.0);
-    hFar = 1.55 + 0.45*smoothstep(0.08,0.12,m)*(1.0-smoothstep(0.55,0.75,m));
-    hNear = 1.30 + 0.18*smoothstep(0.0,0.6,fract(u*5.0/20.0+0.3))*step(fract(u*5.0/20.0+0.3),0.62);
-  } else {             // desert mountains
-    skyLo = vec3(0.95,0.86,0.72); skyHi = vec3(0.52,0.70,0.88);
-    far = vec3(0.56,0.61,0.70); near = vec3(0.66,0.62,0.55); ground = vec3(0.82,0.70,0.52);
-    hFar = 1.62 + 0.24*sin(u*0.55) + 0.12*sin(u*1.7+2.0) + 0.34*asym(u*0.23);
-    hNear = 1.30 + 0.10*asym(u*0.6+0.2);
+  vec3 skyD, skyL, farD, farL, nearD, nearL, gD, gL;
+  if (r == 1) {
+    skyD = vec3(0.55,0.66,0.80); skyL = vec3(0.96,0.95,0.90); farD = vec3(0.46,0.52,0.62); farL = vec3(0.76,0.80,0.86);
+    nearD = vec3(0.72,0.71,0.68); nearL = vec3(1.0,0.98,0.93); gD = vec3(0.70,0.68,0.62); gL = vec3(0.98,0.95,0.88);
+    hFar = 2.2 + 0.25*sin(u*0.9) + 0.12*sin(u*2.3+1.0);
+    hNear = 1.5 + 0.25*asym(u*0.35);
+  } else if (r == 2) {
+    skyD = vec3(0.30,0.34,0.44); skyL = vec3(0.80,0.78,0.74); farD = vec3(0.36,0.36,0.44); farL = vec3(0.64,0.62,0.68);
+    nearD = vec3(0.44,0.40,0.28); nearL = vec3(0.78,0.72,0.50); gD = vec3(0.52,0.46,0.30); gL = vec3(0.86,0.78,0.52);
+    hFar = 2.1 + 0.3*pwave(u,2.0,0.4) + 0.15*pwave(u,5.0,1.3) + 0.3*asym(u*3.0/PERIOD);
+    hNear = 1.45 + 0.08*pwave(u,7.0,0.0);
+  } else if (r == 3) {
+    skyD = vec3(0.50,0.62,0.80); skyL = vec3(0.98,0.86,0.70); farD = vec3(0.48,0.28,0.22); farL = vec3(0.80,0.54,0.42);
+    nearD = vec3(0.40,0.20,0.15); nearL = vec3(0.72,0.42,0.30); gD = vec3(0.56,0.38,0.28); gL = vec3(0.90,0.66,0.50);
+    float m = fract(u*2.0/PERIOD);
+    hFar = 1.9 + 0.6*smoothstep(0.08,0.12,m)*(1.0-smoothstep(0.55,0.75,m));
+    hNear = 1.45 + 0.22*smoothstep(0.0,0.6,fract(u*3.0/PERIOD+0.3))*step(fract(u*3.0/PERIOD+0.3),0.62);
+  } else {
+    skyD = vec3(0.48,0.64,0.84); skyL = vec3(0.98,0.88,0.74); farD = vec3(0.40,0.45,0.56); farL = vec3(0.70,0.74,0.82);
+    nearD = vec3(0.46,0.42,0.36); nearL = vec3(0.78,0.72,0.62); gD = vec3(0.56,0.44,0.30); gL = vec3(0.90,0.76,0.56);
+    hFar = 2.0 + 0.3*sin(u*0.55) + 0.15*sin(u*1.7+2.0) + 0.4*asym(u*0.23);
+    hNear = 1.45 + 0.14*asym(u*0.6+0.2);
   }
-  vec3 c = mix(skyLo, skyHi, smoothstep(1.3, 2.9, z));
-  if (r == 2) { // storm clouds
-    float cl = 0.5 + 0.25*pwave(u,5.0,z*3.0) + 0.25*pwave(u,9.0,1.7-z*2.0);
-    c = mix(c, vec3(0.36,0.39,0.46), smoothstep(0.55,0.75,cl) * smoothstep(2.0,2.7,z));
+  if (z < 1.3) return ramp4(gD, gL, (0.6 + n) * lit);
+  if (z < hNear) return ramp4(nearD, nearL, (0.62 + n) * lit);
+  if (z < hFar) return ramp4(farD, farL, (0.62 + n) * lit);
+  float sky = 0.95 - 0.55 * smoothstep(1.6, 3.6, z);          // paler towards the painted horizon
+  vec3 c = ramp4(skyD, skyL, (sky + 0.5*n) * (0.6 + 0.4*lit));
+  if (r == 0) {   // a painted sun
+    vec2 sp = vec2(fract(u/7.0)*7.0 - 4.2, z - 3.0);
+    if (length(sp) < 0.22) c = vec3(1.0,0.94,0.76);
   }
-  if (r == 0) { // a painted sun
-    vec2 sp = vec2(fract(u/7.0)*7.0 - 4.2, z - 2.45);
-    c = mix(c, vec3(1.0,0.93,0.74), 1.0 - smoothstep(0.17, 0.2, length(sp)));
-  }
-  if (z < hFar) c = mix(far, skyLo, 0.15*smoothstep(hFar-0.3, hFar, z));
-  if (z < hNear) c = near;
-  if (z < 1.18) c = ground;
   return c;
 }
 
-// tetromino L, cells of 0.26 along the wall
 float glyphL(float u, float z){
-  vec2 g = vec2(u / 0.26 + 1.0, (z - 1.35) / 0.26);
+  vec2 g = vec2(u / 0.3 + 1.0, (z - 1.7) / 0.3);
   bool a = g.x >= 0.0 && g.x < 1.0 && g.y >= 0.0 && g.y < 3.0;
   bool b = g.x >= 1.0 && g.x < 2.0 && g.y >= 0.0 && g.y < 1.0;
   return (a || b) ? 1.0 : 0.0;
 }
 
-vec3 wallColor(int r, float uw, float z, float gu, float useg){
-  vec3 base = plasterOf(r);
-  float mott;
-  if (r >= 2) mott = 0.5 + 0.25*pwave(uw, 13.0, z*7.0) + 0.25*pwave(uw, 29.0, z*13.0);
-  else mott = vnoise(vec2(uw, z) * 5.0);
+vec3 adobe(vec2 q, float px, float lit, float per, vec3 dark, vec3 light){
+  float t = 0.62 + 0.6 * fbm(q, px, 0.8, per);
+  if (px < 0.035) {   // straw in the plaster
+    vec2 c = floor(q / vec2(0.09375, 0.03)); float hh = hash(per > 0.0 ? vec2(mod(c.x, per / 0.09375), c.y) : c);
+    if (hh > 0.9) t -= 0.18;
+  }
+  if (px < 0.02) {    // hairline cracks
+    float cr = abs(fbm(q * 1.7 + 3.0, 0.02, 2.0, per > 0.0 ? per : 0.0));
+    if (cr < 0.012) t -= 0.22;
+  }
+  return ramp4(dark, light, t * lit);
+}
+
+vec3 wallColor(int r, vec2 p, float uw, float z, float gu, float useg, float px, float lit){
+  float per = perOf(r);
+  vec2 q = (floor(vec2(uw, z) / px) + 0.5) * px;
+  vec3 dark = (r == 1) ? vec3(0.62,0.60,0.56) : (r == 3 ? vec3(0.48,0.32,0.24) : vec3(0.50,0.38,0.26));
+  vec3 light = (r == 1) ? vec3(0.98,0.96,0.92) : (r == 3 ? vec3(0.92,0.74,0.60) : vec3(0.94,0.84,0.66));
   vec3 c;
-  if (z < 0.95) c = base * (0.9 + 0.12*mott);
-  else if (z < 1.05) c = (r == 1) ? vec3(0.55,0.63,0.70) : vec3(0.64,0.35,0.23);
-  else if (z < 2.78) c = mural(r, uw, z) * (0.95 + 0.07*mott);
-  else c = base * (z < 2.84 ? 0.78 : 0.95 + 0.06*mott);   // cornice
-  if (gu >= 0.0 && glyphL(useg - gu, z) > 0.5) c = vec3(0.42,0.20,0.14);
+  if (q.y < 0.95 || q.y > 3.78) c = adobe(q, px, lit, per, dark, light);
+  else if (q.y < 1.05) c = (r == 1) ? ramp4(vec3(0.34,0.40,0.48), vec3(0.62,0.70,0.78), 0.7*lit) : ramp4(vec3(0.38,0.18,0.12), vec3(0.74,0.40,0.26), 0.7*lit);
+  else c = muralColor(r, q.x, q.y, px, lit, 0.25 * fbm(q, px, 1.0, per));
+  if (gu >= 0.0 && glyphL(useg - gu, q.y) > 0.5) c = ramp4(vec3(0.26,0.12,0.08), vec3(0.56,0.28,0.18), 0.7*lit);
   return c;
-}
-
-vec3 floorColor(int r, vec2 p){
-  if (r == 1) { // gypsum sand
-    float rip = 0.5 + 0.5*sin(p.x*7.0 + 1.5*sin(p.y*1.3));
-    return vec3(0.93,0.91,0.85) * (0.94 + 0.06*rip);
-  }
-  float ts = (r == 2) ? 1.0 : 0.5;
-  vec2 cell = floor(p / ts), f = fract(p / ts);
-  float grout = step(min(min(f.x, 1.0-f.x), min(f.y, 1.0-f.y)), 0.035);
-  float v = hash(cell);
-  vec3 tile;
-  if (r == 2) tile = vec3(0.70,0.58,0.42) * (0.9 + 0.15*v);          // adobe bricks
-  else if (r == 3) tile = vec3(0.66,0.42,0.31) * (0.88 + 0.18*v);     // red flagstone
-  else tile = vec3(0.76,0.48,0.32) * (0.88 + 0.18*v);                 // saltillo tile
-  return mix(tile, tile*0.62, grout);
-}
-
-vec3 ceilingColor(int r, vec2 p){
-  vec3 sky = (r == 2) ? vec3(0.50,0.55,0.64) : vec3(0.58,0.74,0.89);
-  if (r <= 1) {
-    float cl = vnoise(p * 0.35) * 0.65 + vnoise(p * 1.1) * 0.35;
-    sky = mix(sky, vec3(0.97,0.96,0.93), smoothstep(0.55, 0.75, cl));
-  } else {
-    float cen = abs(p.y - (r == 2 ? 10.0 : -2.0)); // symmetric across the passage, so the flip matches up
-    sky = mix(sky, vec3(0.90,0.88,0.84), 0.35*smoothstep(2.0, 0.0, cen));
-  }
-  // vigas (ceiling beams)
-  float bx = fract(p.x / 1.0);
-  if (bx < 0.13) sky = vec3(0.40,0.28,0.18) * (0.85 + 0.15*sin(p.y*9.0));
-  return sky;
 }
 
 struct Hit { float t; int type; int idx; vec3 n; vec3 lp; };
@@ -860,7 +918,7 @@ void main(){
   vec3 d = normalize(fw + uv.x*TH*rt + uv.y*TH*up);
   vec3 o = uCam;
   float tmin = 0.0;
-  int glued = 0;
+  float ps = uPS;               // her size in the current frame; changes as the ray crosses scaling gaps
   vec3 col = HAZE;
   float tHit = 1e9;
   bool found = false;
@@ -868,7 +926,6 @@ void main(){
   for (int bounce = 0; bounce < 32; bounce++) {
     Hit h; h.t = 1e9; h.type = 0; h.idx = -1; h.n = vec3(0); h.lp = vec3(0);
     if (d.z < 0.0) { float t = -o.z / d.z; if (t > tmin && t < h.t) { h.t = t; h.type = 1; } }
-    if (d.z > 0.0) { float t = (CEIL - o.z) / d.z; if (t > tmin && t < h.t) { h.t = t; h.type = 2; } }
     for (int i = 0; i < ${MAXS}; i++) {
       if (i >= uNS) break;
       vec4 A = texelFetch(uSeg, ivec2(i, 0), 0);
@@ -879,14 +936,9 @@ void main(){
       float t = cross2(q, e) / den;
       float u = cross2(q, d.xy) / den;
       if (u < 0.0 || u > 1.0 || t <= tmin + 1e-5 || t >= h.t) continue;
-      // cutaway: walls between the camera and her are only stubs
-      if (uCutH > 0.0 && glued == 0 && dot((o.xy + t*d.xy) - uCut.xy, uCut.zw) > 0.2 && o.z + t*d.z > uCutH) {
-        vec4 Bc = texelFetch(uSeg, ivec2(i, 1), 0);
-        if (!(Bc.x > 0.5 && Bc.z > 0.5)) continue;
-      }
-      if (o.z + t*d.z > CEIL) {   // above the walls: only full-height seams still count
+      if (o.z + t*d.z > WALL) {   // over the top of a wall: only glued gaps (open to the sky) still count
         vec4 Bq = texelFetch(uSeg, ivec2(i, 1), 0);
-        if (!(Bq.x > 0.5 && Bq.z > 0.5 && Bq.y >= CEIL - 1e-3)) continue;
+        if (!(Bq.x > 0.5 && Bq.z > 0.5)) continue;
       }
       h.t = t; h.type = 3; h.idx = i;
     }
@@ -923,26 +975,24 @@ void main(){
         h.lp = lh;
       }
     }
-
     for (int i = 0; i < ${MAXC}; i++) {
       if (i >= uNC) break;
       float t = capsule(o, d, uCA[i].xyz, uCB[i].xyz, uCA[i].w);
       if (t > tmin + 1e-5 && t < h.t) { h.t = t; h.type = 6; h.idx = i; }
     }
-    if (h.type == 0) break;
+
+    if (h.type == 0) { col = skyColor(d); tHit = 1e9; found = false; break; }
     vec3 p = o + h.t * d;
 
     if (h.type == 3) {
       vec4 B = texelFetch(uSeg, ivec2(h.idx, 1), 0);
-      if (B.x > 0.5 && (p.z < B.y || B.y >= CEIL - 1e-3)) {          // through a doorway
+      if (B.x > 0.5 && p.z < B.y) {          // through a gap
         int pi = int(B.z + 0.5);
         if (pi > 0) {
           vec4 L = uPL[pi], O = uPO[pi];
           o = vec3(L.x*o.x + L.y*o.y + O.x, L.z*o.x + L.w*o.y + O.y, o.z * O.z);
           d = vec3(L.x*d.x + L.y*d.y, L.z*d.x + L.w*d.y, d.z * O.z);
-          sd = sign(d) * max(abs(d), vec3(1e-7));
-          inv = 1.0 / sd;
-          glued++;
+          ps *= O.z;
         }
         tmin = h.t;
         continue;
@@ -950,13 +1000,10 @@ void main(){
     }
 
     found = true; tHit = h.t;
-    float lit = 1.0;
-    if (h.type == 1 && !inLevel(p.xy)) { fragColor = vec4(vec3(0.13,0.11,0.10), 1.0); return; }
+    float px = ps / TEX;            // the size of one world pixel here
     if (h.type == 1) {
       int r = roomOf(p.xy);
-      col = floorColor(r, p.xy);
-      // soft contact shadows under boxes and the quail
-      float sh = 1.0;
+      float sh = 1.0;               // soft contact shadows
       for (int i = 0; i < ${MAXB}; i++) {
         if (i >= uNB) break;
         if (uBB[i].x > 0.05) continue;
@@ -967,13 +1014,14 @@ void main(){
       for (int i = 0; i < ${MAXE}; i++) {
         if (i >= uNE) break;
         if (uEC[i].w != 0.0 || uEC[i].z > 0.35) continue;
-        float dd = length(p.xy - uEC[i].xy);
-        sh *= 1.0 - 0.45*(1.0 - smoothstep(0.04, 0.2, dd));
+        sh *= 1.0 - 0.45*(1.0 - smoothstep(0.04, 0.2, length(p.xy - uEC[i].xy)));
       }
-      lit = 0.95 * sh;
-    } else if (h.type == 2) {
-      col = ceilingColor(roomOf(p.xy), p.xy);
-      lit = 1.0;
+      for (int i = 0; i < ${MAXC}; i++) {
+        if (i >= uNC) break;
+        if (uCB[i].w < 19.5) continue;
+        sh *= 1.0 - 0.4*(1.0 - smoothstep(uCA[i].w, uCA[i].w + 0.3, length(p.xy - uCA[i].xy)));
+      }
+      col = groundColor(r, p.xy, px, 0.98 * sh);
     } else if (h.type == 3) {
       vec4 A = texelFetch(uSeg, ivec2(h.idx, 0), 0), B = texelFetch(uSeg, ivec2(h.idx, 1), 0);
       vec2 e = normalize(A.zw - A.xy);
@@ -982,41 +1030,43 @@ void main(){
       int r = roomOf(p.xy + n2 * 0.02);
       float uw = abs(e.x) > abs(e.y) ? p.x : p.y;
       float useg = dot(p.xy - A.xy, e);
-      if (B.x > 0.5 && p.z < B.y + 0.16) { // wooden lintel just above a doorway
-        col = vec3(0.44,0.30,0.19) * (0.85 + 0.15*sin(useg*31.0 + p.z*3.0));
-      } else if (B.x > 0.5) {
-        col = wallColor(r, uw, p.z, -1.0, useg);
-      } else {
-        col = wallColor(r, uw, p.z, B.w, useg);
-      }
-      lit = 0.78 + 0.22*dot(n2, normalize(vec2(0.6, 0.8)));
-      lit *= 0.82 + 0.18*smoothstep(0.0, 0.25, p.z);  // darker at the floor
+      float lit = 0.8 + 0.2*dot(n2, normalize(vec2(0.6, 0.8)));
+      lit *= 0.8 + 0.2*smoothstep(0.0, 0.3, p.z);
+      col = wallColor(r, p.xy, uw, p.z, B.w, useg, px, lit);
     } else if (h.type == 4) {
       vec4 BA = uBA[h.idx], BB = uBB[h.idx];
       vec3 bmin = vec3(BA.xy, BB.x), bmax = vec3(BA.zw, BB.y);
       vec3 lp = (p - bmin) / (bmax - bmin);
-      if (BB.z > 0.5) { // crate
-        vec2 fuv = abs(h.n.z) > 0.5 ? lp.xy : (abs(h.n.x) > 0.5 ? lp.yz : lp.xz);
-        float edge = step(min(min(fuv.x, 1.0-fuv.x), min(fuv.y, 1.0-fuv.y)), 0.09);
-        float plank = smoothstep(0.0, 0.04, abs(fract(fuv.y * 4.0) - 0.5) - 0.44);
-        vec3 wood = vec3(0.64,0.46,0.28) * (0.9 + 0.1*sin(fuv.x*40.0 + fuv.y*7.0));
-        col = mix(wood * (1.0 - 0.25*plank), vec3(0.42,0.28,0.16), edge);
+      float lit = 0.7 + 0.3*max(0.0, dot(h.n, SUN));
+      vec2 fuv = abs(h.n.z) > 0.5 ? p.xy : (abs(h.n.x) > 0.5 ? p.yz : p.xz);
+      vec2 q = (floor(fuv / px) + 0.5) * px;
+      if (BB.z > 0.5) { // crate: planks, then grain and nails as you shrink
+        vec3 sz = bmax - bmin;
+        vec2 l2 = abs(h.n.z) > 0.5 ? lp.xy : (abs(h.n.x) > 0.5 ? lp.yz : lp.xz);
+        vec2 lq = (floor(l2 * sz.x / px) + 0.5) * px / sz.x;
+        float edge = step(min(min(lq.x, 1.0-lq.x), min(lq.y, 1.0-lq.y)), max(0.09, px / sz.x));
+        float t = 0.62 + 0.25*(hash(vec2(floor(lq.y * 4.0), BA.x)) - 0.5);
+        if (abs(fract(lq.y * 4.0) - 0.5) > 0.46) t -= 0.25;
+        if (px < 0.04 * sz.x) t += 0.18 * sin(lq.x * 60.0 + 5.0*sin(lq.y * 23.0));            // grain
+        if (px < 0.02 * sz.x) { vec2 nd = abs(fract(lq * vec2(1.0, 4.0)) - vec2(0.5)); if (edge > 0.5 && length(nd * vec2(1.0, 0.25)) < 0.06) t = 0.05; }
+        vec3 c = ramp4(vec3(0.34,0.22,0.12), vec3(0.84,0.64,0.40), t * lit);
+        col = edge > 0.5 ? ramp4(vec3(0.24,0.15,0.08), vec3(0.58,0.40,0.24), (t * 0.9) * lit) : c;
       } else {
-        col = plasterOf(roomOf(p.xy - h.n.xy*0.01)) * (h.n.z > 0.5 ? 1.0 : 0.88);
-        if (h.n.z > 0.5) col *= 0.92 + 0.08*vnoise(p.xy*6.0);
+        int r = roomOf(p.xy - h.n.xy*0.01);
+        vec3 dark = (r == 1) ? vec3(0.62,0.60,0.56) : vec3(0.50,0.38,0.26);
+        vec3 light = (r == 1) ? vec3(0.98,0.96,0.92) : vec3(0.94,0.84,0.66);
+        col = adobe(q, px, (h.n.z > 0.5 ? 1.0 : 0.85) * lit, 0.0, dark, light);
       }
-      lit = 0.72 + 0.28*max(0.0, dot(h.n, SUN));
     } else if (h.type == 5) {
       int kind = int(uEC[h.idx].w + 0.5);
       vec3 l = h.lp;
-      if (kind == 0) {         // body: scaly blue-grey, paler belly
+      if (kind == 0) {         // quail body: scaly blue-grey, paler belly
         vec2 sc = vec2(atan(l.y, l.x) * 2.6, l.z * 5.5);
         sc.x += 0.5 * mod(floor(sc.y), 2.0);
         float scale = length(fract(sc) - vec2(0.5, 0.15));
-        vec3 feather = vec3(0.55,0.60,0.67);
-        col = mix(feather, vec3(0.30,0.33,0.38), smoothstep(0.42, 0.5, scale));
+        col = mix(vec3(0.55,0.60,0.67), vec3(0.30,0.33,0.38), smoothstep(0.42, 0.5, scale));
         col = mix(col, vec3(0.84,0.80,0.70), smoothstep(-0.2, -0.75, l.z));
-        col = mix(col, vec3(0.58,0.53,0.47), smoothstep(0.3, 0.9, l.z) * smoothstep(0.0, -0.8, l.x)); // brownish back
+        col = mix(col, vec3(0.58,0.53,0.47), smoothstep(0.3, 0.9, l.z) * smoothstep(0.0, -0.8, l.x));
       }
       else if (kind == 1) col = vec3(0.60,0.60,0.58);
       else if (kind == 2) col = vec3(0.96,0.95,0.91);
@@ -1032,34 +1082,38 @@ void main(){
         col = b < 0.45 ? c1 : (b < 0.6 ? c2 : (b < 0.8 ? c3 : c4));
         if (z < -0.62) col = mix(c2, c1, step(0.5, fract(atan(l.y, l.x) * 9.0)));
       }
-      else if (kind == 10) col = vec3(0.80,0.60,0.46);   // skin
-      else if (kind == 11) col = vec3(0.22,0.19,0.18);   // long legs
-      else if (kind == 13) col = vec3(0.40,0.27,0.17);   // boots
-      else if (kind == 14) col = vec3(0.17,0.12,0.09);   // hair
-      else if (kind == 8) {     // resurrection plant: a green spiral rosette
+      else if (kind == 10) col = vec3(0.80,0.60,0.46);
+      else if (kind == 13) col = vec3(0.40,0.27,0.17);
+      else if (kind == 14) col = vec3(0.17,0.12,0.09);
+      else if (kind == 8) {     // resurrection plant: a green spiral rosette (world: four shades)
         float ang = atan(l.y, l.x), rr = length(l.xy);
         float spiral = fract(ang / (2.0*PI) * 5.0 + log(max(rr, 0.02)) * 1.6);
-        col = mix(vec3(0.30,0.50,0.27), vec3(0.52,0.68,0.36), smoothstep(0.3, 0.7, spiral));
+        float lt = 0.55 + 0.45*max(0.0, dot(h.n, SUN));
+        col = ramp4(vec3(0.18,0.32,0.16), vec3(0.62,0.78,0.42), (0.55 + 0.35*smoothstep(0.3, 0.7, spiral)) * lt + 0.1);
       }
-      lit = 0.55 + 0.45*max(0.0, dot(h.n, SUN)) + 0.1*h.n.z;
-    }
-    if (h.type == 6) {
+      float lit = 0.55 + 0.45*max(0.0, dot(h.n, SUN)) + 0.1*h.n.z;
+      if (kind != 8) col *= lit;
+    } else if (h.type == 6) {
       vec3 a = uCA[h.idx].xyz, b = uCB[h.idx].xyz;
       vec3 ba = b - a, pa = p - a;
       float k = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       vec3 n = normalize(pa - k*ba);
-      col = vec3(0.22,0.19,0.18);
-      lit = 0.55 + 0.45*max(0.0, dot(n, SUN)) + 0.1*n.z;
+      float lit = 0.6 + 0.4*max(0.0, dot(n, SUN)) + 0.1*n.z;
+      if (uCB[h.idx].w > 19.5) {   // the pillar: adobe, in world pixels
+        float ang = atan(n.y, n.x) * uCA[h.idx].w;
+        vec2 q = (floor(vec2(ang, p.z) / px) + 0.5) * px;
+        col = adobe(q, px, lit, 0.0, vec3(0.50,0.36,0.26), vec3(0.94,0.80,0.62));
+      } else col = vec3(0.22,0.19,0.18) * lit;   // her legs
     }
-    col *= lit;
     break;
   }
 
-  float dist = found ? tHit / uScale : 1e9;
-  float fog = 1.0 - exp(-dist * 0.03 * uFog);
-  col = mix(col, HAZE, clamp(fog, 0.0, 1.0));
-  float vig = 1.0 - 0.18*dot(uv*0.6, uv*0.6);
-  fragColor = vec4(pow(col * vig, vec3(0.95)), 1.0);
+  if (found) {
+    float dist = tHit / uScale;
+    col = mix(col, HAZE, clamp(1.0 - exp(-dist * 0.025), 0.0, 1.0));
+  }
+  float vig = 1.0 - 0.16*dot(uv*0.6, uv*0.6);
+  fragColor = vec4(col * vig, 1.0);
 }`;
 
 function compile(type, src) {
@@ -1083,7 +1137,7 @@ gl.enableVertexAttribArray(aPos);
 gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
 const U = {};
-for (const n of ['uRes', 'uCam', 'uF', 'uR', 'uPitch', 'uScale', 'uFog', 'uCut', 'uCutH', 'uNS', 'uNB', 'uNE', 'uNC', 'uCA', 'uCB', 'uSeg', 'uPL', 'uPO', 'uBA', 'uBB', 'uEC', 'uER', 'uEB'])
+for (const n of ['uRes', 'uCam', 'uF', 'uR', 'uPitch', 'uScale', 'uPS', 'uNS', 'uNB', 'uNE', 'uNC', 'uCA', 'uCB', 'uSeg', 'uPL', 'uPO', 'uBA', 'uBB', 'uEC', 'uER', 'uEB'])
   U[n] = gl.getUniformLocation(prog, n);
 
 // static: segments (in a float texture) and portals
@@ -1167,33 +1221,26 @@ function playerParts(out, caps) {
   }
 }
 
-let resScale = 0.5, thirdPerson = true;
-const VIEWS = ['overhead', 'follow', 'first'];
-let view = 'overhead';
-const OVERHEAD_PITCH = -0.9;
-let turnLeft = 0;   // remaining quarter-turn of the overhead camera, in radians
+let resScale = 0.5;
+const VIEWS = ['follow', 'first'];
+let view = 'follow';
 
-// Follow camera: start at her head and back away along the view direction. The camera ray can
-// pass through a glued doorway, in which case the camera ends up in another part of the level
-// with its orientation (and scale) carried across, exactly as the view rays are.
+// Follow camera: close behind her and a little above her head, at a height fixed to her size.
+// It backs away horizontally from her, and if that line passes a glued gap the camera ends up
+// on the far side with its orientation (and scale) carried across, just like the view rays.
+// It always stays below the wall tops, so it can't see over a wall.
 function cameraPose() {
   const H = PLAYER_H * P.s;
-  let x, y, z;
-  if (P.riding) { x = Q.x; y = Q.y; z = Q.z + 0.36 + 0.55 * H; }
-  else { x = P.x; y = P.y; z = P.z + (P.crawl ? 0.5 : 0.88) * H; }
+  let x = P.riding ? Q.x : P.x, y = P.riding ? Q.y : P.y;
   let fx = P.fx, fy = P.fy, rx = P.rx, ry = P.ry, k = 1;
   if (view === 'first') {
     if (P.riding) { x = Q.x - Q.fx * 0.12; y = Q.y - Q.fy * 0.12; }
-    return { x, y, z: P.eye, fx, fy, rx, ry, k, pitch: P.pitch, fog: 1, hideSelf: true };
+    return { x, y, z: P.eye, fx, fy, rx, ry, k, pitch: P.pitch, hideSelf: true };
   }
-  const over = view === 'overhead';
-  const pitch = over ? OVERHEAD_PITCH : P.pitch;
-  if (over) z = (P.riding ? Q.z : P.z) + 0.4 * H;
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  let dx = -fx * cp, dy = -fy * cp, dz = -sp;
-  const D = over ? 7 * P.s + (P.riding ? 1 : 0) : 2.2 * P.s + (P.riding ? 0.35 : 0);
-  const zmax = over ? 1e9 : CEIL - 0.06, fog = over ? 0.45 : 1;
-  let tmin = 0;
+  let z = (P.riding ? Q.z + 0.3 : P.z) + 1.45 * H;
+  let dx = -fx, dy = -fy;
+  const D = 2.1 * P.s + (P.riding ? 0.35 : 0);
+  let tmin = 0, tEnd = D;
   for (let bounce = 0; bounce < 12; bounce++) {
     let tb = D, hit = -1;
     for (let i = 0; i < segs.length; i++) {
@@ -1206,23 +1253,23 @@ function cameraPose() {
       tb = t; hit = i;
     }
     if (hit < 0) break;
-    const s = segs[hit], hz = z + tb * dz;
-    if ((hz > CEIL || over) && !(s.door && s.portal && (s.h >= CEIL || hz < s.h))) { tmin = tb; continue; }   // over (or, overhead, through) a wall
-    if (s.door && (hz < s.h || s.h >= CEIL)) {
+    const s = segs[hit];
+    if (s.door) {
       if (s.portal) {
         const T = portals[s.portal];
         [x, y] = applyP(T, x, y); [dx, dy] = applyL(T, dx, dy);
-        z *= T.s; dz *= T.s;
+        z *= T.s;
         [fx, fy] = norm(...applyL(T, fx, fy)); [rx, ry] = norm(...applyL(T, rx, ry));
         k *= T.s;
       }
       tmin = tb;
       continue;
     }
-    const t = Math.max(tmin, tb - 0.12 * P.s);
-    return { x: x + dx * t, y: y + dy * t, z: Math.max(0.06 * k, Math.min(zmax, z + dz * t)), fx, fy, rx, ry, k, pitch, fog, hideSelf: tb < 0.5 * P.s };
+    tEnd = Math.max(tmin, tb - 0.15 * P.s);   // a wall: stop a little short of it
+    break;
   }
-  return { x: x + dx * D, y: y + dy * D, z: Math.max(0.06 * k, Math.min(zmax, z + dz * D)), fx, fy, rx, ry, k, pitch, fog, hideSelf: false };
+  const hideSelf = tEnd < 0.45 * P.s;
+  return { x: x + dx * tEnd, y: y + dy * tEnd, z: Math.min(WALL - 0.15, z), fx, fy, rx, ry, k, pitch: P.pitch, hideSelf };
 }
 
 function resize() {
@@ -1239,12 +1286,7 @@ function render() {
   gl.uniform2f(U.uF, cam.fx, cam.fy);
   gl.uniform2f(U.uR, cam.rx, cam.ry);
   gl.uniform1f(U.uPitch, cam.pitch);
-  gl.uniform1f(U.uFog, cam.fog);
-  if (view === 'overhead') {
-    const px = P.riding ? Q.x : P.x, py = P.riding ? Q.y : P.y;
-    gl.uniform4f(U.uCut, px, py, -P.fx, -P.fy);
-    gl.uniform1f(U.uCutH, 0.3);
-  } else gl.uniform1f(U.uCutH, 0);
+  gl.uniform1f(U.uPS, P.s * cam.k);   // her size, measured in the camera's frame
   gl.uniform1f(U.uScale, cam.k);
 
   const boxes = worldBoxes();
@@ -1255,6 +1297,7 @@ function render() {
   const ells = [], caps = [];
   quailParts(ells);
   if (!cam.hideSelf) playerParts(ells, caps);
+  for (const p of pillars) caps.push({ a: [p.x, p.y, -1], b: [p.x, p.y, p.h - p.r], r: p.r, kind: 20 });
   const CA = new Float32Array(MAXC * 4), CB = new Float32Array(MAXC * 4);
   caps.slice(0, MAXC).forEach((c, i) => { CA.set([...c.a, c.r], i * 4); CB.set([...c.b, c.kind], i * 4); });
   gl.uniform4fv(U.uCA, CA); gl.uniform4fv(U.uCB, CB); gl.uniform1i(U.uNC, Math.min(MAXC, caps.length));
@@ -1299,11 +1342,9 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR') { reset(); toast('Restarted.'); }
   if (e.code === 'KeyV') {
     view = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
-    if (view === 'overhead') { turnLeft = 0; snapView(); }
-    if (view === 'follow') P.pitch = -0.2;
-    toast(view === 'overhead' ? 'Overhead view' : view === 'follow' ? 'Follow view' : 'First-person view');
+    if (view === 'follow') P.pitch = -0.3;
+    toast(view === 'follow' ? 'Follow view' : 'First-person view');
   }
-  if (view === 'overhead' && !turnLeft && (e.code === 'KeyZ' || e.code === 'KeyC')) turnLeft = (e.code === 'KeyZ' ? -1 : 1) * Math.PI / 2;
   if (e.code === 'Backquote') { debugOn = !debugOn; debugEl.style.display = debugOn ? 'block' : 'none'; }
   if (e.code === 'BracketLeft') resScale = Math.max(0.25, resScale - 0.125);
   if (e.code === 'BracketRight') resScale = Math.min(1.5, resScale + 0.125);
@@ -1333,6 +1374,6 @@ requestAnimationFrame(frame);
 window.GENUS = { get P() { return P; }, get Q() { return Q; }, get crates() { return crates; }, segs, portals, bfs,
   step(dt, keyList = []) { keyList.forEach(k => keys.add(k)); tick(dt); keyList.forEach(k => keys.delete(k)); },
   hold(k) { keys.add(k); }, release(k) { keys.delete(k); },
-  turn(px) { lookX += px; }, setView(v) { view = v; if (v === 'overhead') snapView(); }, quailAction, render, reset, drawMap, setJournal, probe, playerBody,
+  turn(px) { lookX += px; }, setView(v) { view = v; }, quailAction, render, reset, drawMap, setJournal, probe, playerBody,
   start() { titleEl.style.display = 'none'; playing = true; } };
 })();
