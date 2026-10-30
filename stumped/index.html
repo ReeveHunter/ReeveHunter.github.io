@@ -93,7 +93,7 @@
 </head>
 <body>
 <div id="app">
-  <header><h1>STUMPED</h1><span>v0.57</span></header>
+  <header><h1>STUMPED</h1><span>v0.58</span></header>
 
   <div id="screen-wrap">
     <canvas id="screen" width="640" height="480" aria-label="Stumped game screen"></canvas>
@@ -118,7 +118,7 @@
   <div id="help">
     <p><kbd>Arrows</kbd>/<kbd>WASD</kbd> move &nbsp; <kbd>Enter</kbd> choose &nbsp; <kbd>Esc</kbd> back, pause &nbsp; <kbd>Z</kbd> undo &nbsp; <kbd>X</kbd>/<kbd>Y</kbd> redo</p>
     <p>hold <kbd>R</kbd> restart &nbsp; hold <kbd>M</kbd> map &nbsp; <kbd>-</kbd>/<kbd>=</kbd> zoom &nbsp; <kbd>[</kbd>/<kbd>]</kbd> level &nbsp; <kbd>L</kbd> level list</p>
-    <p>In the lists: <kbd>M</kbd> menu (progress codes, clearing) &nbsp; <kbd>[</kbd>/<kbd>]</kbd> or <kbd>Page Up</kbd>/<kbd>Down</kbd> page &nbsp; Level maker: <kbd>T</kbd> test play</p>
+    <p>In the lists: <kbd>M</kbd> menu (progress codes, clearing) &nbsp; <kbd>[</kbd>/<kbd>]</kbd> or <kbd>Page Up</kbd>/<kbd>Down</kbd> page &nbsp; <kbd>N</kbd> next unsolved &nbsp; Level maker: <kbd>T</kbd> test play</p>
     <p>Game controllers work too. Puzzles by David W. Skinner. Progress is saved in this browser. Also plays on the Miyoo Mini.
        <a href="#" id="touch-toggle">Touch controls</a></p>
   </div>
@@ -136,14 +136,14 @@
   var KA = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, OK: 4, ESC: 5, BACK: 6, UNDO: 7, REDO: 8, RESTART: 9, MAP: 10,
              ZOOM_OUT: 11, ZOOM_IN: 12, PREV: 13, NEXT: 14, PAUSE: 15, LEVELS: 16, CLEAR: 17,
              D0: 18, D1: 19, D2: 20, D3: 21, D4: 22, D5: 23, D6: 24, D7: 25, D8: 26, D9: 27, RIM: 28, NEW: 29,
-             KX: 30, KC: 31, KV: 32, PGUP: 33, PGDN: 34, TEST: 35 };
+             KX: 30, KC: 31, KV: 32, PGUP: 33, PGDN: 34, TEST: 35, NEXTU: 36 };
   var KEYS = {
     ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', KeyW: 'UP', KeyS: 'DOWN', KeyA: 'LEFT', KeyD: 'RIGHT',
     Enter: 'OK', NumpadEnter: 'OK', Space: 'OK', Escape: 'ESC', Backspace: 'BACK',
     KeyZ: 'UNDO', KeyU: 'UNDO', KeyY: 'REDO', KeyR: 'RESTART', KeyM: 'MAP', Tab: 'MAP',
     Minus: 'ZOOM_OUT', NumpadSubtract: 'ZOOM_OUT', Equal: 'ZOOM_IN', NumpadAdd: 'ZOOM_IN',
     BracketLeft: 'PREV', BracketRight: 'NEXT', KeyP: 'PAUSE', KeyL: 'LEVELS', Delete: 'CLEAR',
-    PageUp: 'PGUP', PageDown: 'PGDN', KeyT: 'TEST',
+    PageUp: 'PGUP', PageDown: 'PGDN', KeyT: 'TEST', KeyN: 'NEXTU',
     /* X also redoes; Listen plays along on the number keys (top row or ten-key), and Z X C V are its A B X Y */
     KeyX: 'KX', KeyC: 'KC', KeyV: 'KV'
   };
@@ -167,6 +167,19 @@
   }
   /* level set files you add: kept in the browser as { "name.txt": text } */
   function loadSetStore() { try { return JSON.parse(localStorage.getItem(SETS_KEY) || '{}'); } catch (e) { return {}; } }
+  var saveIn = document.createElement('input');
+  saveIn.type = 'file'; saveIn.accept = '.txt,text/plain'; saveIn.style.display = 'none';
+  document.body.appendChild(saveIn);
+  saveIn.addEventListener('change', function () {
+    var f = saveIn.files && saveIn.files[0];
+    if (!f || !ready) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try { Module.FS.writeFile('import.txt', String(r.result)); } catch (e) { return; }
+      Module._web_save_import();
+    };
+    r.readAsText(f);
+  });
   var fileIn = document.createElement('input');
   fileIn.type = 'file'; fileIn.accept = '.txt,.sok,.xsb,text/plain'; fileIn.style.display = 'none';
   document.body.appendChild(fileIn);
@@ -695,14 +708,30 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261027212222'; },
+    locateFile: function (path) { return path + '?v=20261030063228'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
     },
     stumpedLoad: function () {
       try { var s = localStorage.getItem(SAVE_KEY); if (s) Module.FS.writeFile('save.txt', s); } catch (e) {}
+      try { var b = localStorage.getItem(SAVE_KEY + '-bak'); if (b) Module.FS.writeFile('save.txt.bak', b); } catch (e) {}
+      /* ask the browser to keep the save even when it's short of space */
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
     },
+    /* Options -> Save to a file: download save.txt */
+    stumpedExportSave: function () {
+      try {
+        var t = Module.FS.readFile('save.txt', { encoding: 'utf8' }), d = new Date();
+        var name = 'stumped-save-' + d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + '.txt';
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain' }));
+        a.download = name; document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      } catch (e) {}
+    },
+    /* Options -> Load a save file: pick one; the game checks it and asks before replacing anything */
+    stumpedPickSave: function () { saveIn.value = ''; saveIn.click(); },
     stumpedLoadSets: function () {
       var all = loadSetStore();
       try { Module.FS.mkdir('imported'); } catch (e) {}
@@ -716,6 +745,7 @@
     },
     stumpedStore: function () {
       try { localStorage.setItem(SAVE_KEY, Module.FS.readFile('save.txt', { encoding: 'utf8' })); } catch (e) {}
+      try { localStorage.setItem(SAVE_KEY + '-bak', Module.FS.readFile('save.txt.bak', { encoding: 'utf8' })); } catch (e) {}
     },
     stumpedPalette: function (a, b, c, d) {
       var r = document.documentElement.style, hex = function (v) { return '#' + ('00000' + (v >>> 0).toString(16)).slice(-6); };
@@ -741,6 +771,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261027212222" async></script>
+<script src="stumped.js?v=20261030063228" async></script>
 </body>
 </html>
