@@ -3,100 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Genus — prototype</title>
-<meta name="description" content="A first-person prototype of Genus: rooms that wrap around, a corridor that mirrors you, a doorway that halves you, and a scaled quail.">
+<title>Genus</title>
+<meta name="description" content="A Game Boy-style prototype of Genus: a lamp-lit world whose edges are glued together in strange ways, and a scaled quail.">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
 <style>
-  :root { --paper:#f2e8d5; --ink:#2b241d; --muted:#6f6353; --accent:#b4532f; }
-  html, body { margin:0; height:100%; background:#1d1915; overflow:hidden; }
-  body { font:16px/1.5 Georgia, "Times New Roman", serif; color:var(--ink); }
-  canvas#view { position:fixed; inset:0; width:100vw; height:100vh; display:block; image-rendering:pixelated; }
-
-  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(29,25,21,.62); padding:16px; box-sizing:border-box; }
-  .card { max-width:560px; width:100%; background:var(--paper); border-radius:10px; padding:26px 30px;
-    box-shadow:0 16px 40px rgba(0,0,0,.35); box-sizing:border-box; }
-  .card h1 { margin:0 0 4px; font-size:2.1rem; letter-spacing:.01em; }
-  .card .sub { margin:0 0 16px; color:var(--muted); font-style:italic; }
-  .card p { margin:8px 0; }
-  .keys { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:14px 0 18px; font-size:15px; }
-  .keys kbd { font:600 13px ui-monospace, Menlo, monospace; background:#e3d6bd; border-radius:4px; padding:1px 6px; white-space:nowrap; }
-  .go { display:inline-block; background:var(--accent); color:#fff; border-radius:6px; padding:8px 16px; font-weight:600; }
-  .small { font-size:13px; color:var(--muted); }
-
-  #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:rgba(242,232,213,.94);
-    color:var(--ink); padding:8px 16px; border-radius:6px; font-style:italic; opacity:0; transition:opacity .4s; pointer-events:none; }
-  #toast.on { opacity:1; }
-
-  #journal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;
-    background:rgba(29,25,21,.7); }
-  #journal .book { display:flex; gap:24px; width:min(1100px,100%); max-height:100%; overflow:auto; background:var(--paper);
-    border-radius:10px; padding:22px 26px; box-sizing:border-box; box-shadow:0 16px 40px rgba(0,0,0,.35); }
-  #journal canvas { flex:1 1 60%; min-width:0; width:100%; aspect-ratio: 30 / 17; background:#f7f0e2; border:1px solid #d8c9ad; border-radius:6px; }
-  #journal .notes { flex:1 1 38%; min-width:240px; }
-  #journal h2 { margin:0 0 6px; font-size:1.3rem; }
-  #journal h3 { margin:16px 0 4px; font-size:1rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
-  #journal .entry { margin:6px 0 10px; }
-  #journal .entry i { font-size:1.05rem; }
-  #journal .locked { color:#a99a83; }
-  #journal ul { padding-left:1.1em; margin:4px 0; }
-  @media (max-width:760px) { #journal .book { flex-direction:column; } }
-
-  #debug { position:fixed; left:8px; top:8px; font:12px/1.4 ui-monospace, Menlo, monospace; color:#fff;
-    background:rgba(0,0,0,.55); padding:6px 8px; border-radius:4px; display:none; white-space:pre; }
-  #nogl { display:none; }
+  html, body { margin: 0; height: 100%; background: #1a1411; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; font: 15px/1.5 Georgia, serif; color: #f2e8cf; }
+  #screen { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  #title { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(26, 20, 17, .82); padding: 16px; }
+  .card { max-width: 480px; background: #f2e8cf; color: #261d18; border-radius: 8px; padding: 22px 26px; }
+  .card h1 { margin: 0 0 4px; font-size: 1.9rem; }
+  .card p { margin: 8px 0; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 12px 0; font-size: 14px; }
+  kbd { font: 600 12px ui-monospace, Menlo, monospace; background: #c9ae82; border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
+  .small { font-size: 13px; color: #7c624a; }
+  #debug { position: fixed; left: 8px; top: 8px; font: 12px/1.4 ui-monospace, Menlo, monospace; background: rgba(0,0,0,.6); padding: 6px 8px; border-radius: 4px; display: none; white-space: pre; }
 </style>
 </head>
 <body>
-<canvas id="view"></canvas>
-
-<div id="title" class="overlay">
+<canvas id="screen" width="160" height="144"></canvas>
+<div id="title">
   <div class="card">
     <h1>Genus</h1>
-    <p class="sub">A prototype. Walled yards under an open sky, a few odd gaps, and one quail. You can be double, normal, half or quarter size.</p>
-    <p>One passage loops back on itself. One loops back mirrored. One yard has a gap that leads into itself at a different size. And there's a pillar you can walk all the way around in three quarters of a turn.</p>
+    <p>A Game Boy-style prototype. You see only what your lamp reaches. One alley loops back on itself, one loops back mirrored, and east of the start there's a pole you can walk all the way around in three quarters of a turn.</p>
     <div class="keys">
-      <kbd>W A S D</kbd><span>walk, one square at a time (mouse to look)</span>
-      <kbd>walk into</kbd><span>a crate your size to push it one square</span>
-      <kbd>hold E</kbd><span>grab the crate in front of you, then step back to pull it</span>
-      <kbd>Q</kbd><span>climb on or off the quail (only at quarter size)</span>
-      <kbd>J</kbd><span>field journal (level diagram)</span>
-      <kbd>V</kbd><span>follow view or first person</span>
+      <kbd>arrows / WASD</kbd><span>walk (lean into a crate to push it)</span>
+      <kbd>L</kbd><span>lights on: see why this level needs the dark</span>
       <kbd>R</kbd><span>restart</span>
-      <kbd>[ ]</kbd><span>lower / raise resolution</span>
-      <kbd>`</kbd><span>debug readout</span>
+      <kbd>`</kbd><span>debug readout (frame, tile count)</span>
     </div>
-    <p><span class="go" id="startLabel">Click to start</span></p>
-    <p class="small">Needs a computer with a keyboard and mouse, and a browser with WebGL 2. Esc frees the mouse.</p>
+    <p class="small">Press any key to start.</p>
   </div>
 </div>
-
-<div id="nogl" class="overlay">
-  <div class="card"><h1>Genus</h1><p>This browser doesn't support WebGL 2, which the prototype needs. Try a recent Chrome, Edge, Firefox or Safari.</p></div>
-</div>
-
-<div id="journal">
-  <div class="book">
-    <canvas id="map" width="1200" height="680"></canvas>
-    <div class="notes">
-      <h2>Field journal</h2>
-      <h3>Specimens</h3>
-      <div id="specimens"></div>
-      <h3>This surface</h3>
-      <ul>
-        <li><b>North passage:</b> its ends are glued straight across (a cylinder). Arrows point the same way.</li>
-        <li><b>South passage:</b> its ends are glued with a flip (a Möbius band). Arrows point opposite ways. Go around once and the world is mirrored.</li>
-        <li><b>West yard:</b> its north gap is glued to its own west gap, which is half the size. Each trip north halves you; each trip west doubles you.</li>
-        <li><b>Pillar yard:</b> an L of three squares. The missing square's two edges are glued by a quarter turn, so the corner they share has only 270&deg; around it. The pillar stands on that corner.</li>
-      </ul>
-      <p class="small">Your mark on the map is an L. If it reads as a J, you've been mirrored. Press J to close.</p>
-    </div>
-  </div>
-</div>
-
-<div id="toast"></div>
 <div id="debug"></div>
-
-<script src="genus.js"></script>
+<script src="game.js"></script>
 </body>
 </html>

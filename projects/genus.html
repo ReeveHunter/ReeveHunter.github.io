@@ -17,7 +17,21 @@
 
 <h1>Genus</h1>
 <p class="lede">A first-person puzzle game where each level is a strange flat surface: rooms that wrap around, seams that mirror you, and portals that grow or shrink you. A quail is the one thing that never changes size.</p>
-<p class="meta"><span class="status">Prototype</span> &nbsp;Last updated October 27, 2026 &middot; <a href="../genus/">Try the prototype</a></p>
+<p class="meta"><span class="status">Rethinking</span> &nbsp;Last updated October 27, 2026 &middot; <a href="../genus/">Try the prototype</a></p>
+
+<h2>Current direction: Game Boy style</h2>
+<p>Rethought on October 30, 2026. The earlier 3D design below is kept for reference; its prototype is at <a href="../genus/3d/">genus/3d</a>.</p>
+<ul>
+<li><strong>A real DMG game in spirit:</strong> 160&times;144, four shades, 8&times;8 tiles in 16&times;16 cells, sprites for moving things. Three-quarter view like <em>Link's Awakening</em>. Built first in JavaScript for the web (<a href="../genus/">genus/</a>), then a portable version; Miyoo Mini and Playdate in mind (Playdate can look different: black and white, wider view).</li>
+<li><strong>The world is a square-tiled surface:</strong> rectangles of grid cells whose edges are glued by translations, quarter turns or flips. A corner where quarter-turn gluings meet has 90&deg;, 180&deg;, 270&deg; or 450&deg; around it.</li>
+<li><strong>Drawn from where she stands.</strong> The screen is never a fixed map: each screen cell is found by walking out from her through the grid and across glued edges. Where routes disagree (around a pole), only what her lamp reaches is drawn: a wide cone ahead plus a small pool of light around her. The rest is dark and is redrawn correctly from wherever she is when the beam sweeps back.</li>
+<li><strong>Flat levels can have the lights on:</strong> a torus, cylinder, Möbius band or Klein bottle has no such corners, so the whole screen can be drawn (an endless town on a Möbius band, an endless forest on a torus).</li>
+<li><strong>Seen from every side:</strong> buildings, cliffs and fences have a picture for each side; a door is only visible from the side it's on, which can drive puzzles. Mirrored areas need mirrored tiles (DMG background tiles can't flip).</li>
+<li><strong>Movement:</strong> free pixel movement, but everything solid is grid cells; crates slide exactly one cell when you lean into them.</li>
+<li><strong>No scaling in most of the game.</strong> Maybe in a strange final facility, where things (the quail included) change size only out of sight.</li>
+<li><strong>Dropped:</strong> the quail's leg band and the hidden organisation.</li>
+<li><strong>Region:</strong> the Chihuahuan Desert and its sky islands (desert scrub up through grassland and juniper into pine&ndash;oak forest). Scaled quail for now; switching to Montezuma quail later would only be new art.</li>
+</ul>
 
 <h2>The idea</h2>
 <p>A Doom-style first-person game: every level is a flat floor plan with heights (stairs, ledges, sills), and gravity always holds you to the floor. What's unusual is how the level is glued together. Its edges are portals that join up into a torus, a Möbius band, or a surface where some loops make you bigger or smaller. The player never sees a map of the topology; they learn it by walking, looking, and carrying things around.</p>
