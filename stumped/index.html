@@ -93,7 +93,7 @@
 </head>
 <body>
 <div id="app">
-  <header><h1>STUMPED</h1><span>v0.59</span></header>
+  <header><h1>STUMPED</h1><span>v0.6</span></header>
 
   <div id="screen-wrap">
     <canvas id="screen" width="640" height="480" aria-label="Stumped game screen"></canvas>
@@ -708,7 +708,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261030094707'; },
+    locateFile: function (path) { return path + '?v=20261030095342'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -771,6 +771,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261030094707" async></script>
+<script src="stumped.js?v=20261030095342" async></script>
 </body>
 </html>
