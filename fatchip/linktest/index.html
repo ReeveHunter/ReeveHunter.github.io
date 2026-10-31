@@ -157,7 +157,7 @@ table.read th { font-weight: 600; width: 38%; }
       <li>Here: connect, pick the output that feeds the Game Boy, and press <b>Zero</b> so both sides start from nothing.</li>
       <li>Run the tests one at a time (or all of them) and compare the Game Boy's screen with the expected screen on this page.</li>
     </ol>
-    <p class="hint">The tests play on a channel no Game Boy voice listens to (6 by default, since Fat Chip GB's voices start on 1–5), so they're silent. Some adapters only pass certain channels (a Teensyboy in mGB mode didn't pass 16). Nothing is saved on the Game Boy.</p>
+    <p class="hint">The tests play on a channel no Game Boy voice listens to (6 by default, since Fat Chip GB's voices start on 1–5), so they're silent. Some adapters only pass certain channels: Arduinoboy-based ones (Teensyboy included) in mGB mode map channels 1–15 by default and leave 16 out unless it's remapped in the Arduinoboy Editor. The <b>Channel sweep</b> checks all 16. Nothing is saved on the Game Boy.</p>
   </section>
 
   <section class="card" id="connection">
@@ -195,6 +195,12 @@ table.read th { font-weight: 600; width: 38%; }
       <div class="tests" id="tests"></div>
       <div class="run-all">
         <button id="allBtn" class="btn primary" disabled>Run all</button>
+      </div>
+      <div class="test" style="margin-top:14px">
+        <h3>Channel sweep</h3>
+        <p>16 notes on channel 1, a 3-second pause, then channel 2, and so on to 16 (one message per 2 ms). Watch <b>NOTE ONS</b>: it should rise by 16 for every channel the adapter passes. Where it stops rising, that channel didn't arrive.</p>
+        <button id="sweepBtn" class="btn small" disabled>Sweep</button>
+        <div class="sent" id="sweepNow"></div>
       </div>
     </section>
 
@@ -298,6 +304,7 @@ function updateButtons() {
   const ok = !!output();
   for (const t of TESTS) testEls[t.id].querySelector("button").disabled = !ok || (t.sysex && !sysexOk);
   $("allBtn").disabled = !ok;
+  $("sweepBtn").disabled = !ok || sweeping;
 }
 
 // Split a byte list into whole MIDI messages (realtime bytes on their own).
@@ -360,6 +367,26 @@ $("allBtn").addEventListener("click", async () => {
     await new Promise(r => setTimeout(r, ms + 600)); // let it finish on the wire, then a gap
   }
   updateButtons();
+});
+
+// ---- channel sweep: 16 note pairs per channel, 3 s apart, so a stalled
+// NOTE ONS count shows which channel the adapter doesn't pass
+let sweeping = false;
+$("sweepBtn").addEventListener("click", async () => {
+  const out = output(); if (!out) return;
+  sweeping = true; updateButtons();
+  const log = [];
+  for (let ch = 0; ch < 16 && output(); ch++) {
+    const bytes = [];
+    for (let i = 0; i < 16; i++) { const n = 48 + i; bytes.push(0x90 | ch, n, 100, 0x80 | ch, n, 0); }
+    const ms = sendPaced(out, bytes, 2);
+    expected.bytes += bytes.length; expected.noteon += 16;
+    renderLcd();
+    $("sweepNow").textContent = `Channel ${ch + 1}: NOTE ONS should now read ${expected.noteon} (if channels 1–${ch + 1} all passed).`;
+    await new Promise(r => setTimeout(r, ms + 3000));
+  }
+  $("sweepNow").textContent = `Done. NOTE ONS ${expected.noteon} means all 16 channels passed; each missing channel leaves it 16 short. If the count stalled, the channel shown when it stopped rising is the one that's blocked.`;
+  sweeping = false; updateButtons();
 });
 
 $("zeroBtn").addEventListener("click", () => {
