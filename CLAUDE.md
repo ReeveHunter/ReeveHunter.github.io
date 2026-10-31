@@ -17,6 +17,7 @@ Reeve Hunter's site (GitHub Pages, custom domain in `CNAME`). Each top-level fol
 | `games/` | Games page (links Stumped). |
 | `genus/` | **Genus** prototype — first-person game on glued surfaces (WebGL 2 ray tracer in `genus.js`, no build). Brief: `projects/genus.html`. Unlinked except from the brief. |
 | `math/` | Math resources: Baylor page link (CheckItBU/ is no longer linked). |
+| `platecutter/` | **Plate Cutter** — cuts sequential-photography plates (Muybridge) into transparent PNG sequences for a music video. Three steps: (1) drag a box on the first frame of each row, the tool guesses the row; (2) frame by frame, drag 4 corners (uncut view) → OK → see the cut, with an edge tolerance per row (override per frame) or "cut exactly on the corners"; (3) ping-pong preview at 6 fps, align on picture content (±px cap) or frame edges, join rows, arrow-key nudges, zip export with an After Effects scrub expression. Kept deliberately bare-bones (Reeve's call). Analysis in `core.js` (no DOM; `guessRow`, `cutQuad`), UI in `app.js`. `project.json` keeps each frame's first `guess` beside Reeve's `quad`, for tuning the guessing. |
 | `clock/`, `stopwatch/` | Classroom clock and exam stopwatch. |
 | `dinner/`, `mixup/`, `feelings/` | Family dinner planner, group shuffler, feelings wheel. |
 | `CheckItBU/` | CheckIt course material (`Cal-I`). |

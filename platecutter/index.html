@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plate Cutter</title>
+<meta name="description" content="Cut sequential photography plates (Muybridge and friends) into aligned, transparent PNG sequences with the print's real edges.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <p class="crumb"><a href="../tools/">Tools</a> /</p>
+    <h1>Plate Cutter</h1>
+  </div>
+  <nav class="steps" id="steps" hidden>
+    <button data-step="1"><b>1</b> Mark rows</button>
+    <button data-step="2"><b>2</b> Frames</button>
+    <button data-step="3"><b>3</b> Preview &amp; export</button>
+  </nav>
+  <div class="top-actions">
+    <span id="plateName" class="plate-name"></span>
+    <label class="btn">Open plate…<input id="fileInput" type="file" accept="image/*,.pdf,application/pdf" hidden></label>
+    <select id="pdfPage" class="btn" hidden title="PDF page"></select>
+  </div>
+</header>
+
+<main>
+  <section id="empty" class="empty">
+    <div class="drop" id="drop">
+      <h2>Drop a plate here</h2>
+      <p>A scan of a sequential photography plate (JPEG or PNG, or a page of a PDF). You mark each row, fix each frame's corners, and export transparent PNG sequences with the print's real edges.</p>
+      <p class="hint">Everything stays in your browser and is saved per plate.</p>
+    </div>
+  </section>
+
+  <!-- Step 1 -->
+  <section id="step1" class="step" hidden>
+    <div class="viewer" id="viewer"><canvas id="plateCanvas"></canvas>
+      <div class="zoom"><button class="btn small" id="zoomOut" aria-label="Zoom out">−</button><button class="btn small" id="fitBtn">Fit</button><button class="btn small" id="zoomIn" aria-label="Zoom in">+</button></div>
+    </div>
+    <aside class="side">
+      <h2>Mark rows</h2>
+      <p class="hint">Drag a box around the <b>first frame</b> of each row. The tool guesses the rest of the row. Drag again over a row's first frame to redo it.</p>
+      <ul id="rowList" class="row-list"></ul>
+      <button class="btn primary wide" id="toFrames" disabled>Next: frames →</button>
+      <p class="hint small">Scroll or two-finger drag to pan; pinch or ⌘-scroll to zoom.</p>
+    </aside>
+  </section>
+
+  <!-- Step 2 -->
+  <section id="step2" class="step" hidden>
+    <div class="editor">
+      <div class="ed-row">
+        <div class="ed-view" id="edView"><canvas id="edCanvas"></canvas></div>
+        <div class="loupes" id="loupes" aria-label="Corner close-ups">
+          <canvas data-k="0" title="Top-left corner"></canvas><canvas data-k="1" title="Top-right corner"></canvas>
+          <canvas data-k="3" title="Bottom-left corner"></canvas><canvas data-k="2" title="Bottom-right corner"></canvas>
+        </div>
+      </div>
+      <div class="strip" id="strip"></div>
+    </div>
+    <aside class="side">
+      <h2 id="edTitle">Frame</h2>
+      <p class="hint" id="edHint"></p>
+      <div id="adjustCtl">
+        <button class="btn primary wide" id="okBtn">OK — see the cut <kbd>↵</kbd></button>
+      </div>
+      <div id="cropCtl" hidden>
+        <label class="chk"><input type="checkbox" id="exact"> Cut exactly on the corners</label>
+        <label class="slider" id="tolWrap"><span>Edge tolerance <b id="tolVal"></b></span><input type="range" id="tol" min="1" max="40" step="1"></label>
+        <p class="hint small" id="tolHint">How far the cut may follow the print's real edge away from your corners.</p>
+        <label class="chk"><input type="checkbox" id="frameOnly"> Only this frame (otherwise the whole row)</label>
+        <div class="row-btns">
+          <button class="btn" id="adjustBtn">Adjust corners</button>
+          <button class="btn primary" id="nextBtn">Next frame → <kbd>↵</kbd></button>
+        </div>
+      </div>
+      <div class="row-btns nav">
+        <button class="btn ghost small" id="prevFrame">← Prev</button>
+        <button class="btn ghost small" id="nextFrame">Skip →</button>
+      </div>
+      <button class="btn wide" id="toPreview">Preview &amp; export →</button>
+    </aside>
+  </section>
+
+  <!-- Step 3 -->
+  <section id="step3" class="step" hidden>
+    <div class="seq-col">
+      <div class="transport">
+        <button class="btn" id="playBtn" aria-label="Play">❚❚</button>
+        <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Scrub">
+        <span class="frame-no" id="frameNo">1 / 1</span>
+        <label class="fps"><input id="fps" type="number" min="1" max="60" class="num"> fps</label>
+        <div class="seg" id="loopSeg" role="group" aria-label="Playback"><button data-v="pingpong">Ping-pong</button><button data-v="loop">Loop</button></div>
+        <label class="fps" id="revWrap" title="Play the loop backwards, from the end frame to the start frame"><input type="checkbox" id="rev"> Reverse</label>
+        <label class="fps" title="Each sequence turns around (or loops) at its own last frame, instead of holding while longer ones finish"><input type="checkbox" id="indep"> Independent</label>
+      </div>
+      <div id="joinEd" class="join-ed" hidden>
+        <div class="je-head"><b id="jeTitle"></b><span id="jeVal" class="hint small"></span>
+          <div class="seg" id="jeMode"><button data-v="onion" class="on">Overlay</button><button data-v="diff">Difference</button></div>
+          <button class="btn small ghost" id="jeReset">Reset</button><button class="btn small" id="jeClose">Done</button></div>
+        <canvas id="jeCanvas"></canvas>
+        <p class="hint small">The outgoing row's last frame, with the incoming row's first frame on top. Arrow keys move the incoming row and everything after it (Shift: 10px). In Difference, lined-up areas go dark.</p>
+      </div>
+      <div id="seqs" class="seqs"></div>
+    </div>
+    <aside class="side">
+      <h2>Preview &amp; export</h2>
+      <p class="hint">Plays ping-pong or loop. Pause and click a sequence, then use the arrow keys to nudge the frame on screen (Shift for 10px).</p>
+      <h3 class="sub">Sequences</h3>
+      <p class="hint small">Each line plays its rows one after another. Drag a row to reorder it or move it to another line; a row can be used more than once.</p>
+      <div id="seqEd"></div>
+      <h3 class="sub">Rows</h3>
+      <p class="hint small">Alignment, and which frames of the row the sequences use. With a sequence selected, <kbd>[</kbd> and <kbd>]</kbd> set the start and end of the row on screen at the current frame.</p>
+      <div id="rowCtl"></div>
+      <button class="btn primary wide" id="exportBtn">Export PNG sequences (.zip)</button>
+      <p class="hint small">One folder per sequence, frames numbered from 0001, plus a README with an After Effects expression that scrubs every angle together.</p>
+    </aside>
+  </section>
+  <p class="status" id="status"></p>
+</main>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
