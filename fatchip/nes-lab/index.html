@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fat Chip NES Lab</title>
+<meta name="description" content="Test MidiNES MIDI commands from the browser: notes, every CC, pitch bends, software envelopes, timing, with one-click experiments and a results sheet for Fat Chip.">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #15101f;
+  --surface: #211a30;
+  --surface-2: #2c2340;
+  --border: #3d3258;
+  --text: #f1ecff;
+  --muted: #a69cc6;
+  --accent: #e4473f;        /* NES red */
+  --accent-strong: #ff6a5f;
+  --accent-ink: #ffffff;
+  --ok: #7fdc6a;
+  --warn: #ffc95c;
+  --danger: #ff7a7a;
+  --key-white: #e8e4f2;
+  --key-black: #2a2236;
+  --key-down: #e4473f;
+  --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Chakra Petch", "Inter", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f3fb;
+    --surface: #ffffff;
+    --surface-2: #efeaf7;
+    --border: #ddd5ec;
+    --text: #1d1730;
+    --muted: #675d84;
+    --accent: #c4302a;
+    --accent-strong: #a8231e;
+    --accent-ink: #ffffff;
+    --ok: #2e9b3a;
+    --warn: #b77900;
+    --danger: #cf3a3a;
+    --key-white: #ffffff;
+    --key-black: #2a2236;
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Inter", system-ui, sans-serif; padding-bottom: 64px; }
+a { color: var(--accent-strong); }
+.top { padding: 28px 16px 8px; max-width: 1100px; margin: 0 auto; }
+.crumb { margin: 0 0 2px; color: var(--muted); font-size: 14px; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4vw, 34px); letter-spacing: 0.02em; margin: 0; }
+.top h1::before { content: ""; display: inline-block; width: 0.55em; height: 0.85em; background: var(--accent); margin-right: 0.35em; vertical-align: -0.08em; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .top h1::before { animation: none; } }
+.sub { margin: 4px 0 0; color: var(--muted); }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 20px; margin: 14px 0; min-width: 0; }
+.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.card-head h2 { margin: 0; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent); }
+.dot.warn { background: var(--warn); }
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+.columns .card { margin: 0; }
+@media (max-width: 860px) { .columns { grid-template-columns: 1fr; } }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 700px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 460px) { .grid3 { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field > span { font-size: 13px; font-weight: 500; color: var(--muted); }
+select, input[type=number], input[type=text], textarea { font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0; }
+textarea { font-family: var(--mono); font-size: 12.5px; }
+select:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.btn.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--border); background: var(--surface-2); }
+.banner.danger { border-color: var(--danger); }
+.status-line { margin: 0; color: var(--muted); }
+.hint { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+kbd { font-family: var(--mono); font-size: 13px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; }
+code { font-family: var(--mono); font-size: 13px; }
+
+/* voice tabs */
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.tab { font: 600 13px/1 "Inter", system-ui, sans-serif; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.tab[aria-selected=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tab small { font-weight: 500; opacity: 0.75; margin-left: 4px; }
+
+/* keyboard */
+.keys { position: relative; height: 120px; display: flex; user-select: none; touch-action: none; margin-top: 10px; }
+.wk { flex: 1; background: var(--key-white); border: 1px solid #0003; border-radius: 0 0 6px 6px; margin-right: 2px; position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font: 600 11px var(--mono); color: #0008; cursor: pointer; }
+.bk { position: absolute; top: 0; width: 4.2%; height: 62%; background: var(--key-black); border-radius: 0 0 5px 5px; z-index: 2; cursor: pointer; }
+.wk.down, .bk.down { background: var(--key-down); color: #fff; }
+
+/* CC sliders */
+.ccs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
+@media (max-width: 640px) { .ccs { grid-template-columns: 1fr; } }
+.cc { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; }
+.cc label { font-size: 13.5px; font-weight: 500; }
+.cc label b { font-family: var(--mono); font-weight: 600; color: var(--muted); margin-right: 6px; }
+.cc output { font-family: var(--mono); font-size: 13px; color: var(--accent-strong); min-width: 9ch; text-align: right; }
+.cc input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.cc .btn { grid-column: 1 / -1; justify-self: start; }
+
+/* experiments */
+.exps { display: flex; flex-direction: column; gap: 10px; }
+.exp { padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+.exp.done-yes { border-color: color-mix(in srgb, var(--ok) 70%, var(--border)); }
+.exp.done-no { border-color: color-mix(in srgb, var(--danger) 70%, var(--border)); }
+.exp.done-odd { border-color: color-mix(in srgb, var(--warn) 70%, var(--border)); }
+.exp-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.exp h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.exp h3 span { font-family: var(--mono); color: var(--muted); font-weight: 600; margin-right: 6px; }
+.exp p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+.exp p.listen { color: var(--text); }
+.exp .answer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.exp .answer input { flex: 1 1 220px; padding: 7px 10px; font-size: 13.5px; }
+.exp .playing { font-family: var(--mono); font-size: 12.5px; color: var(--ok); margin-top: 6px; min-height: 1.2em; }
+
+/* log */
+#log { font: 12px/1.45 var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; height: 180px; overflow: auto; white-space: pre; color: var(--muted); }
+.meter { font: 600 13px var(--mono); color: var(--accent-strong); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <p class="crumb"><a href="../../tools/">Tools</a> / Fat Chip /</p>
+  <h1>NES Lab</h1>
+  <p class="sub">Try MidiNES commands straight from the browser, then tell Fat Chip what works.</p>
+</header>
+
+<main>
+  <div id="unsupported" class="banner danger" hidden>
+    <strong>This browser has no Web MIDI.</strong>
+    Open this page in Chrome, Edge or Opera on a computer.
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="dot" id="statusDot"></span>MIDI</h2>
+      <div class="row">
+        <button id="connectBtn" class="btn primary">Connect</button>
+        <button id="defaultsBtn" class="btn" disabled title="CC7 = 120 on pulses and noise, CC16 = 112 and CC13 = 0 on the pulses, bends centred">Send defaults</button>
+        <button id="panicBtn" class="btn" disabled>Panic</button>
+      </div>
+    </div>
+    <div class="grid3">
+      <label class="field"><span>Output to the MidiNES</span>
+        <select id="output" disabled><option>Connect first</option></select>
+      </label>
+      <label class="field"><span>MidiNES channels <em>(Pulse 1's channel; set with the NES D-pad)</em></span>
+        <select id="base"></select>
+      </label>
+      <label class="field"><span>Velocity</span>
+        <input id="vel" type="number" min="1" max="127" value="127">
+      </label>
+    </div>
+    <p id="status" class="status-line" style="margin-top:10px">Not connected.</p>
+    <p class="hint">Tip: put the MidiNES in Mode 1 (Select on the NES: graphics off) for less hum. <b>Panic</b> stops every voice; <kbd>Esc</kbd> does too.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Play</h2>
+      <div class="row">
+        <button id="octDown" class="btn small">Octave −</button>
+        <span id="octLabel" class="meter">C3</span>
+        <button id="octUp" class="btn small">Octave +</button>
+        <button id="holdBtn" class="btn small" aria-pressed="false">Hold</button>
+      </div>
+    </div>
+    <div class="tabs" id="voiceTabs" role="tablist"></div>
+    <div class="keys" id="keys"></div>
+    <p class="hint">Click the keys, or type <kbd>A W S E D F T G Y H U J K</kbd> (<kbd>Z</kbd> / <kbd>X</kbd> octave). <b>Hold</b> keeps the note on until you press it again. Notes go to the voice picked above.</p>
+  </section>
+
+  <div class="columns">
+    <section class="card">
+      <div class="card-head">
+        <h2>Controls <span class="meter" id="ccVoice"></span></h2>
+        <button id="sendAllCc" class="btn small" disabled>Send all</button>
+      </div>
+      <div class="ccs" id="ccs"></div>
+      <p class="hint">Sliders snap to the MidiNES's real steps (e.g. volume in 16 levels of 8). Values are kept per voice.</p>
+    </section>
+
+    <section class="card">
+      <h2>Pitch bend</h2>
+      <p class="hint" style="margin-top:0">Pulse and triangle only. The bend for an interval depends on the note (the NES works in timer periods), so this uses Reeve's formula: <code>p0 · 0.5^((n − 36)/12) · (2 − 2 · 0.5^(x/12))</code>, p0 = 3420 (pulse) or 1710 (triangle), in steps of 4.</p>
+      <div class="grid3" style="margin-top:12px">
+        <label class="field"><span>Note it applies to</span><input id="pbNote" type="number" min="0" max="127" value="48"></label>
+        <label class="field"><span>Semitones (±)</span><input id="pbSemi" type="number" step="0.01" min="-24" max="24" value="0"></label>
+        <label class="field"><span>Bend value</span><input id="pbRaw" type="text" readonly value="0"></label>
+      </div>
+      <input id="pbSlider" type="range" min="-1200" max="1200" step="1" value="0" style="width:100%;margin-top:10px;accent-color:var(--accent)">
+      <div class="row" style="margin-top:8px">
+        <button id="pbCentre" class="btn small" disabled>Centre</button>
+        <button id="pbPlay" class="btn small" disabled>Play the note with this bend</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Software envelope</h2>
+    <p class="hint" style="margin-top:0">The way Fat Chip would give the NES slow attacks and releases: volume (CC7) stepped through its 16 levels while the note sounds, and the note-off held back until the release has faded. Pulse and noise only.</p>
+    <div class="grid3" style="margin-top:12px">
+      <label class="field"><span>Attack (s)</span><input id="envA" type="number" min="0" max="5" step="0.05" value="0.6"></label>
+      <label class="field"><span>Decay (s)</span><input id="envD" type="number" min="0" max="5" step="0.05" value="0.4"></label>
+      <label class="field"><span>Sustain level (0–15)</span><input id="envS" type="number" min="0" max="15" step="1" value="11"></label>
+      <label class="field"><span>Release (s)</span><input id="envR" type="number" min="0" max="5" step="0.05" value="1.2"></label>
+      <label class="field"><span>Gap between CC7s (ms)</span><input id="envRate" type="number" min="0" max="100" step="1" value="10"></label>
+      <label class="field"><span>Use for notes played above</span>
+        <select id="envUse"><option value="0">Off</option><option value="1">On</option></select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="envTry" class="btn small" disabled>Try it: 2 s note</button>
+      <span class="meter" id="envLevel"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Experiments</h2>
+      <div class="row">
+        <button id="stopBtn" class="btn small" disabled>Stop</button>
+        <button id="copyBtn" class="btn small">Copy results for Claude</button>
+        <button id="clearBtn" class="btn small">Clear answers</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:0">Each one plays a short sequence on the MidiNES. Listen, then mark what happened and add a note if anything was odd. Answers stay in this browser; <b>Copy results</b> puts them all on the clipboard to paste into the chat.</p>
+    <div class="exps" id="exps" style="margin-top:12px"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>MIDI out</h2>
+      <div class="row"><span class="meter" id="sentCount">0 sent</span><button id="logClear" class="btn small">Clear</button></div>
+    </div>
+    <div id="log" aria-live="off"></div>
+  </section>
+</main>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("fatchip.neslab." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("fatchip.neslab." + k, JSON.stringify(v)); } catch {} },
+};
+
+// ------------------------------------------------------------------ voices + CC map
+// From fat-chip/notes/midines.md and Reeve's Scripter plugins (midines-plugins.md).
+const VOICES = [
+  { id: "p1", name: "Pulse 1", short: "P1", kind: "pulse" },
+  { id: "p2", name: "Pulse 2", short: "P2", kind: "pulse" },
+  { id: "tri", name: "Triangle", short: "TRI", kind: "tri" },
+  { id: "noise", name: "Noise", short: "NOI", kind: "noise" },
+  { id: "dmc", name: "DMC (samples)", short: "DMC", kind: "dmc" },
+];
+// steps: values the control really has; labels optional
+const sw = (a = "Off", b = "On") => ({ steps: [0, 64], labels: [a, b] });
+const lin = (n, mul) => ({ steps: Array.from({ length: n }, (_, i) => i * mul) });
+const all128 = () => ({ steps: Array.from({ length: 128 }, (_, i) => i) });
+const CC = {
+  pulse: [
+    { cc: 7, name: "Volume", ...lin(16, 8), def: 120 },
+    { cc: 1, name: "Duty", steps: [0, 32, 64, 96], labels: ["12.5%", "25%", "50%", "75%"], def: 64 },
+    { cc: 8, name: "Fine pitch (down)", ...all128(), def: 0 },
+    { cc: 11, name: "HW volume envelope", steps: [0, 64], labels: ["On", "Off (constant)"], def: 64 },
+    { cc: 10, name: "Envelope loop", ...sw(), def: 64 },
+    { cc: 9, name: "Note length / env speed", ...lin(32, 4), def: 124 },
+    { cc: 13, name: "Sweep", ...sw(), def: 0 },
+    { cc: 14, name: "Sweep direction", ...sw("Down", "Up"), def: 0 },
+    { cc: 15, name: "Sweep period", ...lin(16, 8), def: 0 },
+    { cc: 16, name: "Sweep shift (keep ≥ 64)", ...lin(8, 16), def: 112 },
+    { cc: 12, name: "Mod hack", ...sw(), def: 0 },
+    { cc: 6, name: "Mod hack frequency", ...lin(16, 8), def: 0 },
+  ],
+  tri: [
+    { cc: 8, name: "Fine pitch", ...all128(), def: 0 },
+    { cc: 7, name: "Volume (expected: no effect)", ...lin(16, 8), def: 120 },
+  ],
+  noise: [
+    { cc: 7, name: "Volume", ...lin(16, 8), def: 120 },
+    { cc: 11, name: "HW volume envelope", steps: [0, 64], labels: ["On", "Off (constant)"], def: 64 },
+    { cc: 10, name: "Envelope loop", ...sw(), def: 0 },
+    { cc: 9, name: "Note length / env speed", ...lin(32, 4), def: 104 },
+  ],
+  dmc: [
+    { cc: 14, name: "Sample bank", ...sw("A", "B"), def: 0 },
+    { cc: 3, name: "Pitch", ...lin(16, 8), def: 120 },
+    { cc: 4, name: "Loop", ...sw(), def: 0 },
+    { cc: 5, name: "Sample start offset", ...all128(), def: 0 },
+    { cc: 6, name: "Sample length", ...all128(), def: 0 },
+    { cc: 8, name: "Add / length override", ...sw(), def: 0 },
+    { cc: 2, name: "Mod value to load", ...all128(), def: 0 },
+    { cc: 12, name: "Wave Traveller", ...sw(), def: 0 },
+    { cc: 9, name: "WT tone", ...all128(), def: 0 },
+    { cc: 10, name: "WT speed", ...all128(), def: 0 },
+    { cc: 11, name: "WT loop size", ...all128(), def: 0 },
+    { cc: 13, name: "PCM mod hack", ...sw(), def: 0 },
+  ],
+};
+const ccState = store.get("cc", {});   // { voiceId: { cc: value } }
+function ccVal(v, cc) { const d = CC[v.kind].find(c => c.cc === cc); return ccState[v.id]?.[cc] ?? d?.def ?? 0; }
+
+// ------------------------------------------------------------------ MIDI out
+let access = null, sent = 0;
+function output() { return access && access.outputs.get($("output").value); }
+function chOf(vi) { return (+$("base").value + vi) & 15; }
+const logLines = [];
+let logDirty = false;
+function log(text) {
+  logLines.push(text);
+  if (logLines.length > 300) logLines.splice(0, logLines.length - 300);
+  if (!logDirty) { logDirty = true; requestAnimationFrame(() => { logDirty = false; const el = $("log"); el.textContent = logLines.join("\n"); el.scrollTop = el.scrollHeight; $("sentCount").textContent = sent + " sent"; }); }
+}
+const NAMES = "C C#D D#E F F#G G#A A#B ";
+function noteName(n) { return NAMES.substr((n % 12) * 2, 2).trim() + (Math.floor(n / 12) - 2); } // Logic: C3 = 60
+function describe(m) {
+  const s = m[0] & 0xF0, ch = (m[0] & 15) + 1, vi = (m[0] & 15) - +$("base").value;
+  const v = VOICES[(vi + 16) % 16]?.short ?? "ch" + ch;
+  if (s === 0x90) return `${v.padEnd(4)} note on  ${noteName(m[1]).padEnd(4)} (${m[1]}) vel ${m[2]}`;
+  if (s === 0x80) return `${v.padEnd(4)} note off ${noteName(m[1]).padEnd(4)} (${m[1]})`;
+  if (s === 0xB0) return `${v.padEnd(4)} CC${m[1]} = ${m[2]}`;
+  if (s === 0xE0) return `${v.padEnd(4)} bend ${((m[2] << 7) | m[1]) - 8192}`;
+  return m.map(b => b.toString(16)).join(" ");
+}
+// quiet: count but don't log each one (rate tests)
+function send(msg, when, quiet) {
+  const out = output();
+  if (!out) return false;
+  out.send(msg, when);
+  sent++;
+  if (!quiet) log(describe(msg));
+  else if (sent % 50 === 0) log(`… ${sent} sent`);
+  return true;
+}
+const noteOn = (vi, n, vel, t, q) => send([0x90 | chOf(vi), n & 127, vel ?? +$("vel").value], t, q);
+const noteOff = (vi, n, t, q) => send([0x80 | chOf(vi), n & 127, 0], t, q);
+const cc = (vi, num, val, t, q) => send([0xB0 | chOf(vi), num, val & 127], t, q);
+function bend(vi, value, t, q) { const v = Math.max(-8192, Math.min(8191, value)) + 8192; return send([0xE0 | chOf(vi), v & 127, v >> 7], t, q); }
+
+// ------------------------------------------------------------------ pitch maths (Reeve's formula)
+function pbFor(kind, note, semis) {
+  const p0 = kind === "tri" ? 1710 : 3420;
+  const raw = p0 * Math.pow(0.5, (note - 36) / 12) * (2 - 2 * Math.pow(0.5, semis / 12));
+  return Math.round(raw / 4) * 4;
+}
+
+// ------------------------------------------------------------------ panic + defaults
+const sounding = new Map(); // "vi:n" -> true
+function panic() {
+  for (const k of sounding.keys()) { const [vi, n] = k.split(":").map(Number); noteOff(vi, n); }
+  sounding.clear();
+  for (let vi = 0; vi < 5; vi++) { cc(vi, 123, 0); if (vi < 3) bend(vi, 0); }
+  env.stopAll();
+  document.querySelectorAll(".wk.down,.bk.down").forEach(k => k.classList.remove("down"));
+  held.clear();
+}
+function sendDefaults() {
+  for (const vi of [0, 1, 3]) cc(vi, 7, 120);
+  for (const vi of [0, 1]) { cc(vi, 16, 112); cc(vi, 13, 0); bend(vi, 0); }
+  bend(2, 0);
+}
+
+// ------------------------------------------------------------------ connection
+for (let c = 1; c <= 12; c++) $("base").add(new Option(`Channels ${c}–${c + 4}`, String(c - 1)));
+$("base").value = String(store.get("base", 1)); // Reeve usually runs the MidiNES on 2–6
+$("base").addEventListener("change", () => { panic(); store.set("base", +$("base").value); });
+$("vel").value = store.get("vel", 127);
+$("vel").addEventListener("change", () => store.set("vel", +$("vel").value));
+
+function fillOutputs() {
+  const sel = $("output"), want = store.get("output", "");
+  sel.innerHTML = "";
+  const outs = [...access.outputs.values()];
+  if (!outs.length) { sel.add(new Option("No MIDI outputs found", "")); sel.disabled = true; }
+  else {
+    for (const o of outs) sel.add(new Option(o.name + (o.manufacturer ? " (" + o.manufacturer + ")" : ""), o.id));
+    sel.disabled = false;
+    if (outs.some(o => o.id === want)) sel.value = want;
+  }
+  const o = output();
+  $("statusDot").className = "dot " + (o ? "ok" : "warn");
+  $("status").textContent = o ? `Ready: sending to ${o.name}.` : "Connected, but there's no output yet. Plug in the MIDI interface.";
+  for (const id of ["defaultsBtn", "panicBtn", "sendAllCc", "pbCentre", "pbPlay", "envTry"]) $(id).disabled = !o;
+  renderExps();
+}
+$("output").addEventListener("change", () => { store.set("output", $("output").value); fillOutputs(); });
+$("connectBtn").addEventListener("click", async () => {
+  try { access = await navigator.requestMIDIAccess(); }
+  catch { $("status").textContent = "MIDI access was refused. Allow it in the site settings and try again."; return; }
+  access.onstatechange = fillOutputs;
+  $("connectBtn").textContent = "Connected";
+  $("connectBtn").disabled = true;
+  fillOutputs();
+});
+if (!navigator.requestMIDIAccess) { $("unsupported").hidden = false; $("connectBtn").disabled = true; }
+$("panicBtn").addEventListener("click", panic);
+$("defaultsBtn").addEventListener("click", sendDefaults);
+
+// ------------------------------------------------------------------ voice tabs
+let voiceIdx = store.get("voice", 0);
+function renderTabs() {
+  const box = $("voiceTabs");
+  box.innerHTML = "";
+  VOICES.forEach((v, i) => {
+    const b = document.createElement("button");
+    b.className = "tab"; b.role = "tab";
+    b.setAttribute("aria-selected", i === voiceIdx);
+    b.innerHTML = `${v.name}<small>ch ${chOf(i) + 1}</small>`;
+    b.addEventListener("click", () => { voiceIdx = i; store.set("voice", i); renderTabs(); renderCcs(); });
+    box.append(b);
+  });
+}
+$("base").addEventListener("change", renderTabs);
+
+// ------------------------------------------------------------------ CC panel
+let ccTimer = {};
+function renderCcs() {
+  const v = VOICES[voiceIdx];
+  $("ccVoice").textContent = v.name + " · ch " + (chOf(voiceIdx) + 1);
+  const box = $("ccs");
+  box.innerHTML = "";
+  for (const d of CC[v.kind]) {
+    const div = document.createElement("div");
+    div.className = "cc";
+    const cur = ccVal(v, d.cc);
+    const idx = Math.max(0, d.steps.indexOf(d.steps.reduce((a, b) => Math.abs(b - cur) < Math.abs(a - cur) ? b : a)));
+    div.innerHTML = `<label><b>CC${d.cc}</b>${d.name}</label><output></output><input type="range" min="0" max="${d.steps.length - 1}" step="1" value="${idx}" aria-label="CC${d.cc} ${d.name}">`;
+    const range = div.querySelector("input"), out = div.querySelector("output");
+    const show = () => { const i = +range.value; out.textContent = (d.labels ? d.labels[i] + " · " : "") + d.steps[i]; };
+    show();
+    range.addEventListener("input", () => {
+      show();
+      const val = d.steps[+range.value];
+      (ccState[v.id] ??= {})[d.cc] = val;
+      store.set("cc", ccState);
+      clearTimeout(ccTimer[d.cc]);       // send the latest value, at most every 10 ms
+      ccTimer[d.cc] = setTimeout(() => cc(voiceIdx, d.cc, val), 10);
+    });
+    box.append(div);
+  }
+}
+$("sendAllCc").addEventListener("click", () => { const v = VOICES[voiceIdx]; for (const d of CC[v.kind]) cc(voiceIdx, d.cc, ccVal(v, d.cc)); });
+
+// ------------------------------------------------------------------ keyboard
+let octave = store.get("octave", 4);          // keyboard starts at MIDI octave × 12 (4 -> 48 = C2 in Logic's naming)
+const KEYMAP = "awsedftgyhujk";
+const held = new Map();                        // note -> element
+let hold = false;
+function base() { return octave * 12; }
+function renderKeys() {
+  $("octLabel").textContent = noteName(base()) + "–" + noteName(base() + 24);
+  const box = $("keys");
+  box.innerHTML = "";
+  const whites = [];
+  for (let n = 0; n <= 24; n++) if (![1, 3, 6, 8, 10].includes(n % 12)) whites.push(n);
+  const wPct = 100 / whites.length;
+  whites.forEach(n => {
+    const k = document.createElement("div");
+    k.className = "wk"; k.dataset.n = base() + n;
+    if (n % 12 === 0) k.textContent = noteName(base() + n);
+    box.append(k);
+  });
+  for (let n = 0; n < 24; n++) if ([1, 3, 6, 8, 10].includes(n % 12)) {
+    const k = document.createElement("div");
+    k.className = "bk"; k.dataset.n = base() + n;
+    const wi = whites.indexOf(n - 1);
+    k.style.left = `calc(${(wi + 1) * wPct}% - 2.1%)`;
+    box.append(k);
+  }
+}
+function keyEl(n) { return $("keys").querySelector(`[data-n="${n}"]`); }
+function press(n) {
+  if (held.has(n)) { if (hold) release(n, true); return; }
+  held.set(n, true);
+  keyEl(n)?.classList.add("down");
+  playNote(voiceIdx, n);
+}
+function release(n, force) {
+  if (!held.has(n) || (hold && !force)) return;
+  held.delete(n);
+  keyEl(n)?.classList.remove("down");
+  stopNote(voiceIdx, n);
+}
+function playNote(vi, n) {
+  sounding.set(vi + ":" + n, true);
+  const v = VOICES[vi];
+  if (+$("envUse").value && (v.kind === "pulse" || v.kind === "noise")) env.start(vi, n);
+  else noteOn(vi, n);
+}
+function stopNote(vi, n) {
+  const v = VOICES[vi];
+  if (env.active(vi)) env.release(vi, n);
+  else { noteOff(vi, n); sounding.delete(vi + ":" + n); }
+}
+$("keys").addEventListener("pointerdown", e => {
+  const k = e.target.closest("[data-n]"); if (!k) return;
+  e.preventDefault(); const n = +k.dataset.n; press(n);
+  const up = () => { release(n); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); };
+  window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+});
+const typing = () => /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) && document.activeElement.type !== "range";
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape") { panic(); return; }
+  if (typing() || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  const i = KEYMAP.indexOf(e.key.toLowerCase());
+  if (i >= 0) { press(base() + i); e.preventDefault(); }
+  else if (e.key.toLowerCase() === "z") setOct(octave - 1);
+  else if (e.key.toLowerCase() === "x") setOct(octave + 1);
+});
+window.addEventListener("keyup", e => { const i = KEYMAP.indexOf(e.key.toLowerCase()); if (i >= 0) release(base() + i); });
+function setOct(o) { octave = Math.max(0, Math.min(8, o)); store.set("octave", octave); renderKeys(); }
+$("octDown").addEventListener("click", () => setOct(octave - 1));
+$("octUp").addEventListener("click", () => setOct(octave + 1));
+$("holdBtn").addEventListener("click", () => {
+  hold = !hold; $("holdBtn").classList.toggle("on", hold); $("holdBtn").setAttribute("aria-pressed", hold);
+  if (!hold) for (const n of [...held.keys()]) release(n, true);
+});
+
+// ------------------------------------------------------------------ pitch bend panel
+function pbUpdate(from) {
+  const v = VOICES[voiceIdx];
+  if (from === "slider") $("pbSemi").value = (+$("pbSlider").value / 100).toFixed(2);
+  else $("pbSlider").value = Math.round(+$("pbSemi").value * 100);
+  const val = pbFor(v.kind, +$("pbNote").value, +$("pbSemi").value);
+  $("pbRaw").value = (v.kind === "pulse" || v.kind === "tri") ? `${val}${Math.abs(val) > 8191 ? "  (past the range: wraps)" : ""}` : "only pulse / triangle";
+  return val;
+}
+let pbTimer = 0;
+for (const [id, from] of [["pbSlider", "slider"], ["pbSemi", "num"], ["pbNote", "num"]]) $(id).addEventListener("input", () => {
+  const val = pbUpdate(from);
+  if (!output()) return;
+  const v = VOICES[voiceIdx]; if (v.kind !== "pulse" && v.kind !== "tri") return;
+  clearTimeout(pbTimer); pbTimer = setTimeout(() => bend(voiceIdx, val), 5);
+});
+$("pbCentre").addEventListener("click", () => { $("pbSemi").value = 0; pbUpdate("num"); bend(voiceIdx, 0); });
+$("pbPlay").addEventListener("click", () => {
+  const n = +$("pbNote").value, val = pbUpdate("num");
+  bend(voiceIdx, val); noteOn(voiceIdx, n);
+  setTimeout(() => noteOff(voiceIdx, n), 900);
+});
+
+// ------------------------------------------------------------------ software envelope (CC7)
+const env = (() => {
+  const st = new Map();   // vi -> { n, phase, t0, level, relFrom, lastSend }
+  let timer = 0;
+  const P = () => ({ A: +$("envA").value, D: +$("envD").value, S: Math.max(0, Math.min(15, +$("envS").value)), R: +$("envR").value, gap: +$("envRate").value });
+  function level(s, now, p) {
+    const t = (now - s.t0) / 1000;
+    if (s.phase === "A") { if (p.A <= 0 || t >= p.A) { s.phase = "D"; s.t0 = now; return 15; } return 15 * t / p.A; }
+    if (s.phase === "D") { if (p.D <= 0 || t >= p.D) { s.phase = "S"; return p.S; } return 15 - (15 - p.S) * t / p.D; }
+    if (s.phase === "S") return p.S;
+    if (s.phase === "R") { if (p.R <= 0 || t >= p.R) return -1; return s.relFrom * (1 - t / p.R); }
+    return 0;
+  }
+  function tick() {
+    const now = performance.now(), p = P();
+    for (const [vi, s] of st) {
+      const raw = level(s, now, p);
+      if (raw < 0) { finish(vi, s); continue; }
+      const lv = Math.round(raw);
+      if (lv !== s.level && now - s.lastSend >= p.gap) { s.level = lv; s.lastSend = now; cc(vi, 7, lv * 8); }
+      if (vi === voiceIdx) $("envLevel").textContent = `level ${s.level} · ${ { A: "attack", D: "decay", S: "sustain", R: "release" }[s.phase] }`;
+    }
+    if (!st.size) { clearInterval(timer); timer = 0; }
+  }
+  function finish(vi, s) { cc(vi, 7, 0); noteOff(vi, s.n); sounding.delete(vi + ":" + s.n); st.delete(vi); $("envLevel").textContent = "done"; }
+  return {
+    active: vi => st.has(vi),
+    start(vi, n) {
+      const old = st.get(vi);
+      if (old) { noteOff(vi, old.n); sounding.delete(vi + ":" + old.n); }   // a new note ends a release at once
+      cc(vi, 7, 0);
+      noteOn(vi, n);
+      st.set(vi, { n, phase: "A", t0: performance.now(), level: 0, relFrom: 0, lastSend: 0 });
+      if (!timer) timer = setInterval(tick, 2);
+    },
+    release(vi, n) {
+      const s = st.get(vi); if (!s || s.n !== n || s.phase === "R") return;
+      s.relFrom = s.level; s.phase = "R"; s.t0 = performance.now();
+    },
+    stopAll() { for (const [vi, s] of st) { noteOff(vi, s.n); } st.clear(); },
+  };
+})();
+for (const id of ["envA", "envD", "envS", "envR", "envRate", "envUse"]) { const el = $(id); el.value = store.get(id, el.value); el.addEventListener("change", () => store.set(id, el.value)); }
+$("envTry").addEventListener("click", () => {
+  const vi = VOICES[voiceIdx].kind === "noise" ? voiceIdx : (VOICES[voiceIdx].kind === "pulse" ? voiceIdx : 0);
+  const n = VOICES[vi].kind === "noise" ? 40 : 57;
+  sounding.set(vi + ":" + n, true);
+  env.start(vi, n);
+  setTimeout(() => env.release(vi, n), 2000);
+});
+
+// ------------------------------------------------------------------ sequencer for experiments
+// A sequence is a list of [ms, fn]. Scheduled with a short lookahead so Stop works.
+let seq = null;
+function runSeq(steps, label) {
+  stopSeq();                        // a running one stops (and its notes)
+  const t0 = performance.now() + 60;
+  const evs = steps.slice().sort((a, b) => a[0] - b[0]);
+  const end = evs.length ? evs[evs.length - 1][0] : 0;
+  let i = 0;
+  seq = { label, timer: 0, done: null };
+  const pump = () => {
+    const now = performance.now();
+    while (i < evs.length && t0 + evs[i][0] <= now + 40) { evs[i][1](t0 + evs[i][0]); i++; }
+    if (i >= evs.length) { const s = seq; setTimeout(() => { if (seq === s) { seq = null; $("stopBtn").disabled = true; renderPlaying(); } }, Math.max(0, t0 + end - now) + 50); return; }
+    seq.timer = setTimeout(pump, 15);
+  };
+  $("stopBtn").disabled = false;
+  pump();
+  renderPlaying();
+  return end;
+}
+function stopSeq(quiet) {
+  if (!seq) return;
+  clearTimeout(seq.timer); seq = null;
+  $("stopBtn").disabled = true;
+  if (!quiet) panic();
+  renderPlaying();
+}
+$("stopBtn").addEventListener("click", () => stopSeq());
+
+// helpers to build steps; every fn gets the scheduled time
+const S = {
+  on: (ms, vi, n, vel) => [ms, t => noteOn(vi, n, vel, t)],
+  off: (ms, vi, n) => [ms, t => noteOff(vi, n, t)],
+  cc: (ms, vi, num, val, q) => [ms, t => cc(vi, num, val, t, q)],
+  bend: (ms, vi, val, q) => [ms, t => bend(vi, val, t, q)],
+  say: (ms, text) => [ms, () => { if (seq) { seq.say = text; renderPlaying(); } }],
+};
+
+// ------------------------------------------------------------------ experiments
+// Each: id, title, what (what it plays), listen (what to listen for), build() -> steps.
+const P1 = 0, TRI = 2, NOI = 3, DMC = 4;
+const EXPS = [
+  { id: "order", title: "Voice order", what: "One note on each of the five channels in turn, 1 s apart: Pulse 1, Pulse 2, Triangle, Noise, DMC (bank A note 36).",
+    listen: "Does each one sound like the voice it's labelled (watch the log)? If two are swapped, say which.",
+    build() { const s = [S.cc(0, P1, 7, 120), S.cc(0, 1, 7, 120), S.cc(0, NOI, 7, 120), S.cc(0, DMC, 14, 0)];
+      [[P1, 57], [1, 57], [TRI, 57], [NOI, 40], [DMC, 36]].forEach(([vi, n], i) => { s.push(S.say(i * 1000, VOICES[vi].name), S.on(i * 1000, vi, n, 127), S.off(i * 1000 + 700, vi, n)); });
+      return s; } },
+  { id: "cc7live", title: "Volume on a sounding note", what: "Pulse 1 holds A2 at full volume, then CC7 steps down through all 16 levels and back up (120 ms per step), without a new note.",
+    listen: "Does the volume step down and back up while the note keeps sounding (no re-attack)? At which level does it go silent? This is what Fat Chip's NES envelopes depend on.",
+    build() { const s = [S.cc(0, P1, 11, 64), S.cc(0, P1, 7, 120), S.on(50, P1, 57, 127)];
+      let t = 600; for (let l = 15; l >= 0; l--, t += 120) s.push(S.say(t, "level " + l), S.cc(t, P1, 7, l * 8));
+      for (let l = 1; l <= 15; l++, t += 120) s.push(S.say(t, "level " + l), S.cc(t, P1, 7, l * 8));
+      s.push(S.off(t + 500, P1, 57)); return s; } },
+  { id: "levels", title: "Volume levels × velocity", what: "Pulse 1: eight short A2 notes at full CC7 with velocity 127, 112, 96, 80, 64, 48, 32, 16. Then the same eight at CC7 = 64.",
+    listen: "Where does each run go silent? (Notes say CC7 scales velocity and levels 0–7 are silent.) Write the lowest velocity you can hear in each run.",
+    build() { const s = [S.cc(0, P1, 11, 64)]; let t = 0; for (const vol of [120, 64]) { s.push(S.cc(t, P1, 7, vol), S.say(t, "CC7 = " + vol)); t += 50;
+      for (const v of [127, 112, 96, 80, 64, 48, 32, 16]) { s.push(S.say(t, `CC7 ${vol} · velocity ${v}`), S.on(t, P1, 57, v), S.off(t + 300, P1, 57)); t += 450; } t += 600; }
+      s.push(S.cc(t, P1, 7, 120)); return s; } },
+  { id: "hwenv", title: "Hardware envelope on vs off", what: "Pulse 1 holds A2 for 2 s with CC11 = 0 (hardware envelope on, CC9 = 64), then for 2 s with CC11 = 64 (off).",
+    listen: "First note: does it decay (or pulse, if looping)? Second: steady? Which one is the plugin's 'constant volume' mode?",
+    build() { return [S.cc(0, P1, 7, 120), S.cc(0, P1, 9, 64), S.cc(0, P1, 11, 0), S.say(0, "CC11 = 0"), S.on(50, P1, 57, 127), S.off(2050, P1, 57),
+      S.cc(2400, P1, 11, 64), S.say(2400, "CC11 = 64"), S.on(2450, P1, 57, 127), S.off(4450, P1, 57)]; } },
+  { id: "cc7rate", title: "How fast can volume change?", what: "Pulse 1 holds A2 while CC7 sweeps 15 → 0 → 15 twice at each spacing: 20, 10, 5, 2 and 1 ms between messages.",
+    listen: "At which spacing does it start to stutter, glitch, hang or lose the note? (The envelope plugin used 10 ms.)",
+    build() { const s = [S.cc(0, P1, 11, 64), S.cc(0, P1, 7, 120), S.on(50, P1, 57, 127)]; let t = 400;
+      for (const gap of [20, 10, 5, 2, 1]) { s.push(S.say(t, gap + " ms")); for (let r = 0; r < 2; r++) { for (let l = 15; l >= 0; l--, t += gap) s.push(S.cc(t, P1, 7, l * 8, true)); for (let l = 1; l <= 15; l++, t += gap) s.push(S.cc(t, P1, 7, l * 8, true)); } t += 700; }
+      s.push(S.off(t, P1, 57)); return s; } },
+  { id: "cc8", title: "Fine pitch across notes", what: "Pulse 1: A2 with CC8 = 0 (0.4 s); CC8 = 96 while it holds (0.6 s); note off; a new A2 (0.6 s); CC8 back to 0.",
+    listen: "Did the pitch drop when CC8 moved? Did the new note start still flat (CC8 kept) or back in tune (reset on note-on)?",
+    build() { return [S.cc(0, P1, 8, 0), S.on(50, P1, 57, 127), S.say(50, "CC8 = 0"), S.cc(450, P1, 8, 96), S.say(450, "CC8 = 96, same note"), S.off(1050, P1, 57),
+      S.say(1300, "new note"), S.on(1300, P1, 57, 127), S.off(1900, P1, 57), S.cc(2000, P1, 8, 0)]; } },
+  { id: "sweep", title: "Sweep period (possible bug)", what: "Pulse 1, sweep on, shift 7, direction down: one A3 note at each sweep period 0, 1, 2, 4, 8, 15 (0.7 s each). Sweep off at the end.",
+    listen: "What happens as the period goes above 0? Glide, silence, wrong pitch, something stuck? (The plugin warns 'Period > 0: MidiNES bug?')",
+    build() { const s = [S.cc(0, P1, 13, 64), S.cc(0, P1, 14, 0), S.cc(0, P1, 16, 112)]; let t = 50;
+      for (const p of [0, 1, 2, 4, 8, 15]) { s.push(S.cc(t, P1, 15, p * 8), S.say(t, "period " + p), S.on(t + 20, P1, 69, 127), S.off(t + 700, P1, 69)); t += 900; }
+      s.push(S.cc(t, P1, 15, 0), S.cc(t, P1, 13, 0)); return s; } },
+  { id: "tri7", title: "Triangle volume", what: "Triangle holds A2 while CC7 steps from 15 down to 0, then back to 15.",
+    listen: "Expected: no change (the NES triangle has no volume control). If the volume changes, Fat Chip can shape the triangle too.",
+    build() { const s = [S.cc(0, TRI, 7, 120), S.on(50, TRI, 57, 127)]; let t = 500; for (let l = 15; l >= 0; l--, t += 100) s.push(S.cc(t, TRI, 7, l * 8));
+      s.push(S.cc(t + 300, TRI, 7, 120), S.off(t + 800, TRI, 57)); return s; } },
+  { id: "duty", title: "Duty cycle steps", what: "Pulse 1 holds A2: duty 12.5 → 25 → 50 → 75% (0.4 s each), then a fast ping-pong (60 ms per step) for 1.5 s.",
+    listen: "Four clearly different tones? Is the fast ping-pong smooth or clicky? (Pads could use slow duty movement.)",
+    build() { const s = [S.cc(0, P1, 7, 120), S.cc(0, P1, 1, 0), S.on(50, P1, 57, 127)]; let t = 50;
+      [0, 32, 64, 96].forEach(v => { s.push(S.cc(t, P1, 1, v), S.say(t, "duty " + v)); t += 400; });
+      const pp = [0, 32, 64, 96, 64, 32]; for (let i = 0; t < 3150; i++, t += 60) s.push(S.cc(t, P1, 1, pp[i % 6], true));
+      s.push(S.off(t, P1, 57), S.cc(t, P1, 1, 64)); return s; } },
+  { id: "bendtune", title: "Pitch-bend tuning", what: "Pulse 1 alternates: C3 played plainly, then C2 bent up with the formula to C3 (+12), then G2 plain vs C2 bent +7, then F2 plain vs A#2 bent −5. Then the same on the triangle.",
+    listen: "Does each bent note match the plain one it follows? Slightly off is the hardware's step size; clearly off means the formula's anchor is wrong.",
+    build() { const s = []; let t = 0;
+      for (const [vi, kind] of [[P1, "pulse"], [TRI, "tri"]]) {
+        for (const [plain, from, semi] of [[48, 36, 12], [43, 36, 7], [41, 46, -5]]) {
+          s.push(S.bend(t, vi, 0), S.say(t, `${VOICES[vi].name}: ${noteName(plain)} plain`), S.on(t + 5, vi, plain, 127), S.off(t + 600, vi, plain));
+          t += 750; s.push(S.bend(t, vi, pbFor(kind, from, semi)), S.say(t, `${noteName(from)} bent ${semi > 0 ? "+" : ""}${semi}`), S.on(t + 5, vi, from, 127), S.off(t + 600, vi, from), S.bend(t + 650, vi, 0));
+          t += 950; } }
+      return s; } },
+  { id: "glide", title: "Glide smoothness", what: "Pulse 1 glides C2 → C3 → C2 (0.6 s each way) with a bend every 10, 5, 2 and 1 ms.",
+    listen: "Smooth, stepped, or glitchy? At which rate does it choke? (Fat Chip will glide pads and leads this way.)",
+    build() { const s = []; let t = 0;
+      for (const gap of [10, 5, 2, 1]) { s.push(S.bend(t, P1, 0), S.say(t, gap + " ms between bends"), S.on(t + 5, P1, 36, 127)); t += 300;
+        const steps = Math.round(600 / gap);
+        for (let i = 0; i <= steps; i++) s.push(S.bend(t + i * gap, P1, pbFor("pulse", 36, 12 * i / steps), true));
+        t += 600; for (let i = 0; i <= steps; i++) s.push(S.bend(t + i * gap, P1, pbFor("pulse", 36, 12 * (1 - i / steps)), true));
+        t += 700; s.push(S.off(t, P1, 36)); t += 400; }
+      s.push(S.bend(t, P1, 0)); return s; } },
+  { id: "rate", title: "Fast notes (message rate)", what: "Pulse 1 plays 60 short notes as fast as each spacing allows: one message every 5, 3, 2 and 1 ms (note on and off are separate messages). The last note of each run is held 0.6 s, then released.",
+    listen: "Does any run leave a note stuck on after it ends, or skip notes? At which spacing does it fall apart?",
+    build() { const s = [S.cc(0, P1, 7, 120)]; let t = 50;
+      for (const gap of [5, 3, 2, 1]) { s.push(S.say(t, gap + " ms between messages"));
+        for (let i = 0; i < 60; i++) { const n = 45 + (i % 12) * 2; s.push([t, tt => noteOn(P1, n, 127, tt, true)]); t += gap; s.push([t, tt => noteOff(P1, n, tt, true)]); t += gap; }
+        s.push(S.on(t, P1, 57, 127), S.off(t + 600, P1, 57)); t += 1300; }
+      return s; } },
+  { id: "envtry", title: "Software envelope (Fat Chip's plan)", what: "Pulse 1 plays a 2 s A2 through the Software envelope above (your attack / decay / sustain / release and CC7 gap), then a three-note line with overlapping releases.",
+    listen: "Does it swell in, settle, and fade out smoothly after the note-off? Any zipper noise at the CC7 steps? Try longer attack / release and a bigger CC7 gap.",
+    build() { return [[0, () => { sounding.set("0:57", true); env.start(P1, 57); }], [2000, () => env.release(P1, 57)],
+      [4500, () => env.start(P1, 60)], [5100, () => env.release(P1, 60)], [5300, () => env.start(P1, 64)], [5900, () => env.release(P1, 64)], [6100, () => env.start(P1, 67)], [6900, () => env.release(P1, 67)], S.say(0, "playing with the envelope settings"), [9500, () => {}]]; } },
+  { id: "dmcpitch", title: "DMC pitch steps", what: "DMC bank A, note 36: hit at each of the 16 sample pitches (CC3 = 0, 8 … 120), 0.5 s apart.",
+    listen: "Do all 16 steps sound different? Write what CC3 = 120 sounds like (normal speed?) and anything gnarly worth keeping.",
+    build() { const s = [S.cc(0, DMC, 14, 0)]; let t = 50; for (let p = 0; p < 16; p++, t += 500) s.push(S.cc(t, DMC, 3, p * 8), S.say(t, "pitch " + p), S.on(t + 10, DMC, 36, 127), S.off(t + 400, DMC, 36));
+      s.push(S.cc(t, DMC, 3, 120)); return s; } },
+];
+
+const answers = store.get("answers", {});
+function renderExps() {
+  const box = $("exps");
+  box.innerHTML = "";
+  for (const x of EXPS) {
+    const a = answers[x.id] || {};
+    const div = document.createElement("div");
+    div.className = "exp" + (a.v ? " done-" + a.v : "");
+    div.id = "exp-" + x.id;
+    div.innerHTML = `<div class="exp-head"><h3><span>${EXPS.indexOf(x) + 1}</span>${x.title}</h3><button class="btn small primary" ${output() ? "" : "disabled"}>Play</button></div>
+      <p>${x.what}</p><p class="listen"><b>Listen for:</b> ${x.listen}</p>
+      <div class="playing"></div>
+      <div class="answer">
+        <button class="btn small" data-v="yes">Worked as described</button>
+        <button class="btn small" data-v="no">Didn't</button>
+        <button class="btn small" data-v="odd">Something odd</button>
+        <input type="text" placeholder="What did you hear?" value="${(a.note || "").replace(/"/g, "&quot;")}">
+      </div>`;
+    div.querySelector(".exp-head .btn").addEventListener("click", () => { const end = runSeq(x.build(), x.id); if (seq) seq.exp = x.id; renderPlaying(); });
+    div.querySelectorAll("[data-v]").forEach(b => {
+      b.classList.toggle("on", a.v === b.dataset.v);
+      b.addEventListener("click", () => { const cur = answers[x.id] || {}; cur.v = cur.v === b.dataset.v ? "" : b.dataset.v; answers[x.id] = cur; store.set("answers", answers); renderExps(); });
+    });
+    div.querySelector("input").addEventListener("change", e => { const cur = answers[x.id] || {}; cur.note = e.target.value; answers[x.id] = cur; store.set("answers", answers); });
+    box.append(div);
+  }
+  renderPlaying();
+}
+function renderPlaying() {
+  document.querySelectorAll(".exp .playing").forEach(el => { el.textContent = ""; });
+  if (seq && seq.exp) { const el = document.querySelector(`#exp-${seq.exp} .playing`); if (el) el.textContent = "▶ " + (seq.say || "playing…"); }
+}
+$("copyBtn").addEventListener("click", async () => {
+  const lines = [`NES Lab results (${new Date().toLocaleString()}), MidiNES on channels ${+$("base").value + 1}–${+$("base").value + 5}`];
+  lines.push(`Envelope settings: A ${$("envA").value} s, D ${$("envD").value} s, S ${$("envS").value}, R ${$("envR").value} s, CC7 gap ${$("envRate").value} ms`);
+  for (const x of EXPS) { const a = answers[x.id] || {}; lines.push(`${EXPS.indexOf(x) + 1}. ${x.title}: ${({ yes: "worked", no: "didn't", odd: "odd" })[a.v] || "not tried"}${a.note ? " — " + a.note : ""}`); }
+  const text = lines.join("\n");
+  try { await navigator.clipboard.writeText(text); $("copyBtn").textContent = "Copied"; }
+  catch { prompt("Copy these results:", text); }
+  setTimeout(() => { $("copyBtn").textContent = "Copy results for Claude"; }, 1500);
+});
+$("clearBtn").addEventListener("click", () => { if (!confirm("Clear all your experiment answers?")) return; for (const k of Object.keys(answers)) delete answers[k]; store.set("answers", answers); renderExps(); });
+$("logClear").addEventListener("click", () => { logLines.length = 0; log(""); });
+
+renderTabs(); renderCcs(); renderKeys(); pbUpdate("num"); renderExps();
+</script>
+</body>
+</html>
