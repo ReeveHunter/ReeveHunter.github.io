@@ -168,9 +168,16 @@ code { font-family: var(--mono); font-size: 13px; }
       <label class="field"><span>Velocity</span>
         <input id="vel" type="number" min="1" max="127" value="127">
       </label>
+      <label class="field"><span>NES video mode <em>(set by hand: Select on the NES)</em></span>
+        <select id="video">
+          <option value="">Which mode is the NES in?</option>
+          <option value="1">Mode 1: video off</option>
+          <option value="2">Mode 2: video on</option>
+        </select>
+      </label>
     </div>
     <p id="status" class="status-line" style="margin-top:10px">Not connected.</p>
-    <p class="hint">Tip: put the MidiNES in Mode 1 (Select on the NES: graphics off) for less hum. <b>Panic</b> stops every voice; <kbd>Esc</kbd> does too.</p>
+    <p class="hint">The video mode can change how some features behave (Wave Traveller loop speeds, maybe more) and can only be switched on the NES itself, so the experiments ask for it and save it with every answer. Mode 1 also has less hum. <b>Panic</b> stops every voice; <kbd>Esc</kbd> does too.</p>
   </section>
 
   <section class="card">
@@ -242,7 +249,7 @@ code { font-family: var(--mono); font-size: 13px; }
         <button id="clearBtn" class="btn small">Clear answers</button>
       </div>
     </div>
-    <p class="hint" style="margin-top:0">Each one plays a short sequence on the MidiNES. Listen, then mark what happened and add a note if anything was odd. Answers stay in this browser; <b>Copy results</b> puts them all on the clipboard to paste into the chat.</p>
+    <p class="hint" style="margin-top:0">Set the NES video mode in the MIDI card first; each answer remembers which mode it was heard in (worth trying the interesting ones in both). Each one plays a short sequence on the MidiNES. Listen, then mark what happened and add a note if anything was odd. Answers stay in this browser; <b>Copy results</b> puts them all on the clipboard to paste into the chat.</p>
     <div class="exps" id="exps" style="margin-top:12px"></div>
   </section>
 
@@ -383,6 +390,9 @@ for (let c = 1; c <= 12; c++) $("base").add(new Option(`Channels ${c}–${c + 4}
 $("base").value = String(store.get("base", 1)); // Reeve usually runs the MidiNES on 2–6
 $("base").addEventListener("change", () => { panic(); store.set("base", +$("base").value); });
 $("vel").value = store.get("vel", 127);
+$("video").value = store.get("video", "");
+$("video").addEventListener("change", () => { store.set("video", $("video").value); renderExps(); });
+const videoName = m => ({ "1": "Mode 1 (video off)", "2": "Mode 2 (video on)" })[m] || "video mode not set";
 $("vel").addEventListener("change", () => store.set("vel", +$("vel").value));
 
 function fillOutputs() {
@@ -739,7 +749,7 @@ function renderExps() {
     const div = document.createElement("div");
     div.className = "exp" + (a.v ? " done-" + a.v : "");
     div.id = "exp-" + x.id;
-    div.innerHTML = `<div class="exp-head"><h3><span>${EXPS.indexOf(x) + 1}</span>${x.title}</h3><button class="btn small primary" ${output() ? "" : "disabled"}>Play</button></div>
+    div.innerHTML = `<div class="exp-head"><h3><span>${EXPS.indexOf(x) + 1}</span>${x.title}</h3><button class="btn small primary" ${output() && $("video").value ? "" : "disabled"} title="${$("video").value ? "" : "Set the NES video mode first (MIDI card)"}">Play</button></div>
       <p>${x.what}</p><p class="listen"><b>Listen for:</b> ${x.listen}</p>
       <div class="playing"></div>
       <div class="answer">
@@ -751,9 +761,9 @@ function renderExps() {
     div.querySelector(".exp-head .btn").addEventListener("click", () => { const end = runSeq(x.build(), x.id); if (seq) seq.exp = x.id; renderPlaying(); });
     div.querySelectorAll("[data-v]").forEach(b => {
       b.classList.toggle("on", a.v === b.dataset.v);
-      b.addEventListener("click", () => { const cur = answers[x.id] || {}; cur.v = cur.v === b.dataset.v ? "" : b.dataset.v; answers[x.id] = cur; store.set("answers", answers); renderExps(); });
+      b.addEventListener("click", () => { const cur = answers[x.id] || {}; cur.v = cur.v === b.dataset.v ? "" : b.dataset.v; cur.mode = $("video").value; answers[x.id] = cur; store.set("answers", answers); renderExps(); });
     });
-    div.querySelector("input").addEventListener("change", e => { const cur = answers[x.id] || {}; cur.note = e.target.value; answers[x.id] = cur; store.set("answers", answers); });
+    div.querySelector("input").addEventListener("change", e => { const cur = answers[x.id] || {}; cur.note = e.target.value; cur.mode = $("video").value; answers[x.id] = cur; store.set("answers", answers); });
     box.append(div);
   }
   renderPlaying();
@@ -765,7 +775,7 @@ function renderPlaying() {
 $("copyBtn").addEventListener("click", async () => {
   const lines = [`NES Lab results (${new Date().toLocaleString()}), MidiNES on channels ${+$("base").value + 1}–${+$("base").value + 5}`];
   lines.push(`Envelope settings: A ${$("envA").value} s, D ${$("envD").value} s, S ${$("envS").value}, R ${$("envR").value} s, CC7 gap ${$("envRate").value} ms`);
-  for (const x of EXPS) { const a = answers[x.id] || {}; lines.push(`${EXPS.indexOf(x) + 1}. ${x.title}: ${({ yes: "worked", no: "didn't", odd: "odd" })[a.v] || "not tried"}${a.note ? " — " + a.note : ""}`); }
+  for (const x of EXPS) { const a = answers[x.id] || {}; lines.push(`${EXPS.indexOf(x) + 1}. ${x.title}: ${({ yes: "worked", no: "didn't", odd: "odd" })[a.v] || "not tried"}${a.v || a.note ? " [" + videoName(a.mode) + "]" : ""}${a.note ? " — " + a.note : ""}`); }
   const text = lines.join("\n");
   try { await navigator.clipboard.writeText(text); $("copyBtn").textContent = "Copied"; }
   catch { prompt("Copy these results:", text); }
