@@ -202,6 +202,17 @@ table.read th { font-weight: 600; width: 38%; }
         <button id="sweepBtn" class="btn small" disabled>Sweep</button>
         <div class="sent" id="sweepNow"></div>
       </div>
+      <div class="test" style="margin-top:10px">
+        <h3>Load test</h3>
+        <p>64 note on/off pairs on the test channel (a pair every 20 ms) while a flood of pitch bends goes to other channels, the way NES glides would. <b>NOTE ONS</b> short = the flood made the adapter drop Game Boy messages. <b>BENDS</b> shows whether the flood channels reach the Game Boy at all (flood on channel 16 = another check on 16).</p>
+        <button id="loadBtn" class="btn small" disabled>Run</button>
+        <div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px">
+          <label class="field"><span>Flood from channel</span><select id="floodFrom"></select></label>
+          <label class="field"><span>Across</span><select id="floodCount"><option value="1">1 channel</option><option value="2">2 channels</option><option value="3">3 channels</option><option value="5">5 channels</option></select></label>
+          <label class="field"><span>Flood speed</span><select id="floodGap"><option value="8">1 bend / 8 ms</option><option value="4">1 bend / 4 ms</option><option value="2">1 bend / 2 ms</option><option value="1">1 bend / ms</option><option value="0">Full wire speed</option></select></label>
+        </div>
+        <div class="sent" id="loadNow"></div>
+      </div>
     </section>
 
     <section class="card">
@@ -305,6 +316,7 @@ function updateButtons() {
   for (const t of TESTS) testEls[t.id].querySelector("button").disabled = !ok || (t.sysex && !sysexOk);
   $("allBtn").disabled = !ok;
   $("sweepBtn").disabled = !ok || sweeping;
+  $("loadBtn").disabled = !ok || loading;
 }
 
 // Split a byte list into whole MIDI messages (realtime bytes on their own).
@@ -387,6 +399,38 @@ $("sweepBtn").addEventListener("click", async () => {
   }
   $("sweepNow").textContent = `Done. NOTE ONS ${expected.noteon} means all 16 channels passed; each missing channel leaves it 16 short. If the count stalled, the channel shown when it stopped rising is the one that's blocked.`;
   sweeping = false; updateButtons();
+});
+
+// ---- load test: Game Boy test notes + a pitch-bend flood on other channels
+let loading = false;
+for (let c = 1; c <= 16; c++) $("floodFrom").add(new Option("Channel " + c, String(c - 1)));
+$("floodFrom").value = String(store.get("floodFrom", 6));   // 7–11: clear of the default test channel (6)
+$("floodCount").value = String(store.get("floodCount", 5));
+$("floodGap").value = String(store.get("floodGap", 4));
+for (const id of ["floodFrom", "floodCount", "floodGap"]) $(id).addEventListener("change", () => store.set(id, +$(id).value));
+$("loadBtn").addEventListener("click", async () => {
+  const out = output(); if (!out) return;
+  const ch = +$("channel").value, from = +$("floodFrom").value, count = +$("floodCount").value, gap = +$("floodGap").value || 0.96;
+  const floodChs = Array.from({ length: count }, (_, i) => (from + i) & 15);
+  if (floodChs.includes(ch)) { $("loadNow").textContent = "Pick flood channels that don't include the test channel."; return; }
+  loading = true; updateButtons();
+  const ev = [], DUR = 64 * 20;
+  for (let i = 0; i < 64; i++) { const n = 48 + (i % 24); ev.push([i * 20, [0x90 | ch, n, 100]], [i * 20 + 10, [0x80 | ch, n, 0]]); }
+  let bends = 0;
+  for (let t = 0, j = 0; t < DUR; t += gap, j++) {
+    const v = 8192 + ((j * 64) % 4096) - 2048;
+    ev.push([t, [0xE0 | floodChs[j % count], v & 0x7F, (v >> 7) & 0x7F]]); bends++;
+  }
+  ev.sort((a, b) => a[0] - b[0]);
+  const now = performance.now() + 50;
+  for (const [t, m] of ev) out.send(m, now + t);
+  const before = { ...expected };
+  expected.noteon += 64; expected.bend += bends; expected.bytes += 64 * 6 + bends * 3;
+  renderLcd();
+  const chList = floodChs.length > 1 ? `channels ${floodChs[0] + 1}–${floodChs[floodChs.length - 1] + 1}` : `channel ${floodChs[0] + 1}`;
+  $("loadNow").textContent = `Sent 64 notes on channel ${ch + 1} and ${bends} bends on ${chList} (${gap < 1 ? "full speed" : "1 per " + gap + " ms"}). The screen above assumes the flood reaches the Game Boy. If BENDS reads ${before.bend} instead of ${expected.bend} (and BYTES is ${bends * 3} lower), ${chList} aren't forwarded. NOTE ONS should read ${expected.noteon} either way; less means the flood made it drop Game Boy notes.`;
+  await new Promise(r => setTimeout(r, DUR + 800));
+  loading = false; updateButtons();
 });
 
 $("zeroBtn").addEventListener("click", () => {
