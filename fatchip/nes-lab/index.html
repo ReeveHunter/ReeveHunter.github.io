@@ -241,6 +241,28 @@ code { font-family: var(--mono); font-size: 13px; }
   </section>
 
   <section class="card">
+    <h2>Triangle release</h2>
+    <p class="hint" style="margin-top:0">The triangle has no volume, so this fakes a release (Reeve's plugin trick): when the note is let go, its pitch drops quickly and only then does the note-off go out. A new triangle note cuts a drop short.</p>
+    <div class="grid3" style="margin-top:12px">
+      <label class="field"><span>Drop (semitones, − = down)</span><input id="tdSemi" type="number" min="-48" max="24" step="1" value="-24"></label>
+      <label class="field"><span>Time (ms)</span><input id="tdMs" type="number" min="10" max="2000" step="10" value="300"></label>
+      <label class="field"><span>Curve</span>
+        <select id="tdCurve"><option value="lin">Straight</option><option value="fast">Fast at first (falls, then eases)</option><option value="slow">Slow at first (then dives)</option></select>
+      </label>
+      <label class="field"><span>Gap between bends (ms)</span><input id="tdGap" type="number" min="1" max="50" step="1" value="4"></label>
+      <label class="field"><span>Use for triangle notes played above</span>
+        <select id="tdUse"><option value="0">Off</option><option value="1">On</option></select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="tdTry" class="btn small" disabled>Try it: 1 s note</button>
+      <button id="tdCompare" class="btn small" disabled>Compare depths (−12, −24, −36 at this time)</button>
+      <span class="meter" id="tdNow"></span>
+    </div>
+    <p class="hint">Very deep drops on low notes run past the bend range; they're held at the limit rather than wrapping.</p>
+  </section>
+
+  <section class="card">
     <div class="card-head">
       <h2>Experiments</h2>
       <div class="row">
@@ -408,7 +430,7 @@ function fillOutputs() {
   const o = output();
   $("statusDot").className = "dot " + (o ? "ok" : "warn");
   $("status").textContent = o ? `Ready: sending to ${o.name}.` : "Connected, but there's no output yet. Plug in the MIDI interface.";
-  for (const id of ["defaultsBtn", "panicBtn", "sendAllCc", "pbCentre", "pbPlay", "envTry"]) $(id).disabled = !o;
+  for (const id of ["defaultsBtn", "panicBtn", "sendAllCc", "pbCentre", "pbPlay", "envTry", "tdTry", "tdCompare"]) $(id).disabled = !o;
   renderExps();
 }
 $("output").addEventListener("change", () => { store.set("output", $("output").value); fillOutputs(); });
@@ -520,12 +542,14 @@ function bendFor(vi, n) {
 function playNote(vi, n) {
   sounding.set(vi + ":" + n, true);
   const v = VOICES[vi];
+  if (v.kind === "tri") triDrop.cancel(vi);   // a new note cuts a drop short
   bendFor(vi, n);                              // set the bend for this note before it sounds
   if (+$("envUse").value && (v.kind === "pulse" || v.kind === "noise")) env.start(vi, n);
   else noteOn(vi, n);
 }
 function stopNote(vi, n) {
   const v = VOICES[vi];
+  if (v.kind === "tri" && +$("tdUse").value) { triDrop.release(vi, n); return; }
   if (env.active(vi)) env.release(vi, n);
   else { noteOff(vi, n); sounding.delete(vi + ":" + n); }
 }
@@ -634,6 +658,52 @@ $("envTry").addEventListener("click", () => {
   sounding.set(vi + ":" + n, true);
   env.start(vi, n);
   setTimeout(() => env.release(vi, n), 2000);
+});
+
+// ------------------------------------------------------------------ triangle release drop
+const triDrop = (() => {
+  let cur = null;   // { vi, n, t0, timer }
+  const curve = (t, kind) => kind === "fast" ? 1 - (1 - t) * (1 - t) : kind === "slow" ? t * t : t;
+  function end(c, sendOff) {
+    clearTimeout(c.timer);
+    if (sendOff) noteOff(c.vi, c.n);
+    sounding.delete(c.vi + ":" + c.n);
+    bend(c.vi, pbFor("tri", c.n, +$("pbSemi").value));   // back to the panel's bend for this note
+    if (cur === c) cur = null;
+    $("tdNow").textContent = "";
+  }
+  return {
+    release(vi, n, opts) {
+      if (cur) end(cur, true);
+      const o = opts || { semi: +$("tdSemi").value, ms: Math.max(10, +$("tdMs").value), kind: $("tdCurve").value, gap: Math.max(1, +$("tdGap").value) };
+      const base = +$("pbSemi").value;
+      const c = { vi, n, t0: performance.now(), timer: 0 };
+      cur = c;
+      const step = () => {
+        if (cur !== c) return;
+        const t = Math.min(1, (performance.now() - c.t0) / o.ms);
+        bend(vi, pbFor("tri", n, base + o.semi * curve(t, o.kind)), undefined, true);
+        $("tdNow").textContent = `dropping ${(o.semi * curve(t, o.kind)).toFixed(1)} st`;
+        if (t >= 1) { end(c, true); log(`TRI  release drop ${o.semi} st over ${o.ms} ms (${o.kind}), then note off`); return; }
+        c.timer = setTimeout(step, o.gap);
+      };
+      step();
+    },
+    cancel(vi) { if (cur && cur.vi === vi) end(cur, true); },
+  };
+})();
+for (const id of ["tdSemi", "tdMs", "tdCurve", "tdGap", "tdUse"]) { const el = $(id); el.value = store.get(id, el.value); el.addEventListener("change", () => store.set(id, el.value)); }
+$("tdTry").addEventListener("click", () => {
+  const n = 57; bendFor(2, n); noteOn(2, n);
+  setTimeout(() => triDrop.release(2, n), 1000);
+});
+$("tdCompare").addEventListener("click", () => {
+  const ms = Math.max(10, +$("tdMs").value), kind = $("tdCurve").value, gap = Math.max(1, +$("tdGap").value);
+  [-12, -24, -36].forEach((semi, i) => {
+    const at = i * (1600 + ms);
+    setTimeout(() => { bendFor(2, 57); noteOn(2, 57); $("tdNow").textContent = `${semi} st`; }, at);
+    setTimeout(() => triDrop.release(2, 57, { semi, ms, kind, gap }), at + 900);
+  });
 });
 
 // ------------------------------------------------------------------ sequencer for experiments
