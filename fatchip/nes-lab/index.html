@@ -154,7 +154,7 @@ code { font-family: var(--mono); font-size: 13px; }
       <h2><span class="dot" id="statusDot"></span>MIDI</h2>
       <div class="row">
         <button id="connectBtn" class="btn primary">Connect</button>
-        <button id="defaultsBtn" class="btn" disabled title="CC7 = 120 on pulses and noise, CC16 = 112 and CC13 = 0 on the pulses, bends centred">Send defaults</button>
+        <button id="defaultsBtn" class="btn" disabled title="CC7 = 120 on pulses and noise; on the pulses CC16 = 112, sweep off, sweep period 0; bends centred">Send defaults</button>
         <button id="panicBtn" class="btn" disabled>Panic</button>
       </div>
     </div>
@@ -207,7 +207,7 @@ code { font-family: var(--mono); font-size: 13px; }
 
     <section class="card">
       <h2>Pitch bend</h2>
-      <p class="hint" style="margin-top:0">Pulse and triangle only. The bend for an interval depends on the note (the NES works in timer periods), so this uses Reeve's formula: <code>p0 · 0.5^((n − 36)/12) · (2 − 2 · 0.5^(x/12))</code>, p0 = 3420 (pulse) or 1710 (triangle), in steps of 4.</p>
+      <p class="hint" style="margin-top:0">Pulse and triangle only. Follows the last note you played (the note box updates by itself; edit it to bend a different one). The bend for an interval depends on the note (the NES works in timer periods), so this uses Reeve's formula: <code>p0 · 0.5^((n − 36)/12) · (2 − 2 · 0.5^(x/12))</code>, p0 = 3420 (pulse) or 1710 (triangle), in steps of 4.</p>
       <div class="grid3" style="margin-top:12px">
         <label class="field"><span>Note it applies to</span><input id="pbNote" type="number" min="0" max="127" value="48"></label>
         <label class="field"><span>Semitones (±)</span><input id="pbSemi" type="number" step="0.01" min="-24" max="24" value="0"></label>
@@ -286,13 +286,13 @@ const CC = {
   pulse: [
     { cc: 7, name: "Volume", ...lin(16, 8), def: 120 },
     { cc: 1, name: "Duty", steps: [0, 32, 64, 96], labels: ["12.5%", "25%", "50%", "75%"], def: 64 },
-    { cc: 8, name: "Fine pitch (down)", ...all128(), def: 0 },
+    { cc: 8, name: "Fine pitch (down; wraps, see exp. 15)", ...all128(), def: 0 },
     { cc: 11, name: "HW volume envelope", steps: [0, 64], labels: ["On", "Off (constant)"], def: 64 },
     { cc: 10, name: "Envelope loop", ...sw(), def: 64 },
     { cc: 9, name: "Note length / env speed", ...lin(32, 4), def: 124 },
     { cc: 13, name: "Sweep", ...sw(), def: 0 },
     { cc: 14, name: "Sweep direction", ...sw("Down", "Up"), def: 0 },
-    { cc: 15, name: "Sweep period", ...lin(16, 8), def: 0 },
+    { cc: 15, name: "Sweep period (buggy: keep 0)", ...lin(16, 8), def: 0 },
     { cc: 16, name: "Sweep shift (keep ≥ 64)", ...lin(8, 16), def: 112 },
     { cc: 12, name: "Mod hack", ...sw(), def: 0 },
     { cc: 6, name: "Mod hack frequency", ...lin(16, 8), def: 0 },
@@ -381,7 +381,7 @@ function panic() {
 }
 function sendDefaults() {
   for (const vi of [0, 1, 3]) cc(vi, 7, 120);
-  for (const vi of [0, 1]) { cc(vi, 16, 112); cc(vi, 13, 0); bend(vi, 0); }
+  for (const vi of [0, 1]) { cc(vi, 16, 112); cc(vi, 13, 0); cc(vi, 15, 0); bend(vi, 0); }
   bend(2, 0);
 }
 
@@ -434,7 +434,7 @@ function renderTabs() {
     b.className = "tab"; b.role = "tab";
     b.setAttribute("aria-selected", i === voiceIdx);
     b.innerHTML = `${v.name}<small>ch ${chOf(i) + 1}</small>`;
-    b.addEventListener("click", () => { voiceIdx = i; store.set("voice", i); renderTabs(); renderCcs(); });
+    b.addEventListener("click", () => { voiceIdx = i; store.set("voice", i); if (lastNote[i] != null) $("pbNote").value = lastNote[i]; pbUpdate("num"); renderTabs(); renderCcs(); });
     box.append(b);
   });
 }
@@ -509,9 +509,18 @@ function release(n, force) {
   keyEl(n)?.classList.remove("down");
   stopNote(voiceIdx, n);
 }
+const lastNote = {};                           // vi -> last note played (the bend follows it)
+function bendFor(vi, n) {
+  const v = VOICES[vi];
+  if (v.kind !== "pulse" && v.kind !== "tri") return;
+  lastNote[vi] = n;
+  if (vi === voiceIdx) { $("pbNote").value = n; pbUpdate("num"); }
+  bend(vi, pbFor(v.kind, n, +$("pbSemi").value));
+}
 function playNote(vi, n) {
   sounding.set(vi + ":" + n, true);
   const v = VOICES[vi];
+  bendFor(vi, n);                              // set the bend for this note before it sounds
   if (+$("envUse").value && (v.kind === "pulse" || v.kind === "noise")) env.start(vi, n);
   else noteOn(vi, n);
 }
@@ -591,7 +600,11 @@ const env = (() => {
     }
     if (!st.size) { clearInterval(timer); timer = 0; }
   }
-  function finish(vi, s) { cc(vi, 7, 0); noteOff(vi, s.n); sounding.delete(vi + ":" + s.n); st.delete(vi); $("envLevel").textContent = "done"; }
+  function finish(vi, s) {
+    cc(vi, 7, 0); noteOff(vi, s.n); sounding.delete(vi + ":" + s.n); st.delete(vi);
+    cc(vi, 7, ccVal(VOICES[vi], 7));           // back to the volume slider's level for plain notes
+    $("envLevel").textContent = "done";
+  }
   return {
     active: vi => st.has(vi),
     start(vi, n) {
@@ -606,10 +619,15 @@ const env = (() => {
       const s = st.get(vi); if (!s || s.n !== n || s.phase === "R") return;
       s.relFrom = s.level; s.phase = "R"; s.t0 = performance.now();
     },
-    stopAll() { for (const [vi, s] of st) { noteOff(vi, s.n); } st.clear(); },
+    stopAll() { for (const [vi, s] of st) { noteOff(vi, s.n); cc(vi, 7, ccVal(VOICES[vi], 7)); } st.clear(); },
   };
 })();
 for (const id of ["envA", "envD", "envS", "envR", "envRate", "envUse"]) { const el = $(id); el.value = store.get(id, el.value); el.addEventListener("change", () => store.set(id, el.value)); }
+// envelope switched off: pulses and noise go back to their volume sliders
+$("envUse").addEventListener("change", () => {
+  if (+$("envUse").value || !output()) return;
+  VOICES.forEach((v, vi) => { if ((v.kind === "pulse" || v.kind === "noise") && !env.active(vi)) cc(vi, 7, ccVal(v, 7)); });
+});
 $("envTry").addEventListener("click", () => {
   const vi = VOICES[voiceIdx].kind === "noise" ? voiceIdx : (VOICES[voiceIdx].kind === "pulse" ? voiceIdx : 0);
   const n = VOICES[vi].kind === "noise" ? 40 : 57;
@@ -714,7 +732,7 @@ const EXPS = [
           t += 750; s.push(S.bend(t, vi, pbFor(kind, from, semi)), S.say(t, `${noteName(from)} bent ${semi > 0 ? "+" : ""}${semi}`), S.on(t + 5, vi, from, 127), S.off(t + 600, vi, from), S.bend(t + 650, vi, 0));
           t += 950; } }
       return s; } },
-  { id: "glide", title: "Glide smoothness", what: "Pulse 1 glides C2 → C3 → C2 (0.6 s each way) with a bend every 10, 5, 2 and 1 ms.",
+  { id: "glide", title: "Glide smoothness", what: "Pulse 1 glides C2 → C3 → C2 (0.6 s each way) with a bend every 10, 5, 2 and 1 ms. An octave up from C2 is about 850 different bend values; at 1 ms nearly all of them are sent.",
     listen: "Smooth, stepped, or glitchy? At which rate does it choke? (Fat Chip will glide pads and leads this way.)",
     build() { const s = []; let t = 0;
       for (const gap of [10, 5, 2, 1]) { s.push(S.bend(t, P1, 0), S.say(t, gap + " ms between bends"), S.on(t + 5, P1, 36, 127)); t += 300;
@@ -738,6 +756,30 @@ const EXPS = [
     listen: "Do all 16 steps sound different? Write what CC3 = 120 sounds like (normal speed?) and anything gnarly worth keeping.",
     build() { const s = [S.cc(0, DMC, 14, 0)]; let t = 50; for (let p = 0; p < 16; p++, t += 500) s.push(S.cc(t, DMC, 3, p * 8), S.say(t, "pitch " + p), S.on(t + 10, DMC, 36, 127), S.off(t + 400, DMC, 36));
       s.push(S.cc(t, DMC, 3, 120)); return s; } },
+  { id: "cc8wrap", title: "Fine pitch wrap point", what: "CC8 slowly 0 → 127 (one step every 120 ms, the step shows below) on five notes: A#2, D#2, C3, D3, F1. Theory: CC8 adds to the low 8 bits of the NES timer; when they pass 255 they roll over without carrying, so the pitch jumps way up. Predicted jump if one CC8 step = one timer step: A#2 at 33, D#2 at 50, C3 at 85, D3 never, F1 never. If one step = two timer steps: 17, 25, 43, 66, never.",
+    listen: "Write the CC8 value where each note jumps up (or 'none'). That tells us the scale, and then Fat Chip can predict the safe CC8 range for any note.",
+    build() { const s = []; let t = 0;
+      for (const n of [58, 51, 60, 62, 41]) { s.push(S.cc(t, P1, 8, 0), S.bend(t, P1, 0), S.say(t, noteName(n) + ": CC8 0"), S.on(t + 10, P1, n, 127)); t += 400;
+        for (let v = 1; v <= 127; v++, t += 120) { const vv = v; s.push(S.cc(t, P1, 8, vv, true), S.say(t, `${noteName(n)}: CC8 ${vv}`)); }
+        s.push(S.off(t, P1, n), S.cc(t + 10, P1, 8, 0)); t += 800; }
+      return s; } },
+  { id: "bendframe", title: "Bend rate vs NES frames", what: "Pulse 1 glides C2 → C3 (0.8 s) four times, with a bend every 50, 33, 16 and 4 ms. The NES runs at 60 frames a second (one every 16.7 ms), so if the MidiNES only updates pitch once per frame, 16 and 4 ms will sound the same.",
+    listen: "Which ones sound stepped? If 16 ms is as smooth as 4 ms, Fat Chip can send one bend per frame and save a lot of MIDI traffic.",
+    build() { const s = []; let t = 0;
+      for (const gap of [50, 33, 16, 4]) { s.push(S.bend(t, P1, 0), S.say(t, gap + " ms between bends"), S.on(t + 5, P1, 36, 127)); t += 250;
+        const steps = Math.round(800 / gap);
+        for (let i = 0; i <= steps; i++) s.push(S.bend(t + i * gap, P1, pbFor("pulse", 36, 12 * i / steps), true));
+        t += 1100; s.push(S.off(t, P1, 36), S.bend(t + 20, P1, 0)); t += 500; }
+      return s; } },
+  { id: "tridrop", title: "Triangle release drop", what: "Reeve's fake triangle envelope: on release, bend the note down quickly, then send the note-off. Four A2 notes: −12 semitones over 80 ms, −12 over 250 ms, −24 over 400 ms, and a plain note-off for comparison.",
+    listen: "Which sounds most like a natural release? (Fat Chip could use this on the triangle in PADS.)",
+    build() { const s = [S.bend(0, TRI, 0)]; let t = 50;
+      for (const [semi, ms] of [[-12, 80], [-12, 250], [-24, 400], [0, 0]]) {
+        s.push(S.say(t, semi ? `drop ${semi} over ${ms} ms` : "plain note-off"), S.on(t, TRI, 57, 127)); t += 600;
+        const steps = Math.max(1, Math.round(ms / 8));
+        if (semi) for (let i = 1; i <= steps; i++) s.push(S.bend(t + i * 8, TRI, pbFor("tri", 57, semi * i / steps), true));
+        t += ms; s.push(S.off(t, TRI, 57), S.bend(t + 20, TRI, 0)); t += 700; }
+      return s; } },
 ];
 
 const answers = store.get("answers", {});
