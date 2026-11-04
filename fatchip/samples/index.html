@@ -140,6 +140,17 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
 .dups { font: 13px/1.6 var(--mono); }
 .empty { color: var(--muted); padding: 18px 0; text-align: center; }
 #log { font: 12px/1.45 var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; height: 150px; overflow: auto; white-space: pre-wrap; color: var(--muted); margin-top: 10px; }
+.tools { margin: 14px 0; }
+.tools > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.tools > summary::-webkit-details-marker { display: none; }
+.tools > summary::before { content: "▸"; color: var(--accent); }
+.tools[open] > summary::before { content: "▾"; }
+.tools > summary span { font-family: "Inter", system-ui, sans-serif; font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.tools > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.btn { display: inline-block; }
+.clip.now { box-shadow: inset 4px 0 0 var(--ok); }
+.clip .mine.dmc { grid-template-columns: 150px 110px auto minmax(0, 1fr); }
+@media (max-width: 760px) { .clip .mine.dmc { grid-template-columns: 1fr 1fr; } }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
 </head>
@@ -147,7 +158,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
 <header class="top">
   <p class="crumb"><a href="../../tools/">Tools</a> / Fat Chip /</p>
   <h1>Sample Lab</h1>
-  <p class="sub">Record every MidiNES sample, let the page slice and sort them, then listen and tag.</p>
+  <p class="sub">Play every MidiNES sample from its own data, then listen, sort and tag.</p>
 </header>
 
 <main>
@@ -159,10 +170,55 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
     <strong>Simulation.</strong> No MIDI or audio hardware is used: a fake MidiNES makes made-up drum sounds, so the whole page can be tried out. Remove <code>?sim</code> from the address for the real thing.
   </div>
 
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step">1</span><span class="dot" id="dmcDot"></span>Sample data</h2>
+      <div class="row">
+        <label class="btn primary" for="dmcFolder">Choose the midines-dmc folder</label>
+        <label class="btn" for="dmcFiles">Choose .dmc files</label>
+        <input id="dmcFolder" type="file" webkitdirectory multiple hidden>
+        <input id="dmcFiles" type="file" accept=".dmc" multiple hidden>
+      </div>
+    </div>
+    <p id="dmcStatus" class="status-line">No sample data loaded yet.</p>
+    <p class="hint">The MidiNES's own sample data, decoded from your recordings: the <code>midines-dmc</code> folder in <code>fat-chip</code> (one <code>.dmc</code> file per note). The page plays it the way the NES does, at any of the 16 pitches, so nothing needs recording again. It stays in this browser: it isn't uploaded anywhere or part of the site. Each sample plays at its own pitch by default (15 for the drums, 12 for bank B's dialogue and effects); change it per sample, or pick one pitch for all under “Play back at”.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step">2</span>Listen and tag</h2>
+      <div class="row">
+        <button id="reanalyse" class="btn small">Analyse again</button>
+        <button id="copyBtn" class="btn small">Copy summary</button>
+        <button id="zipBtn" class="btn small primary">Download zip</button>
+      </div>
+    </div>
+    <div class="filters">
+      <label class="field"><span>Source</span><select id="setSel"></select></label>
+      <label class="field"><span>Bank</span><select id="fBank"><option value="">Both</option><option value="A">A</option><option value="B">B</option></select></label>
+      <label class="field"><span>Play back at</span><select id="playAt"></select></label>
+      <label class="field"><span>Show</span>
+        <select id="fShow">
+          <option value="">Everything</option>
+          <option value="disagree">Sounds unlike Reeve's guess</option>
+          <option value="untagged">Not categorised by me</option>
+          <option value="tagged">Tagged</option>
+          <option value="dup">Possible duplicates</option>
+        </select>
+      </label>
+      <label class="field"><span>Search</span><input id="fText" type="search" placeholder="Name, note, notes…"></label>
+    </div>
+    <div class="counts" id="catChips" aria-label="Filter by category"></div>
+    <p class="hint">Click a clip or use <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Space</kbd> to play, <kbd>P</kbd> to play on through the following notes (for samples cut into parts, like the sweeps or “That's” + “Tough”; <kbd>Esc</kbd> stops), <kbd>1</kbd>–<kbd>5</kbd> for the tags (GNARLY, TEXTURE, RHYTHMIC, BASS, KEEP), <kbd>C</kbd> to pick a category. Changes are saved in this browser as you go.</p>
+    <div class="clips" id="clips" tabindex="-1"></div>
+  </section>
+
+  <details class="tools" id="recTools">
+    <summary>Recording tools <span>MIDI, audio in, record, play through</span></summary>
   <div class="columns">
     <section class="card">
       <div class="card-head">
-        <h2><span class="step">1</span><span class="dot" id="midiDot"></span>MIDI</h2>
+        <h2><span class="dot" id="midiDot"></span>MIDI</h2>
         <div class="row">
           <button id="connectBtn" class="btn primary">Connect</button>
           <button id="testBtn" class="btn" disabled title="Plays one DMC note">Test note</button>
@@ -190,7 +246,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
 
     <section class="card">
       <div class="card-head">
-        <h2><span class="step">2</span><span class="dot" id="audioDot"></span>Audio in</h2>
+        <h2><span class="dot" id="audioDot"></span>Audio in</h2>
         <div class="row">
           <button id="audioBtn" class="btn primary">Use audio input</button>
           <button id="floorBtn" class="btn" disabled title="Measures 1 s of silence from the NES">Measure silence</button>
@@ -216,7 +272,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
 
   <section class="card">
     <div class="card-head">
-      <h2><span class="step">3</span>Record</h2>
+      <h2>Record</h2>
       <div class="row">
         <button id="previewBtn" class="btn" disabled title="Plays every note in the range without recording, to set levels">Play through</button>
         <button id="runBtn" class="btn primary" disabled>Record</button>
@@ -259,35 +315,6 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
     <p class="hint">Each note waits for its sound to finish (silence for the time above, or the longest clip), so short drums go quickly and long dialogue gets its full length. Before the run the DMC gets the bank (CC14), the pitch (CC3), and loop, start offset, length, override and Wave Traveller all off. Pitch 12 (CC3 96) is the samples' normal speed (Reeve, by ear on the vocals), so it's the default; the library can play clips back at any other pitch (sped up or slowed down in the browser, which isn't quite the NES's own sound at that pitch). <b>Play through</b> plays the same notes without recording anything, to set levels: with the audio input on it waits for each sound to end and reports the peaks (and the loudest notes at the end); without it, notes are spaced by the play-through spacing.</p>
   </section>
 
-  <section class="card">
-    <div class="card-head">
-      <h2><span class="step">4</span>Listen and tag</h2>
-      <div class="row">
-        <button id="reanalyse" class="btn small">Analyse again</button>
-        <button id="copyBtn" class="btn small">Copy summary</button>
-        <button id="zipBtn" class="btn small primary">Download zip</button>
-      </div>
-    </div>
-    <div class="filters">
-      <label class="field"><span>Recording set</span><select id="setSel"></select></label>
-      <label class="field"><span>Bank</span><select id="fBank"><option value="">Both</option><option value="A">A</option><option value="B">B</option></select></label>
-      <label class="field"><span>Play back at</span><select id="playAt"></select></label>
-      <label class="field"><span>Show</span>
-        <select id="fShow">
-          <option value="">Everything</option>
-          <option value="disagree">Auto ≠ Reeve's guess</option>
-          <option value="untagged">Not categorised by me</option>
-          <option value="tagged">Tagged</option>
-          <option value="dup">Possible duplicates</option>
-        </select>
-      </label>
-      <label class="field"><span>Search</span><input id="fText" type="search" placeholder="Name, note, notes…"></label>
-    </div>
-    <div class="counts" id="catChips" aria-label="Filter by category"></div>
-    <p class="hint">Click a clip or use <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Space</kbd> to play, <kbd>1</kbd>–<kbd>5</kbd> for the tags (GNARLY, TEXTURE, RHYTHMIC, BASS, KEEP), <kbd>C</kbd> to pick a category. Changes are saved in this browser as you go.</p>
-    <div class="clips" id="clips" tabindex="-1"></div>
-  </section>
-
   <div class="columns">
     <section class="card">
       <h2>Same sound twice?</h2>
@@ -302,6 +329,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
       <div id="log" role="log" aria-live="polite"></div>
     </section>
   </div>
+  </details>
 </main>
 <script>
 "use strict";
@@ -364,9 +392,10 @@ const COMPAT = {
 };
 function disagrees(c) {
   const g = guessCat(GUESS[c.bank][c.note][0]);
-  const a = c.cat || c.auto?.cat;
-  return !!(g && a && !(COMPAT[g] || [g]).includes(a));
+  const a = c.near?.cat;
+  return !!(!c.cat && g && a && a !== g && c.near.n >= 3);
 }
+const shownCat = c => c.cat || c.near?.cat || c.auto?.cat;
 
 // ====================================================================== MIDI
 let access = null, simOut = null;
@@ -898,6 +927,11 @@ function analyse(c) {
   const fp = []; for (let i = 0; i + 2 <= env.length; i += 2) fp.push((env[i] + env[i + 1]) / 2 / (emax || 1));
   const spec = []; for (let j = 0; j < 24; j++) { const f0 = 60 * Math.pow(2, j / 2.6), f1 = 60 * Math.pow(2, (j + 1) / 2.6); let e = 0; for (let k = 1; k < nb; k++) { const f = hz(k); if (f >= f0 && f < f1) e += P[k]; } spec.push(Math.sqrt(e / (tot || 1))); }
   a.fpEnv = fp; a.fpSpec = spec;
+  // sound fingerprint for "sounds like": 24 log-spaced bands from 40 Hz, plus length and decay
+  const vb = [];
+  for (let j = 0; j < 24; j++) { const f0 = 40 * Math.pow(2, j / 2.4), f1 = 40 * Math.pow(2, (j + 1) / 2.4); let e = 0; for (let k = 1; k < nb; k++) { const f = hz(k); if (f >= f0 && f < f1) e += P[k]; } vb.push(Math.log10(e / (tot || 1) + 1e-6) / 3); }
+  vb.push(Math.log10(Math.max(a.dur, 0.001)) * 1.5, Math.log10(a.decay20Ms / 1000 + 0.001) * 1.5);
+  a.vec = vb;
   Object.assign(a, classify(a));
   return a;
 }
@@ -933,10 +967,28 @@ function classify(a) {
   return { cat: "perc", why: `short, centroid ${a.centroid.toFixed(0)} Hz` };
 }
 
+// "Sounds like": the 5 nearest clips in the same set by sound, voting with
+// your own category where you've set one, else Reeve's by-ear guess. (A
+// rule-based guess from frequencies didn't work for DPCM: its 1-bit noise puts
+// lots of energy everywhere. Neighbours sound alike whatever the noise.)
+function labelOf(c) { return c.cat || guessCat(GUESS[c.bank][c.note][0]); }
+function updateNear() {
+  const bySet = {};
+  for (const c of clips.values()) if (c.auto?.vec) (bySet[c.set] ||= []).push(c);
+  for (const list of Object.values(bySet)) for (const c of list) {
+    const d = list.filter(o => o !== c).map(o => { let s = 0; for (let i = 0; i < c.auto.vec.length; i++) s += (c.auto.vec[i] - o.auto.vec[i]) ** 2; return [s, o]; }).sort((p, q) => p[0] - q[0]).slice(0, 5);
+    const votes = {};
+    for (const [, o] of d) { const l = labelOf(o); if (l) votes[l] = (votes[l] || 0) + 1; }
+    const best = Object.entries(votes).sort((p, q) => q[1] - p[1])[0];
+    c.near = { cat: best ? best[0] : "", n: best ? best[1] : 0, keys: d.map(([, o]) => o.bank + o.note) };
+  }
+}
+
 // same sound twice: close length, envelope and spectrum
 let dupOf = new Map();
 function cosine(p, q, n) { let s = 0, a = 0, b = 0; for (let i = 0; i < n; i++) { s += p[i] * q[i]; a += p[i] * p[i]; b += q[i] * q[i]; } return a && b ? s / Math.sqrt(a * b) : 0; }
 function findDups() {
+  updateNear();
   dupOf = new Map();
   const groups = [];
   const bySet = {};
@@ -988,9 +1040,85 @@ function dbTx(mode, fn) {
     tx.onerror = () => rej(tx.error);
   });
 }
-const dbPut = c => dbTx("readwrite", st => st.put(c)).catch(e => log("Couldn't save to this browser: " + e));
+const dbPut = c => dbTx("readwrite", st => st.put(c.set === "dmc" ? { ...c, pcm: null } : c)).catch(e => log("Couldn't save to this browser: " + e));
 const dbDel = k => dbTx("readwrite", st => st.delete(k));
 const dbAll = () => dbTx("readonly", st => st.getAll());
+
+// ====================================================================== decoded sample data
+// The MidiNES's DMC data (decoded from recordings, fat-chip/midines-dmc): played
+// the way the NES does. Each byte is 8 steps, bit 0 first; a 1 moves the 7-bit
+// DAC up 2, a 0 down 2 (not past 0 / 127); one step per period of the rate.
+const DMC_SET = "dmc";
+const nativeDefault = (bank, note) => bank === "A" || note <= 21 ? 15 : 12;   // drums at the fastest rate, dialogue / FX at 12
+function renderDmc(bytes, pidx, start = 64, rate = 48000, chain = false) {
+  const nbits = bytes.length * 8, per = rate / DMC_HZ[pidx];      // output samples per step
+  const n = Math.ceil(nbits * per) + 1, out = new Float32Array(n);
+  let v = start, acc = 0, pos = 0;                                 // box-filter the staircase into output samples
+  for (let k = 0; k < nbits; k++) {
+    const bit = (bytes[k >> 3] >> (k & 7)) & 1;
+    if (bit) { if (v <= 125) v += 2; } else if (v >= 2) v -= 2;
+    const t0 = k * per, t1 = (k + 1) * per;
+    let a = t0;
+    while (a < t1) {
+      const i = Math.floor(a), b = Math.min(t1, i + 1);
+      out[i] += (v - 64) / 64 * (b - a);
+      a = b;
+    }
+  }
+  const pcm = new Int16Array(n);
+  if (chain) {
+    // part of a run of notes: a gentle DC block (~20 Hz), so the DAC stays continuous from note to note
+    const r = 1 - 2 * Math.PI * 20 / rate;
+    let px = 0, py = 0;
+    for (let i = 0; i < n; i++) { const y = out[i] - px + r * py; px = out[i]; py = y; pcm[i] = Math.max(-32768, Math.min(32767, Math.round(y * 0.8 * 32767))); }
+  } else {
+    // on its own: centred on its own average level, 1.5 ms fades (no clicks, no DC tail)
+    let m = 0; for (let i = 0; i < n; i++) m += out[i]; m /= n;
+    const f = Math.max(1, Math.round(rate * 0.0015));
+    for (let i = 0; i < n; i++) {
+      const g = Math.min(1, i / f, (n - 1 - i) / f);
+      pcm[i] = Math.max(-32768, Math.min(32767, Math.round((out[i] - m) * g * 0.8 * 32767)));
+    }
+  }
+  return { pcm, end: v };
+}
+function dmcClipPrepare(c) {
+  c.pidx = c.native;
+  c.pcm = renderDmc(c.bytes, c.native).pcm;
+  c.sr = 48000;
+  c.auto = analyse(c);
+}
+async function loadDmc(files) {
+  let added = 0, skipped = 0;
+  for (const f of files) {
+    const m = f.name.match(/bank([AB])_n(\d{3})\.dmc$/i);
+    if (!m) { skipped++; continue; }
+    const bank = m[1].toUpperCase(), note = +m[2];
+    if (note > 127) { skipped++; continue; }
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const key = `${DMC_SET}|${bank}|${note}`, old = clips.get(key);
+    const c = { key, set: DMC_SET, bank, note, bytes, native: old?.native ?? nativeDefault(bank, note), mode: "", lat: null, cut: false,
+      at: new Date().toISOString(), cat: old?.cat || "", tags: old?.tags || [], notes: old?.notes || "", input: "decoded data", chan: "" };
+    dmcClipPrepare(c);
+    clips.set(key, c);
+    await dbPut(c);
+    added++;
+  }
+  log(`Sample data: ${added} samples loaded${skipped ? `, ${skipped} other files skipped` : ""}.`);
+  showDmcStatus();
+  refreshSets(added ? DMC_SET : undefined);
+  findDups();
+  renderLibrary();
+}
+function showDmcStatus() {
+  const list = [...clips.values()].filter(c => c.set === DMC_SET);
+  const a = list.filter(c => c.bank === "A").length, b = list.length - a;
+  $("dmcDot").className = "dot " + (list.length ? "ok" : "");
+  $("dmcStatus").textContent = list.length ? `${list.length} samples loaded (bank A ${a}, bank B ${b}), ${(list.reduce((s, c) => s + c.bytes.length, 0) / 1024).toFixed(0)} KB of DMC data.` : "No sample data loaded yet.";
+}
+for (const id of ["dmcFolder", "dmcFiles"]) $(id).addEventListener("change", e => { loadDmc([...e.target.files]); e.target.value = ""; });
+document.addEventListener("dragover", e => { if ([...e.dataTransfer.items].some(i => i.kind === "file")) e.preventDefault(); });
+document.addEventListener("drop", e => { const f = [...e.dataTransfer.files].filter(x => /\.dmc$/i.test(x.name)); if (f.length) { e.preventDefault(); loadDmc(f); } });
 
 // ====================================================================== library
 let selKey = null, catFilter = "";
@@ -999,17 +1127,20 @@ function refreshSets(want) {
   const sel = $("setSel"), cur = want || sel.value || store.get("set", "");
   sel.innerHTML = "";
   if (!sets.length) sel.add(new Option("Nothing recorded yet", ""));
+  sets.sort((p, q) => (q === DMC_SET) - (p === DMC_SET));
   for (const s of sets) {
-    const [, m, p] = s.match(/v(\d)-p(\d+)/);
     const n = [...clips.values()].filter(c => c.set === s).length;
-    sel.add(new Option(`Video mode ${m}, pitch ${p} · ${n} clips`, s));
+    if (s === DMC_SET) { sel.add(new Option(`Sample data (decoded) · ${n} samples`, s)); continue; }
+    const [, m, p] = s.match(/v(\d)-p(\d+)/);
+    sel.add(new Option(`Recording: video mode ${m}, pitch ${p} · ${n} clips`, s));
   }
   if (sets.includes(cur)) sel.value = cur;
   store.set("set", sel.value);
-  const pidx = sel.value ? +sel.value.split("-p")[1] : 15;
+  const isDmc = sel.value === DMC_SET;
+  const pidx = sel.value && !isDmc ? +sel.value.split("-p")[1] : 99;
   const pa = $("playAt"), want2 = pa.value || "rec";
   pa.innerHTML = "";
-  pa.add(new Option(`As recorded (pitch ${pidx})`, "rec"));
+  pa.add(new Option(isDmc ? "Each sample's own pitch" : `As recorded (pitch ${pidx})`, "rec"));
   for (let i = 15; i >= 0; i--) if (i !== pidx) pa.add(new Option(`Pitch ${i} (CC3 ${i * 8})${i === 12 ? " · normal" : ""}`, String(i)));
   pa.value = [...pa.options].some(o => o.value === want2) ? want2 : "rec";
 }
@@ -1022,7 +1153,7 @@ function visible() {
   return [...clips.values()].filter(c => {
     if (c.set !== set) return false;
     if (bank && c.bank !== bank) return false;
-    const cat = c.cat || c.auto?.cat;
+    const cat = shownCat(c);
     if (catFilter && cat !== catFilter) return false;
     if (show === "disagree" && !disagrees(c)) return false;
     if (show === "untagged" && c.cat) return false;
@@ -1038,7 +1169,7 @@ function visible() {
 
 function renderChips() {
   const set = $("setSel").value, counts = {};
-  for (const c of clips.values()) if (c.set === set) { const k = c.cat || c.auto?.cat; counts[k] = (counts[k] || 0) + 1; }
+  for (const c of clips.values()) if (c.set === set) { const k = shownCat(c); counts[k] = (counts[k] || 0) + 1; }
   const box = $("catChips");
   box.innerHTML = "";
   const mk = (k, label, n) => { const b = document.createElement("button"); b.className = "chip"; b.setAttribute("aria-pressed", catFilter === k); b.innerHTML = `${esc(label)}<small>${n}</small>`; b.onclick = () => { catFilter = catFilter === k ? "" : k; renderLibrary(); }; box.append(b); };
@@ -1070,19 +1201,21 @@ function clipRow(c) {
     <canvas width="256" height="72" aria-hidden="true"></canvas>
     <div class="who">
       <div title="${esc(g.join(" · "))}"><span class="lbl">Reeve</span>${esc(g[0] || "?")}${g[1] ? ` <span style="color:var(--muted)">· ${esc(g[1])}</span>` : ""}</div>
-      <div class="auto${disagrees(c) ? " disagree" : ""}" title="${esc(a.why || "")}"><span class="lbl">Auto</span><b>${esc(CAT_NAME[a.cat] || "?")}</b> <span style="color:var(--muted)">· ${esc(a.why || "")}</span></div>
+      <div class="auto${disagrees(c) ? " disagree" : ""}" title="Nearest by sound: ${esc(c.near?.keys.join(", ") || "")}"><span class="lbl">Like</span><b>${esc(CAT_NAME[c.near?.cat] || "?")}</b> <span style="color:var(--muted)">· ${c.near ? `${c.near.n} of 5 nearest: ${esc(c.near.keys.join(" "))}` : ""}</span></div>
     </div>
-    <div class="facts">${a.dur ? a.dur.toFixed(2) : "?"} s · peak ${a.peakDb != null ? a.peakDb.toFixed(0) : "?"} dB${f0}<br>bright ${a.centroid ? (a.centroid / 1000).toFixed(1) : "?"} kHz · low ${Math.round(((a.sub || 0) + (a.low || 0)) * 100)}% · high ${Math.round(((a.high || 0) + (a.air || 0)) * 100)}%${dupOf.has(c.key) ? " · <span style=\"color:var(--warn)\">twin</span>" : ""}${c.cut ? " · cut" : ""}</div>
+    <div class="facts">${c.bytes ? c.bytes.length + " B · " : ""}${a.dur ? a.dur.toFixed(2) : "?"} s · peak ${a.peakDb != null ? a.peakDb.toFixed(0) : "?"} dB${f0}<br>bright ${a.centroid ? (a.centroid / 1000).toFixed(1) : "?"} kHz · low ${Math.round(((a.sub || 0) + (a.low || 0)) * 100)}% · high ${Math.round(((a.high || 0) + (a.air || 0)) * 100)}%${dupOf.has(c.key) ? " · <span style=\"color:var(--warn)\">twin</span>" : ""}${c.cut ? " · cut" : ""}</div>
     <button class="btn small play" aria-label="Play ${c.bank}${c.note}">▶</button>
-    <div class="mine">
-      <select aria-label="My category"><option value="">My category…</option>${CATS.map(([k, l]) => `<option value="${k}"${c.cat === k ? " selected" : ""}>${l}</option>`).join("")}</select>
+    <div class="mine${c.bytes ? " dmc" : ""}">
+      ${c.bytes ? `<select class="native" aria-label="This sample's own pitch" title="This sample's own pitch">${Array.from({ length: 16 }, (_, i) => 15 - i).map(i => `<option value="${i}"${c.native === i ? " selected" : ""}>Pitch ${i}</option>`).join("")}</select>` : ""}
+      <select class="mycat" aria-label="My category"><option value="">My category…</option>${CATS.map(([k, l]) => `<option value="${k}"${c.cat === k ? " selected" : ""}>${l}</option>`).join("")}</select>
       <div class="tagset">${TAGS.map((t, i) => `<button class="chip" data-tag="${t}" aria-pressed="${c.tags.includes(t)}" title="${i + 1}">${t}</button>`).join("")}</div>
       <input type="text" placeholder="Notes" value="${esc(c.notes)}" aria-label="My notes">
     </div>`;
   drawWave(el.querySelector("canvas"), c.pcm, false);
-  el.addEventListener("click", e => { if (e.target.closest("select,input,.tagset")) return; select(c.key); if (!e.target.closest(".play")) return; play(c); });
+  el.addEventListener("click", e => { if (e.target.closest("select,input,.tagset,.play")) return; select(c.key); play(c); });
   el.querySelector(".play").addEventListener("click", e => { e.stopPropagation(); select(c.key); play(c); });
-  el.querySelector("select").addEventListener("change", e => { c.cat = e.target.value; dbPut(c); refreshRow(c); renderChips(); });
+  el.querySelector("select.mycat").addEventListener("change", e => { c.cat = e.target.value; dbPut(c); updateNear(); refreshRow(c); renderChips(); });
+  el.querySelector("select.native")?.addEventListener("change", e => { c.native = +e.target.value; dmcClipPrepare(c); dbPut(c); updateNear(); refreshRow(c); renderChips(); play(c); });
   el.querySelector("input").addEventListener("change", e => { c.notes = e.target.value; dbPut(c); });
   el.querySelectorAll(".tagset .chip").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); toggleTag(c, b.dataset.tag); }));
   return el;
@@ -1108,18 +1241,54 @@ function markSel(scroll) {
   if (el) { el.classList.add("sel"); if (scroll) el.scrollIntoView({ block: "nearest" }); }
 }
 
-let playing = null;
+let playing = [], nowTimers = [];
+function stopPlaying() {
+  for (const s of playing) { try { s.stop(); } catch { /* ended */ } }
+  playing = [];
+  nowTimers.forEach(clearTimeout); nowTimers = [];
+  document.querySelectorAll(".clip.now").forEach(e => e.classList.remove("now"));
+}
+function bufferOf(pcm, rate) {
+  const buf = actx.createBuffer(1, Math.max(1, pcm.length), rate), d = buf.getChannelData(0);
+  for (let i = 0; i < pcm.length; i++) d[i] = pcm[i] / 32768;
+  return buf;
+}
+const pitchFor = c => $("playAt").value === "rec" ? (c.bytes ? c.native : c.pidx) : +$("playAt").value;
 async function play(c) {
-  if (!actx) { actx = null; await ensureContext(); }
-  if (actx.state === "suspended") await actx.resume();
-  if (playing) { try { playing.stop(); } catch { /* ended */ } }
-  const buf = actx.createBuffer(1, Math.max(1, c.pcm.length), c.sr), d = buf.getChannelData(0);
-  for (let i = 0; i < c.pcm.length; i++) d[i] = c.pcm[i] / 32768;
-  const s = actx.createBufferSource(); s.buffer = buf;
-  const at = $("playAt").value;
-  if (at !== "rec") s.playbackRate.value = DMC_HZ[+at] / DMC_HZ[c.pidx];
+  await ensureContext();
+  stopPlaying();
+  const s = actx.createBufferSource();
+  if (c.bytes) s.buffer = bufferOf(renderDmc(c.bytes, pitchFor(c), 64, actx.sampleRate).pcm, actx.sampleRate);
+  else {
+    s.buffer = bufferOf(c.pcm, c.sr);
+    if ($("playAt").value !== "rec") s.playbackRate.value = DMC_HZ[+$("playAt").value] / DMC_HZ[c.pidx];
+  }
   s.connect(actx.destination); s.start();
-  playing = s;
+  playing = [s];
+}
+// P: this sample, then the following notes back to back (decoded data: one
+// continuous DAC, as when the NES plays them in a row), until Esc or the end
+async function playOn(c) {
+  await ensureContext();
+  stopPlaying();
+  const rows = visible().filter(x => x.bank === c.bank && x.note >= c.note);
+  let t = actx.currentTime + 0.05, level = 64;
+  const t0 = t;
+  for (const x of rows.slice(0, 64)) {
+    const s = actx.createBufferSource();
+    if (x.bytes) { const r = renderDmc(x.bytes, pitchFor(x), level, actx.sampleRate, true); level = r.end; s.buffer = bufferOf(r.pcm, actx.sampleRate); }
+    else s.buffer = bufferOf(x.pcm, x.sr);
+    s.connect(actx.destination); s.start(t);
+    playing.push(s);
+    const key = x.key, at = (t - t0) * 1000 + 50;
+    nowTimers.push(setTimeout(() => {
+      document.querySelectorAll(".clip.now").forEach(e => e.classList.remove("now"));
+      const el = document.querySelector(`.clip[data-key="${CSS.escape(key)}"]`);
+      if (el) { el.classList.add("now"); el.scrollIntoView({ block: "nearest" }); }
+    }, at));
+    t += s.buffer.duration - (x.bytes ? 0 : 0);
+  }
+  nowTimers.push(setTimeout(() => document.querySelectorAll(".clip.now").forEach(e => e.classList.remove("now")), (t - t0) * 1000 + 100));
 }
 
 function drawWave(cv, pcm, big) {
@@ -1154,12 +1323,13 @@ document.addEventListener("keydown", e => {
   else if (e.key === "ArrowUp" || e.key === "k") { i = Math.max(0, i - 1); select(rows[i].dataset.key); play(clips.get(selKey)); e.preventDefault(); }
   else if ((e.key === " " || e.key === "Enter") && c) { play(c); e.preventDefault(); }
   else if (/^[1-5]$/.test(e.key) && c) { toggleTag(c, TAGS[+e.key - 1]); e.preventDefault(); }
-  else if ((e.key === "c" || e.key === "C") && c) { document.querySelector(`.clip.sel select`)?.focus(); e.preventDefault(); }
-  else if (e.key === "Escape") panic();
+  else if ((e.key === "c" || e.key === "C") && c) { document.querySelector(`.clip.sel select.mycat`)?.focus(); e.preventDefault(); }
+  else if ((e.key === "p" || e.key === "P") && c) { playOn(c); e.preventDefault(); }
+  else if (e.key === "Escape") { stopPlaying(); panic(); }
 });
 
 $("reanalyse").addEventListener("click", async () => {
-  for (const c of clips.values()) { c.auto = analyse(c); await dbPut(c); }
+  for (const c of clips.values()) { if (c.bytes) dmcClipPrepare(c); else c.auto = analyse(c); await dbPut(c); }
   findDups(); renderLibrary(); log(`Analysed ${clips.size} clips again.`);
 });
 $("clearSet").addEventListener("click", async () => {
@@ -1171,7 +1341,7 @@ $("clearSet").addEventListener("click", async () => {
 });
 
 // ====================================================================== export
-function fileName(c) { return `bank${c.bank}_n${String(c.note).padStart(3, "0")}_${noteName(c.note).replace("#", "s")}_p${c.pidx}_vid${c.mode}.wav`; }
+function fileName(c) { if (c.bytes) return `bank${c.bank}_n${String(c.note).padStart(3, "0")}_${noteName(c.note).replace("#", "s")}_p${c.native}.wav`; return `bank${c.bank}_n${String(c.note).padStart(3, "0")}_${noteName(c.note).replace("#", "s")}_p${c.pidx}_vid${c.mode}.wav`; }
 function wav(c) {
   const n = c.pcm.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
   const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
@@ -1202,13 +1372,13 @@ function zip(files) {        // [{name, data: Uint8Array}] -> Blob (stored, no c
   end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, csize, true); end.setUint32(16, off, true);
   return new Blob([...parts, ...central, end.buffer], { type: "application/zip" });
 }
-const CSV_COLS = ["bank", "note", "name", "pitch_index", "cc3", "video_mode", "reeve_guess", "reeve_notes", "guess_cat", "auto_cat", "auto_why", "my_cat", "tags", "my_notes",
+const CSV_COLS = ["bank", "note", "name", "pitch_index", "cc3", "video_mode", "reeve_guess", "reeve_notes", "guess_cat", "sounds_like", "nearest", "my_cat", "tags", "my_notes",
   "dur_s", "peak_db", "rms_db", "attack_ms", "decay20_ms", "decay40_ms", "centroid_hz", "early_centroid_hz", "rolloff_hz", "flatness", ...BAND_NAMES,
   "f0_hz", "f0_note", "clarity", "speech", "bursts", "sweep", "zcr", "latency_ms", "twins", "cut", "file", "input", "channel", "recorded"];
 function csvRow(c) {
   const a = c.auto || {}, g = GUESS[c.bank][c.note], r = x => x == null || Number.isNaN(x) ? "" : (typeof x === "number" ? +x.toFixed(4) : x);
   const twins = dupOf.has(c.key) ? [...dupOf.get(c.key)].filter(k => k !== c.key).map(k => { const o = clips.get(k); return o ? o.bank + o.note : ""; }).join(" ") : "";
-  return [c.bank, c.note, noteName(c.note), c.pidx, c.pidx * 8, c.mode, g[0], g[1], guessCat(g[0]), a.cat, a.why, c.cat, c.tags.join(" "), c.notes,
+  return [c.bank, c.note, noteName(c.note), c.pidx, c.pidx * 8, c.mode, g[0], g[1], guessCat(g[0]), c.near?.cat || "", c.near ? c.near.keys.join(" ") : "", c.cat, c.tags.join(" "), c.notes,
     a.dur, a.peakDb, a.rmsDb, a.attackMs, a.decay20Ms, a.decay40Ms, a.centroid, a.earlyCentroid, a.rolloff, a.flatness, ...BAND_NAMES.map(b => a[b]),
     a.f0, a.f0Note, a.clarity, a.speech, a.bursts, a.sweep, a.zcr, c.lat, twins, c.cut ? 1 : 0, fileName(c), c.input, c.chan, c.at]
     .map(r).map(v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v).join(",");
@@ -1232,11 +1402,11 @@ $("copyBtn").addEventListener("click", async () => {
   const list = [...clips.values()].filter(c => c.set === set).sort((p, q) => p.bank.localeCompare(q.bank) || p.note - q.note);
   if (!list.length) return;
   const lines = [`MidiNES Sample Lab — set ${set} (video mode ${list[0].mode}, pitch ${list[0].pidx}), ${list.length} clips`,
-    "note | Reeve's guess | auto (why) | mine | tags | length | notes"];
+    "note | Reeve's guess | sounds like (nearest) | mine | tags | length | notes"];
   for (const c of list) {
     const a = c.auto || {}, g = GUESS[c.bank][c.note];
     const twins = dupOf.has(c.key) ? " twin:" + [...dupOf.get(c.key)].filter(k => k !== c.key).map(k => { const o = clips.get(k); return o ? o.bank + o.note : ""; }).join("/") : "";
-    lines.push(`${c.bank}${c.note} ${noteName(c.note)} | ${g[0] || "?"}${g[1] ? " (" + g[1] + ")" : ""} | ${CAT_NAME[a.cat] || "?"} (${a.why || ""})${disagrees(c) ? " !" : ""} | ${CAT_NAME[c.cat] || "-"} | ${c.tags.join(" ") || "-"} | ${a.dur ? a.dur.toFixed(2) + "s" : "?"}${twins} | ${c.notes || ""}`);
+    lines.push(`${c.bank}${c.note} ${noteName(c.note)} | ${g[0] || "?"}${g[1] ? " (" + g[1] + ")" : ""} | like ${CAT_NAME[c.near?.cat] || "?"} (${c.near ? c.near.n + "/5: " + c.near.keys.join(" ") : ""})${disagrees(c) ? " !" : ""} | ${CAT_NAME[c.cat] || "-"} | ${c.tags.join(" ") || "-"} | ${a.dur ? a.dur.toFixed(2) + "s" : "?"}${twins} | ${c.notes || ""}`);
   }
   try { await navigator.clipboard.writeText(lines.join("\n")); log(`Copied ${list.length} lines.`); }
   catch { log("Couldn't use the clipboard; use Download zip (analysis.csv) instead."); }
@@ -1252,9 +1422,16 @@ $("copyBtn").addEventListener("click", async () => {
   try {
     db = await dbOpen();
     const all = await dbAll() || [];
-    for (const c of all) { c.pcm = c.pcm instanceof Int16Array ? c.pcm : new Int16Array(c.pcm); clips.set(c.key, c); }
+    for (const c of all) {
+      if (c.set === DMC_SET) { c.bytes = new Uint8Array(c.bytes); dmcClipPrepare(c); }
+      else c.pcm = c.pcm instanceof Int16Array ? c.pcm : new Int16Array(c.pcm);
+      clips.set(c.key, c);
+    }
     if (all.length) log(`Loaded ${all.length} clips saved in this browser.`);
   } catch (e) { log("This browser won't keep clips between visits (" + e + "). Download the zip before closing."); }
+  try { $("recTools").open = store.get("recOpen", false); } catch { /* */ }
+  $("recTools").addEventListener("toggle", () => store.set("recOpen", $("recTools").open));
+  showDmcStatus();
   refreshSets();
   findDups();
   renderLibrary();
