@@ -218,6 +218,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
     <div class="card-head">
       <h2><span class="step">3</span>Record</h2>
       <div class="row">
+        <button id="previewBtn" class="btn" disabled title="Plays every note in the range without recording, to set levels">Play through</button>
         <button id="runBtn" class="btn primary" disabled>Record</button>
         <button id="pauseBtn" class="btn" disabled>Pause</button>
         <button id="stopBtn" class="btn" disabled>Stop</button>
@@ -245,6 +246,9 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
       <label class="field"><span>Gap after each <em>(ms)</em></span>
         <input id="gap" type="number" min="50" max="3000" step="50" value="200">
       </label>
+      <label class="field"><span>Play-through spacing <em>(ms)</em></span>
+        <input id="previewMs" type="number" min="150" max="5000" step="50" value="700">
+      </label>
       <label class="field"><span>Already recorded</span>
         <select id="skip"><option value="1">Skip them</option><option value="0">Record again</option></select>
       </label>
@@ -252,7 +256,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
     <div class="progress"><i id="progFill"></i></div>
     <p id="runStatus" class="status-line" style="margin-top:8px">Connect MIDI, choose the audio input and set the video mode to start.</p>
     <canvas id="lastWave" class="big" width="1000" height="110" aria-label="The last clip recorded"></canvas>
-    <p class="hint">Each note waits for its sound to finish (silence for the time above, or the longest clip), so short drums go quickly and long dialogue gets its full length. Before the run the DMC gets the bank (CC14), the pitch (CC3), and loop, start offset, length, override and Wave Traveller all off. Recording at the fastest pitch (15) keeps every detail and takes least time; the library can play clips back at any other pitch.</p>
+    <p class="hint">Each note waits for its sound to finish (silence for the time above, or the longest clip), so short drums go quickly and long dialogue gets its full length. Before the run the DMC gets the bank (CC14), the pitch (CC3), and loop, start offset, length, override and Wave Traveller all off. Recording at the fastest pitch (15) keeps every detail and takes least time; the library can play clips back at any other pitch. <b>Play through</b> plays the same notes without recording anything, to set levels: with the audio input on it waits for each sound to end and reports the peaks (and the loudest notes at the end); without it, notes are spaced by the play-through spacing.</p>
   </section>
 
   <section class="card">
@@ -394,7 +398,7 @@ $("vel").addEventListener("change", () => store.set("vel", +$("vel").value));
 for (let i = 0; i < 16; i++) $("pitch").add(new Option(`${i} · CC3 ${i * 8}${i === 15 ? " (fastest)" : ""}`, String(i)));
 $("pitch").value = String(store.get("pitch", 15));
 $("pitch").addEventListener("change", () => store.set("pitch", +$("pitch").value));
-for (const id of ["maxLen", "hold", "gap", "banks", "skip", "noteFrom", "noteTo"]) {
+for (const id of ["maxLen", "hold", "gap", "banks", "skip", "noteFrom", "noteTo", "previewMs"]) {
   const v = store.get(id, null);
   if (v != null) $(id).value = v;
   $(id).addEventListener("change", () => store.set(id, $(id).value));
@@ -632,6 +636,7 @@ const keyOf = (mode, pidx, bank, note) => `${setId(mode, pidx)}|${bank}|${note}`
 function updateRunState() {
   const ready = !!output() && !!tap && !!$("video").value;
   $("runBtn").disabled = !ready || running;
+  $("previewBtn").disabled = !output() || running;
   $("pauseBtn").disabled = !running;
   $("stopBtn").disabled = !running;
   if (!running) {
@@ -677,6 +682,56 @@ async function captureHit(note) {
 }
 
 $("runBtn").addEventListener("click", run);
+$("previewBtn").addEventListener("click", playThrough);
+
+// Play through: every note in the range, nothing saved. With the audio input on,
+// each hit's peak is measured (waiting for it to end, like a recording); without
+// it, notes are spaced by a fixed time. For setting levels.
+async function playThrough() {
+  const pidx = +$("pitch").value, banks = $("banks").value.split("");
+  let lo = Math.max(0, Math.min(127, +$("noteFrom").value | 0)), hi = Math.max(0, Math.min(127, +$("noteTo").value | 0));
+  if (lo > hi) [lo, hi] = [hi, lo];
+  const list = [];
+  for (const bank of banks) for (let n = lo; n <= hi; n++) list.push([bank, n]);
+  const listen = !!tap;
+  running = true; stopReq = false; paused = false;
+  updateRunState();
+  if (listen) { await ensureContext(); if (!floor) { $("runStatus").textContent = "Measuring the silence first (1 s)…"; await measureFloor(); } }
+  log(`Play through ${list.length} notes (nothing recorded), pitch ${pidx}${listen ? ", measuring peaks" : ""}`);
+  const peaks = [];
+  let bankNow = "", done = 0, clipped = 0;
+  for (const [bank, n] of list) {
+    while (paused && !stopReq) await sleep(100);
+    if (stopReq) break;
+    if (bank !== bankNow) { dmcSetup(bank, pidx * 8); bankNow = bank; await sleep(60); }
+    const label = `${bank}${String(n).padStart(3, "0")} ${noteName(n)}`;
+    let peak = null;
+    if (listen) {
+      const r = await captureHit(n);
+      if (!r.silent) { let p = 0; for (const v of r.pcm) { const a = Math.abs(v); if (a > p) p = a; } peak = dB(p); peaks.push([peak, label]); if (peak > -1) clipped++; }
+    } else {
+      noteOn(n, +$("vel").value);
+      await sleep(Math.max(150, +$("previewMs").value));
+      noteOff(n);
+    }
+    done++;
+    $("progFill").style.width = (done / list.length * 100) + "%";
+    const loud = peaks.length ? peaks.reduce((p, q) => q[0] > p[0] ? q : p) : null;
+    $("runStatus").textContent = `Playing ${label}: ${GUESS[bank][n][0] || "?"}` + (peak != null ? ` · peak ${peak.toFixed(1)} dB` : "") +
+      (loud ? ` · loudest so far ${loud[0].toFixed(1)} dB (${loud[1]})` : "") + (clipped ? ` · ${clipped} clipped` : "");
+    if (peak != null && peak > -1) log(`${label} peak ${peak.toFixed(1)} dB: clipping`);
+    await sleep(listen ? Math.max(50, +$("gap").value) : 30);
+  }
+  running = false;
+  updateRunState();
+  if (peaks.length) {
+    peaks.sort((p, q) => q[0] - p[0]);
+    const top = peaks.slice(0, 5).map(([p, l]) => `${l} ${p.toFixed(1)} dB`).join(", ");
+    const advice = peaks[0][0] > -1 ? "turn the gain down" : peaks[0][0] < -12 ? "you could turn the gain up" : "levels look good";
+    $("runStatus").textContent = `${stopReq ? "Stopped" : "Played"} ${done}. Loudest: ${top}. ${clipped ? clipped + " clipped: " : ""}${advice[0].toUpperCase() + advice.slice(1)}.`;
+  } else $("runStatus").textContent = `${stopReq ? "Stopped" : "Played"} ${done} notes.`;
+  log($("runStatus").textContent);
+}
 $("pauseBtn").addEventListener("click", () => { paused = !paused; $("pauseBtn").textContent = paused ? "Resume" : "Pause"; });
 $("stopBtn").addEventListener("click", () => { stopReq = true; paused = false; });
 
