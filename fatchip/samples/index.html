@@ -256,7 +256,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
     <div class="progress"><i id="progFill"></i></div>
     <p id="runStatus" class="status-line" style="margin-top:8px">Connect MIDI, choose the audio input and set the video mode to start.</p>
     <canvas id="lastWave" class="big" width="1000" height="110" aria-label="The last clip recorded"></canvas>
-    <p class="hint">Each note waits for its sound to finish (silence for the time above, or the longest clip), so short drums go quickly and long dialogue gets its full length. Before the run the DMC gets the bank (CC14), the pitch (CC3), and loop, start offset, length, override and Wave Traveller all off. Recording at the fastest pitch (15) keeps every detail and takes least time; the library can play clips back at any other pitch. <b>Play through</b> plays the same notes without recording anything, to set levels: with the audio input on it waits for each sound to end and reports the peaks (and the loudest notes at the end); without it, notes are spaced by the play-through spacing.</p>
+    <p class="hint">Each note waits for its sound to finish (silence for the time above, or the longest clip), so short drums go quickly and long dialogue gets its full length. Before the run the DMC gets the bank (CC14), the pitch (CC3), and loop, start offset, length, override and Wave Traveller all off. Pitch 12 (CC3 96) is the samples' normal speed (Reeve, by ear on the vocals), so it's the default; the library can play clips back at any other pitch (sped up or slowed down in the browser, which isn't quite the NES's own sound at that pitch). <b>Play through</b> plays the same notes without recording anything, to set levels: with the audio input on it waits for each sound to end and reports the peaks (and the loudest notes at the end); without it, notes are spaced by the play-through spacing.</p>
   </section>
 
   <section class="card">
@@ -395,8 +395,8 @@ $("video").value = store.get("video", "");
 $("video").addEventListener("change", () => { store.set("video", $("video").value); updateRunState(); });
 $("vel").value = store.get("vel", 127);
 $("vel").addEventListener("change", () => store.set("vel", +$("vel").value));
-for (let i = 0; i < 16; i++) $("pitch").add(new Option(`${i} · CC3 ${i * 8}${i === 15 ? " (fastest)" : ""}`, String(i)));
-$("pitch").value = String(store.get("pitch", 15));
+for (let i = 0; i < 16; i++) $("pitch").add(new Option(`${i} · CC3 ${i * 8}${i === 12 ? " (normal)" : i === 15 ? " (fastest)" : ""}`, String(i)));
+$("pitch").value = String(store.get("pitch", 12));
 $("pitch").addEventListener("change", () => store.set("pitch", +$("pitch").value));
 for (const id of ["maxLen", "hold", "gap", "banks", "skip", "noteFrom", "noteTo", "previewMs"]) {
   const v = store.get(id, null);
@@ -1010,7 +1010,7 @@ function refreshSets(want) {
   const pa = $("playAt"), want2 = pa.value || "rec";
   pa.innerHTML = "";
   pa.add(new Option(`As recorded (pitch ${pidx})`, "rec"));
-  for (let i = 15; i >= 0; i--) if (i !== pidx) pa.add(new Option(`Pitch ${i} (CC3 ${i * 8})${i === 12 || i === 13 ? " · natural?" : ""}`, String(i)));
+  for (let i = 15; i >= 0; i--) if (i !== pidx) pa.add(new Option(`Pitch ${i} (CC3 ${i * 8})${i === 12 ? " · normal" : ""}`, String(i)));
   pa.value = [...pa.options].some(o => o.value === want2) ? want2 : "rec";
 }
 $("setSel").addEventListener("change", () => { store.set("set", $("setSel").value); refreshSets(); renderLibrary(); renderDups(); });
