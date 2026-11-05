@@ -99,6 +99,11 @@ code { font-family: var(--mono); font-size: 13px; }
 .ctl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 760px) { .ctl { grid-template-columns: 1fr 1fr; } .seq { grid-template-columns: 52px repeat(16, minmax(0, 1fr)); gap: 2px; } }
 .code { font: 600 16px/1.3 var(--mono); letter-spacing: 0.04em; overflow-wrap: anywhere; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.check em { color: var(--muted); font-style: normal; font-size: 13px; }
+.pad { position: relative; height: 220px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); touch-action: none; cursor: crosshair; overflow: hidden; }
+.pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #hits { font: 12px/1.45 var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; height: 150px; overflow: auto; white-space: pre; color: var(--muted); margin-top: 10px; }
 </style>
 </head>
@@ -132,7 +137,7 @@ code { font-family: var(--mono); font-size: 13px; }
       </div>
     </div>
     <div class="slots" id="slots"></div>
-    <p class="hint"><b>Target</b>: the length and pitch you want, within the family. <b>Spread</b>: how far from the target a substitute may be (0 = only the closest). <b>Change</b>: how often it substitutes. <b>Speeds</b>: which NES sample speeds it may use (faster = higher and shorter). With Change above “none”, accents push toward longer, fuller hits, soft notes toward shorter ones, and beat 1 a little longer. The sample channel plays one sound at a time: kick beats snare beats tom beats cymbal; a cymbal that loses moves to the noise channel.</p>
+    <p class="hint"><b>Target</b>: the length and pitch you want, within the family. <b>Spread</b>: how far from the target a substitute may be (0 = only the closest). <b>Change</b>: how often it substitutes, from never to every hit (on noise: a step higher or lower and ±1 volume). <b>Speeds</b>: which NES sample speeds it may use (faster = higher and shorter). With Change on, accents push toward longer, fuller hits, soft notes toward shorter ones, and beat 1 a little longer. <b>Toms</b> can be a Hi / Mid / Lo set tuned by their measured pitch; toms that come close together walk down the set. The sample channel plays one sound at a time: kick beats snare beats tom beats cymbal; a cymbal that loses moves to the noise channel. A kick with a noise hat is the kick sample plus noise; with a sampled hat it's one sample that has both.</p>
   </section>
 
   <section class="card">
@@ -151,18 +156,34 @@ code { font-family: var(--mono); font-size: 13px; }
     </div>
     <div class="seq" id="seq"></div>
     <div class="ctl" style="margin-top:14px">
-      <label class="field"><span>Noise volume <output id="noiseVolOut"></output></span><input id="noiseVol" type="range" min="0" max="15" value="9"></label>
-      <label class="field"><span>Backing chord on the pulses</span><select id="chord"><option value="0">Off</option><option value="1">C major</option><option value="2">A minor</option></select></label>
-      <label class="field"><span>Pulse volume cap <output id="pulseVolOut"></output></span><input id="pulseVol" type="range" min="0" max="15" value="10"></label>
-      <label class="field"><span>Kick + hat on the same step</span><select id="layer"><option value="1">One layered sample</option><option value="0">Kick sample + noise hat</option></select></label>
+      <label class="field"><span>Humanize <output id="humanOut"></output></span><input id="human" type="range" min="0" max="100" step="10" value="0"></label>
+      <label class="field"><span>Dilla time <output id="dillaOut"></output></span><input id="dilla" type="range" min="0" max="100" step="10" value="0"></label>
+      <label class="field"><span>Backing chord</span><select id="chord"><option value="0">Off</option><option value="1">C major</option><option value="2">A minor</option></select></label>
+      <label class="field"><span>Pulse volume <output id="pulseVolOut"></output></span><input id="pulseVol" type="range" min="0" max="15" value="4"></label>
     </div>
-    <p class="hint">Click the grid to change the groove (off → normal → accent → soft). The balance uses the NES's own channel weights, so the noise and pulse levels here are the ones Fat Chip would send (0–15). With a keytar connected, its rhythm plays the kit live (its Start / Stop and clock set the bar).</p>
+    <label class="check" style="margin-top:10px"><input type="checkbox" id="tri"> Triangle bass under the chord <em>(the triangle has no volume control, so this is how loud it really is)</em></label>
+    <p class="hint">Click the grid to change the groove (off → normal → accent → soft). <b>Humanize</b> nudges every hit a few ms either way and the noise volume by 1. <b>Dilla time</b> pulls the kick early, lays the snare back and swings the off-beat hats loosely toward triplets. The balance uses the NES's own channel weights, so the noise and pulse levels are the ones Fat Chip would send (0–15): pulses at 7 are a lead, 5 still on top, 4 a mix. With a keytar connected, its rhythm plays the kit live (its Start / Stop and clock set the bar); live hits can't come early, so Dilla delays the rest a little instead.</p>
     <div id="hits" role="log" aria-live="off"></div>
   </section>
 
   <section class="card">
     <div class="card-head">
-      <h2><span class="step-n">4</span>Kit code</h2>
+      <h2><span class="step-n">4</span>Sweep pad</h2>
+      <span class="status-line" id="padStatus"></span>
+    </div>
+    <p class="hint" style="margin-top:0">B95–B127 played as one sound. Drag left and right to move through the parts (each one runs into the next), up and down for the speed. Hold still to repeat a part; let go to stop, unless Loop is on.</p>
+    <div class="pad" id="pad" role="application" aria-label="Sweep pad: left and right picks the part, up and down the speed"><canvas id="padCv"></canvas></div>
+    <div class="row" style="margin-top:10px">
+      <label class="field" style="width:110px"><span>Slowest speed</span><select id="swMin"></select></label>
+      <label class="field" style="width:110px"><span>Fastest speed</span><select id="swMax"></select></label>
+      <label class="check" style="align-self:flex-end;padding-bottom:8px"><input type="checkbox" id="swLoop"> Loop (keep playing after letting go)</label>
+      <button id="swStop" class="btn small" style="align-self:flex-end">Stop</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">5</span>Kit code</h2>
       <div class="row">
         <button id="copyCode" class="btn small primary">Copy</button>
       </div>
@@ -189,8 +210,13 @@ const HZ = [4181.7, 4709.9, 5264.0, 5593.0, 6258.0, 7046.4, 7919.4, 8363.4, 9419
 const FAMS = [["kick", "Kick"], ["snare", "Snare"], ["clap", "Clap"], ["hatc", "Hi-hat closed"], ["hato", "Hi-hat open"], ["cymbal", "Cymbal"], ["tom", "Tom"], ["perc", "Percussion"], ["bass", "Bass"], ["tonal", "Tonal / music"], ["vocal", "Vocal"], ["fx", "FX"]];
 const DRUM_FAMS = ["kick", "snare", "clap", "hatc", "hato", "cymbal", "tom", "perc"];
 const FAM_NAME = Object.fromEntries(FAMS);
-const CHANGE = [["none", "None"], ["mostly", "Mostly the same"], ["often", "Vary often"], ["always", "Switch all the time"]];
-const CHANGE_P = { none: 0, mostly: 0.15, often: 0.5, always: 1 };
+// where the non-drum samples came from (Reeve's labels); vocal, FX, tonal and bass are grouped by these, not by sound
+const SOURCES = [["B", 0, 16, "Boombap kit"], ["B", 17, 21, "Boombap FX"], ["B", 22, 40, "G.I. Joe: The Movie"], ["B", 41, 49, "Sci-fi FX and music (G.I. Joe?)"], ["B", 50, 59, "Fight sounds"], ["B", 60, 75, "Music recordings"], ["B", 76, 86, "Star Trek"], ["B", 87, 94, "Enter the Dragon"], ["B", 95, 127, "Sweep"], ["A", 0, 127, "Bank A"]];
+const sourceOf = s => SOURCES.findIndex(([b, lo, hi]) => s.bank === b && s.note >= lo && s.note <= hi);
+const SWEEP = Array.from({ length: 33 }, (_, i) => "B" + (95 + i));
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteName = hz => { const m = Math.round(69 + 12 * Math.log2(hz / 440)); return NOTE_NAMES[(m % 12 + 12) % 12] + (Math.floor(m / 12) - 2); };   // C3 = 60, like the keytar
+const TOM_BASE = 55;   // tom "Hi" target = TOM_BASE × 2^(semitones/12)
 const SLOTS = [["bd", "Kick", 45, 0], ["sd", "Snare", 52, 1], ["hh", "Hi-hat", 57, 4], ["cy", "Cymbal", 62, 3], ["tom", "Tom", 48, 2]];   // id, name, SHS-10 note, sample priority (0 = highest)
 const NOISE = { closed: { period: 1, len: 45, mode: 0 }, open: { period: 2, len: 260, mode: 0 }, cymbal: { period: 3, len: 900, mode: 0 }, metal: { period: 2, len: 120, mode: 1 } };
 const NOISE_PERIOD = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068];   // CPU cycles, NTSC
@@ -269,6 +295,20 @@ function measure(s) {
   s.pitchHz = med || 50;
   vec.push(Math.log10(s.lenMs / 1000) * 1.5);
   s.vec = vec;
+  if (s.fam === "tom") s.f0 = tomF0(x);
+}
+// a tom's fundamental: the strongest peak between 50 and 600 Hz, 10–260 ms in (after the stick), at its own speed
+function tomF0(x) {
+  const N = 16384, a = Math.round(SR * 0.01), L = Math.min(x.length - a, Math.round(SR * 0.25), N);
+  if (L < 512) return 0;
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let i = 0; i < L; i++) re[i] = x[a + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (L - 1)));
+  fft(re, im);
+  const mag = k => Math.hypot(re[k], im[k]);
+  let bk = 0, bm = 0;
+  for (let k = Math.ceil(50 * N / SR); k < 600 * N / SR; k++) { const m = mag(k); if (m > bm) { bm = m; bk = k; } }
+  const y0 = mag(bk - 1), y1 = bm, y2 = mag(bk + 1), d = (y0 - y2) / (2 * (y0 - 2 * y1 + y2) || 1);
+  return (bk + d) * SR / N;
 }
 const pctOf = (sorted, v) => {   // 0..100 position of v (log scale) within a family's sorted log values
   const lv = Math.log(v);
@@ -297,6 +337,11 @@ function groupFamily(list) {
   cl.sort((A, B) => med(A.map(s => s.lenMs)) - med(B.map(s => s.lenMs)) || med(A.map(s => s.pitchHz)) - med(B.map(s => s.pitchHz)));
   return cl;
 }
+function groupBySource(list) {   // one group per source block, in sample order
+  const by = new Map();
+  for (const s of list) { const k = sourceOf(s); if (!by.has(k)) by.set(k, []); by.get(k).push(s); }
+  return [...by.entries()].sort((a, b) => a[1][0].bank.localeCompare(b[1][0].bank) || a[1][0].note - b[1][0].note).map(([k, g]) => { g.source = k; return g; });
+}
 const med = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 function prepare(raw) {
   samples = raw.map(r => {
@@ -310,7 +355,8 @@ function prepare(raw) {
     f.lens = f.list.map(s => Math.log(s.lenMs)).sort((a, b) => a - b);
     f.pitches = f.list.map(s => Math.log(s.pitchHz)).sort((a, b) => a - b);
     for (const s of f.list) { s.L = pctOf(f.lens, s.lenMs); s.P = pctOf(f.pitches, s.pitchHz); }
-    f.groups = groupFamily(f.list);
+    f.bySource = !DRUM_FAMS.includes(f.list[0].fam);
+    f.groups = f.bySource ? groupBySource(f.list) : groupFamily(f.list);
     f.groups.forEach((g, i) => g.forEach(s => s.group = i + 1));
   }
 }
@@ -321,8 +367,8 @@ async function ctx() {
   if (!actx) { actx = new AudioContext({ sampleRate: SR, latencyHint: "interactive" }); master = actx.createGain(); master.gain.value = 1.6; master.connect(actx.destination); }
   if (actx.state === "suspended") await actx.resume();
 }
-// NES mixer weights (linearised): pulse 0.00752 per step, noise 0.00494, DMC 0.00335
-const W_PULSE = 0.00752, W_NOISE = 0.00494, W_DMC = 0.00335;
+// NES mixer weights (linearised): pulse 0.00752 per step, noise 0.00494, DMC 0.00335, triangle 0.00851
+const W_PULSE = 0.00752, W_NOISE = 0.00494, W_DMC = 0.00335, W_TRI = 0.00851;
 let dmcVoice = null, noiseVoice = null, dmcLevel = 64;
 function playBuf(data, when, weight) {
   const b = actx.createBuffer(1, data.length, SR); b.copyToChannel(data, 0);
@@ -336,8 +382,8 @@ function hitDmc(s, pidx, when, drop) {
   if (dmcVoice) { try { dmcVoice.stop(when); } catch { /* */ } }   // one sample at a time, like the NES
   dmcVoice = playBuf(centred(r.out.subarray(0, r.n)), when, W_DMC);
 }
-function noiseBuf(p, vol) {
-  const per = NOISE_PERIOD[p.period], n = Math.round(SR * p.len / 1000), out = new Float32Array(n);
+function noiseBuf(p, vol, dp = 0) {
+  const per = NOISE_PERIOD[Math.max(0, Math.min(15, p.period + dp))], n = Math.round(SR * p.len / 1000), out = new Float32Array(n);
   let reg = 1, acc = 0; const step = CPU / per / SR;
   for (let i = 0; i < n; i++) {
     acc += step;
@@ -347,37 +393,105 @@ function noiseBuf(p, vol) {
   }
   return out;
 }
-function hitNoise(preset, when, volScale = 1) {
-  const vol = Math.round(+$("noiseVol").value * volScale);
+function hitNoise(preset, when, vol, dp = 0) {
+  vol = Math.max(0, Math.min(15, Math.round(vol)));
   if (noiseVoice) { try { noiseVoice.stop(when); } catch { /* */ } }
-  noiseVoice = playBuf(noiseBuf(NOISE[preset], vol), when, W_NOISE);
+  noiseVoice = playBuf(noiseBuf(NOISE[preset], vol, dp), when, W_NOISE);
 }
 let chordNodes = [];
-function chordUpdate() {
+function chordUpdate() {   // backing: two pulses (held chord) and the triangle (held bass note)
   for (const n of chordNodes) { try { n.stop(); } catch { /* */ } }
   chordNodes = [];
   const c = +$("chord").value; if (!c || !actx) return;
   const notes = c === 1 ? [60, 64] : [57, 64];
   const vol = +$("pulseVol").value;
-  for (const m of notes) {
-    const o = actx.createOscillator(); o.type = "square"; o.frequency.value = 440 * Math.pow(2, (m - 69) / 12);
-    const g = actx.createGain(); g.gain.value = vol * W_PULSE / 2;
+  const osc = (type, m, gain) => {
+    const o = actx.createOscillator(); o.type = type; o.frequency.value = 440 * Math.pow(2, (m - 69) / 12);
+    const g = actx.createGain(); g.gain.value = gain;
     o.connect(g).connect(master); o.start(); chordNodes.push(o);
+  };
+  for (const m of notes) osc("square", m, vol * W_PULSE / 2);
+  if ($("tri").checked) osc("triangle", c === 1 ? 36 : 33, 7.5 * W_TRI);   // the triangle has no volume: always full (0–15 steps)
+}
+
+// ====================================================================== sweep pad (B95–B127 played in order, scrubbed)
+// Streams the sweep in ~20 ms chunks like the NES would play it: one DAC that carries on from part to part,
+// the speed can change mid-part, and a DC block that keeps its state (no clicks at the joins).
+const sw = { on: false, held: false, part: 0, bit: 0, v: 64, pos: 0, carry: 0, x1: 64, y1: 0, t: 0, timer: 0, gain: null, X: 0, Y: 0.5 };
+function sweepParts() { return SWEEP.map(id => samples.find(s => s.id === id)).filter(Boolean); }
+function sweepSpeed() {
+  const lo = Math.min(+$("swMin").value, +$("swMax").value), hi = Math.max(+$("swMin").value, +$("swMax").value);
+  return Math.round(lo + (hi - lo) * sw.Y);
+}
+function sweepTarget(parts) { return Math.min(parts.length - 1, Math.floor(sw.X * parts.length)); }
+function sweepChunk(parts) {
+  const want = sweepTarget(parts);
+  if (want !== sw.part) { sw.part = want; sw.bit = 0; }        // moved: jump to the start of that part (the DAC carries on)
+  const s = parts[sw.part], nbits = s.bytes.length * 8, rate = HZ[sweepSpeed()];
+  const n = Math.min(nbits - sw.bit, Math.max(8, Math.round(rate * 0.02 / 8) * 8));
+  const dt = SR / rate, total = sw.pos + n * dt, len = Math.floor(total), buf = new Float32Array(len + 2);
+  buf[0] += sw.carry;
+  let a = sw.pos, v = sw.v;
+  for (let k = sw.bit; k < sw.bit + n; k++) {
+    const bit = (s.bytes[k >> 3] >> (k & 7)) & 1;
+    if (bit) { if (v <= 125) v += 2; } else if (v >= 2) v -= 2;
+    const t1 = a + dt;
+    while (a < t1) { const i = Math.floor(a), b = Math.min(t1, i + 1); buf[i] += v * (b - a); a = b; }
   }
+  sw.v = v; sw.carry = buf[len]; sw.pos = total - len; sw.bit += n;
+  const out = new Float32Array(len);
+  for (let i = 0; i < len; i++) { const y = buf[i] - sw.x1 + 0.995 * sw.y1; sw.x1 = buf[i]; sw.y1 = y; out[i] = y; }
+  if (sw.bit >= nbits) {   // end of a part: carry on with the next one if the pad has moved there, else repeat this one
+    sw.bit = 0;
+    if (!sw.held && !$("swLoop").checked) sw.on = false;
+  }
+  return out;
+}
+function sweepPump() {
+  const parts = sweepParts();
+  if (!sw.on || !parts.length) return;
+  while (sw.on && sw.t < actx.currentTime + 0.06) {
+    const out = sweepChunk(parts); if (!out.length) continue;
+    const b = actx.createBuffer(1, out.length, SR); b.copyToChannel(out, 0);
+    const src = actx.createBufferSource(); src.buffer = b; src.connect(sw.gain); src.start(sw.t);
+    sw.t += out.length / SR;
+  }
+  sweepShow(parts);
+  if (!sw.on) { clearInterval(sw.timer); setTimeout(() => sweepShow(parts), (sw.t - actx.currentTime) * 1000); }
+}
+async function sweepStart() {
+  await ctx();
+  if (!sw.on) {
+    if (dmcVoice) { try { dmcVoice.stop(); } catch { /* */ } }   // one sample channel
+    const parts = sweepParts();
+    Object.assign(sw, { on: true, part: sweepTarget(parts), bit: 0, v: 64, pos: 0, carry: 0, x1: 64, y1: 0, t: actx.currentTime + 0.02 });
+    sw.gain = actx.createGain(); sw.gain.gain.value = W_DMC; sw.gain.connect(master);
+    clearInterval(sw.timer); sw.timer = setInterval(sweepPump, 10);
+  }
+  sweepPump();
+}
+function sweepStop() {   // cut it like a note off: short fade, no click
+  if (!sw.on) return;
+  sw.on = false; clearInterval(sw.timer);
+  const g = sw.gain, t = actx.currentTime;
+  g.gain.setValueAtTime(W_DMC, t); g.gain.linearRampToValueAtTime(0, t + 0.012);
+  setTimeout(() => g.disconnect(), 100);
+  sweepShow(sweepParts());
 }
 
 // ====================================================================== kit model
 const q5 = v => Math.max(0, Math.min(100, Math.round(v / 5) * 5));
-const defSlot = (fam, L, P) => ({ src: "sample", fam, group: 0, L: q5(L), P: q5(P), spread: 16, change: "mostly", smin: 13, smax: 15, drop: 0, noise: "closed" });
-let kit = store.get("kit", null) || starter();
+const defSlot = (fam, L, P) => ({ src: "sample", fam, group: 0, L: q5(L), P: q5(P), spread: 15, change: 10, smin: 13, smax: 15, drop: 0, noise: "closed", nvol: 6, walk: false, hi: 22, iv: 5 });
+let kit = fixKit(store.get("kit3", null)) || starter();
+function fixKit(k) { if (!k) return null; for (const [id] of SLOTS) { if (!k[id]) return null; k[id] = { ...defSlot(k[id].fam || "kick", 50, 50), ...k[id] }; } return k; }
 function starter() {
   const at = (id, fam, fb) => { const s = samples.find(x => x.id === id && x.fam === fam); return s ? [Math.round(s.L), Math.round(s.P)] : fb; };
   return {
     bd: defSlot("kick", ...at("B11", "kick", [45, 30])),
     sd: defSlot("snare", ...at("B13", "snare", [25, 50])),
-    hh: { ...defSlot("hatc", 30, 60), src: "noise", noise: "closed" },
-    cy: { ...defSlot("cymbal", ...at("A54", "cymbal", [100, 100])), noise: "cymbal" },
-    tom: defSlot("tom", ...at("A30", "tom", [60, 40])),
+    hh: { ...defSlot("hatc", 30, 60), src: "noise", noise: "closed", nvol: 6 },
+    cy: { ...defSlot("cymbal", 50, 50), spread: 100, change: 100, noise: "cymbal", nvol: 5 },   // both cymbals, speeds 13–15, every hit different
+    tom: { ...defSlot("tom", 50, 50), change: 0, smin: 12, walk: true, hi: 22, iv: 5 },
   };
 }
 // candidates: every (sample, speed) in the family / group, scored by distance from the target
@@ -394,6 +508,35 @@ function scored(slot, tL, tP) {
   }
   return out.sort((a, b) => a.d - b.d);
 }
+// Hi / Mid / Lo toms: three (sample, speed) pairs closest to the Hi target and two steps of the interval below it.
+// One sample at three speeds is preferred (it sounds like one kit); mixing samples costs 0.75 semitone per extra sample.
+const tomCache = new Map();
+function tomTargets(slot) { return [0, 1, 2].map(k => TOM_BASE * Math.pow(2, (slot.hi - k * slot.iv) / 12)); }
+function tomSet(slot) {
+  const key = [slot.fam, slot.group, slot.smin, slot.smax, slot.hi, slot.iv].join();
+  if (tomCache.has(key)) return tomCache.get(key);
+  const f = fams[slot.fam]; let best = null;
+  if (f) {
+    const cand = [];
+    for (const s of f.list) {
+      if (slot.group && s.group !== slot.group) continue;
+      const f0 = s.f0 || s.pitchHz;
+      for (let p = slot.smin; p <= slot.smax; p++) cand.push({ s, p, hz: f0 * HZ[p] / HZ[s.native] });
+    }
+    const T = tomTargets(slot), err = (c, t) => Math.abs(12 * Math.log2(c.hz / t)) + (15 - c.p) * 0.05;
+    for (const a of cand) for (const b of cand) {
+      if (b.hz >= a.hz * 0.97) continue;
+      for (const c of cand) {
+        if (c.hz >= b.hz * 0.97) continue;
+        const n = new Set([a.s, b.s, c.s]).size, sc = err(a, T[0]) + err(b, T[1]) + err(c, T[2]) + (n - 1) * 0.75;
+        if (!best || sc < best.sc) best = { sc, set: [a, b, c] };
+      }
+    }
+  }
+  const out = best ? best.set : null;
+  tomCache.set(key, out);
+  return out;
+}
 // a seeded random number generator, and per-slot shuffle bags
 let rng = mulberry(1);
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -401,13 +544,13 @@ const bags = {}, lastPick = {};
 function choose(id, vel, downbeat) {
   const slot = kit[id];
   let tL = slot.L, tP = slot.P;
-  const vary = slot.change !== "none";
+  const vary = slot.change > 0;
   if (vary) { if (vel >= 80) tL += 20; else if (vel <= 56) tL -= 25; if (downbeat) tL += 10; }
   tL = Math.max(0, Math.min(100, tL));
   const list = scored(slot, tL, tP);
   if (!list.length) return null;
   const home = list[0];
-  if (!vary || rng() >= CHANGE_P[slot.change]) { lastPick[id] = home; return home; }
+  if (!vary || rng() >= slot.change / 100) { lastPick[id] = home; return home; }
   const pool = list.filter(c => c.d <= home.d + slot.spread);
   if (pool.length < 2) { lastPick[id] = home; return home; }
   const key = id + "|" + tL;
@@ -418,8 +561,16 @@ function choose(id, vel, downbeat) {
   lastPick[id] = pick;
   return pick;
 }
-function layeredPick(vel) {   // kick + hat in one sample: nearest to the kick target among samples that have both
-  const want = kit.hh.noise === "open" ? "ohat" : "hat";
+// toms walk down: a tom within 0.4 s of the last one moves Hi → Mid → Lo; after a gap it starts at Hi again
+let tomIdx = 0, tomLast = -9;
+function chooseTom(when) {
+  const set = tomSet(kit.tom); if (!set) return null;
+  tomIdx = when - tomLast < 0.4 ? Math.min(2, tomIdx + 1) : 0;
+  tomLast = when;
+  return { ...set[tomIdx], tom: ["Hi", "Mid", "Lo"][tomIdx] };
+}
+function layeredPick() {   // kick + sampled hat on one step: one sample that has both, nearest the kick target
+  const want = kit.hh.fam === "hato" ? "ohat" : "hat";
   let f = samples.filter(s => s.has.includes("kick") && s.has.includes(want));
   if (!f.length) f = samples.filter(s => s.has.includes("kick") && (s.has.includes("hat") || s.has.includes("ohat")));
   if (!f.length) return null;
@@ -430,62 +581,85 @@ function layeredPick(vel) {   // kick + hat in one sample: nearest to the kick t
     const d = Math.hypot(L - slot.L, P - slot.P) + Math.abs(p - s.native) * 2;
     if (!best || d < best.d) best = { s, p, d };
   }
-  if (best && kit.bd.change !== "none" && rng() < CHANGE_P[kit.bd.change]) {
-    const opts = []; for (const s of f) opts.push({ s, p: s.native });
-    const o = opts[Math.floor(rng() * opts.length)]; if (o.s !== best.s) best = o;
+  if (best && slot.change > 0 && rng() < slot.change / 100) {
+    const o = f[Math.floor(rng() * f.length)]; if (o !== best.s) best = { s: o, p: o.native };
   }
   return best;
 }
+// noise for a slot: its volume, ±1 for accent / soft, and with Change on a nudge of ±1 in pitch and volume
+function noiseFor(id, vel) {
+  const slot = kit[id];
+  let vol = slot.nvol + (vel >= 80 ? 1 : vel <= 56 ? -1 : 0), dp = 0;
+  if (slot.change > 0 && rng() < slot.change / 100) { dp = rng() < 0.5 ? -1 : 1; vol += rng() < 0.5 ? -1 : 1; }
+  const h = +$("human").value / 100;
+  if (h && rng() < h) vol += rng() < 0.5 ? -1 : 1;
+  return { vol: Math.max(0, Math.min(15, vol)), dp };
+}
 
-// one step's hits: [{id, vel}] at time `when`
+// one step's hits: [{id, vel}] at time `when`; offs = per-drum timing (humanize / Dilla), in seconds
 let hitLog = [];
-function playHits(hits, when, downbeat) {
+function playHits(hits, when, downbeat, offs = {}) {
   const ids = hits.map(h => h.id);
   const flash = new Set();
-  // kick + hat together -> one layered sample?
+  const at = id => Math.max(actx.currentTime + 0.002, when + (offs[id] || 0));
+  const ms = id => offs[id] ? ` ${offs[id] > 0 ? "+" : ""}${Math.round(offs[id] * 1000)}ms` : "";
+  // kick + hat together, both from samples -> one layered sample (a noise hat just plays with the kick sample)
   let layered = null;
-  if ($("layer").value === "1" && ids.includes("bd") && ids.includes("hh") && kit.hh.src === "noise") {
-    layered = layeredPick(hits.find(h => h.id === "bd").vel);
-  }
+  if (ids.includes("bd") && ids.includes("hh") && kit.bd.src === "sample" && kit.hh.src === "sample") layered = layeredPick();
   // sample channel: the highest-priority sample hit wins
   const sampleHits = hits.filter(h => kit[h.id].src === "sample").sort((a, b) => SLOTS.find(s => s[0] === a.id)[3] - SLOTS.find(s => s[0] === b.id)[3]);
   let dmcUsed = false;
   const lines = [];
   if (layered) {
-    hitDmc(layered.s, layered.p, when, 0); dmcUsed = true;
-    lines.push(`BD+HH → ${layered.s.id} @${layered.p} (layered)`); flash.add("bd"); flash.add("hh");
+    hitDmc(layered.s, layered.p, at("bd"), 0); dmcUsed = true;
+    lines.push(`BD+HH → ${layered.s.id} @${layered.p} (layered)${ms("bd")}`); flash.add("bd"); flash.add("hh");
   }
   for (const h of sampleHits) {
     if (layered && (h.id === "bd" || h.id === "hh")) continue;
     if (dmcUsed) {
-      if (h.id === "cy") { hitNoise(kit.cy.noise, when); lines.push(`CY → noise (${kit.cy.noise}), sample channel busy`); flash.add("cy"); }
+      if (h.id === "cy") { const n = noiseFor("cy", h.vel); hitNoise(kit.cy.noise, at("cy"), n.vol, n.dp); lines.push(`CY → noise (${kit.cy.noise} ${n.vol}), sample channel busy`); flash.add("cy"); }
       else lines.push(`${h.id.toUpperCase()} dropped (sample channel busy)`);
       continue;
     }
-    const c = choose(h.id, h.vel, downbeat);
+    const c = h.id === "tom" && kit.tom.walk ? chooseTom(when) : choose(h.id, h.vel, downbeat);
     if (!c) { lines.push(`${h.id.toUpperCase()}: no samples in ${FAM_NAME[kit[h.id].fam]}`); continue; }
-    hitDmc(c.s, c.p, when, kit[h.id].drop); dmcUsed = true; flash.add(h.id);
-    lines.push(`${h.id.toUpperCase()}${h.vel >= 80 ? "!" : h.vel <= 56 ? "." : ""} → ${c.s.id} @${c.p}${kit[h.id].drop ? " drop " + kit[h.id].drop : ""}`);
+    hitDmc(c.s, c.p, at(h.id), kit[h.id].drop); dmcUsed = true; flash.add(h.id);
+    lines.push(`${h.id.toUpperCase()}${h.vel >= 80 ? "!" : h.vel <= 56 ? "." : ""} → ${c.tom ? c.tom + " " : ""}${c.s.id} @${c.p}${c.hz ? ` (${Math.round(c.hz)} Hz ${noteName(c.hz)})` : ""}${kit[h.id].drop ? " drop " + kit[h.id].drop : ""}${ms(h.id)}`);
   }
   for (const h of hits) {
     if (kit[h.id].src !== "noise" || (layered && h.id === "hh")) continue;
-    hitNoise(kit[h.id].noise, when, h.vel >= 80 ? 1.2 : h.vel <= 56 ? 0.7 : 1);
-    lines.push(`${h.id.toUpperCase()} → noise (${kit[h.id].noise})`); flash.add(h.id);
+    const n = noiseFor(h.id, h.vel);
+    hitNoise(kit[h.id].noise, at(h.id), n.vol, n.dp);
+    lines.push(`${h.id.toUpperCase()} → noise (${kit[h.id].noise} ${n.vol}${n.dp ? (n.dp > 0 ? ", lower" : ", higher") : ""})${ms(h.id)}`); flash.add(h.id);
   }
-  const ms = Math.max(0, (when - actx.currentTime) * 1000);
+  const wait = Math.max(0, (when - actx.currentTime) * 1000);
   setTimeout(() => {
     for (const id of flash) { const el = document.querySelector(`.slot[data-id="${id}"]`); if (el) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 120); } }
     if (lines.length) { hitLog.push(lines.join("   ")); if (hitLog.length > 200) hitLog.splice(0, 100); const el = $("hits"); el.textContent = hitLog.join("\n"); el.scrollTop = el.scrollHeight; }
-  }, ms);
+  }, wait);
 }
-
+// feel: Dilla pulls the kick early, lays the snare back and swings the off-beat hats loosely toward triplets;
+// Humanize adds a little random timing to everything. `live` (keytar) can't play early, so everything shifts later instead.
+function feel(hits, step, live) {
+  const d = +$("dilla").value / 100, h = +$("human").value / 100, S = stepDur(), offs = {};
+  for (const { id } of hits) {
+    let o = 0;
+    if (id === "bd") o = -0.012 * d;
+    else if (id === "sd") o = 0.018 * d;
+    else if (id === "hh" || id === "cy") o = step % 2 ? d * S / 3 * (0.6 + 0.4 * rng()) : d * 0.004 * (rng() - 0.5);
+    o += h * 0.010 * (rng() * 2 - 1);
+    if (live) o += 0.012 * d + 0.010 * h;
+    offs[id] = o;
+  }
+  return offs;
+}
 // ====================================================================== grooves (SHS-10-like, 16 steps; 64 normal, 80 accent, 56 soft)
 const G = (s) => s.split(" ").map(c => c === "." ? 0 : c === "x" ? 64 : c === "X" ? 80 : 56);
 const GROOVES = {
   "8-beat": { bd: G("X . . . . . . . x . x . . . . ."), sd: G(". . . . X . . . . . . . X . . ."), hh: G("x . x . x . x . x . x . x . x ."), cy: G("x . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . . . . . . . . .") },
   "16-beat": { bd: G("X . . x . . x . . . x . . . . ."), sd: G(". . . . X . . o . . . . X . . o"), hh: G("x x x x x x x x x x x x x x x x"), cy: G(". . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . . . . . . . . .") },
   "Boombap": { bd: G("X . . . . . . x . . X . . . . ."), sd: G(". . . . X . . . . o . . X . . ."), hh: G("x . x . x . x . x . x . x . X ."), cy: G(". . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . . . . . . . . .") },
-  "Fill": { bd: G("X . . . x . . . X . . . . . . ."), sd: G(". . x . . . x . . . o o X o X X"), hh: G("x . x . x . x . . . . . . . . ."), cy: G(". . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . x x x x . . . .") },
+  "Fill": { bd: G("X . . . x . . . X . . . . . . ."), sd: G(". . x . . . x . . . . . X o X X"), hh: G("x . x . x . x . . . . . . . . ."), cy: G(". . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . x x x x . . . .") },
 };
 let pattern = store.get("pattern", null) || JSON.parse(JSON.stringify(GROOVES["8-beat"]));
 for (const g of Object.keys(GROOVES)) $("groove").add(new Option(g, g));
@@ -512,15 +686,16 @@ function stepDur() { return 60 / +$("bpm").value / 4; }
 async function start() {
   await ctx(); chordUpdate();
   rng = mulberry(+$("seed").value); for (const k in bags) delete bags[k]; for (const k in lastPick) delete lastPick[k];
+  tomIdx = 0; tomLast = -9;
   playing = true; stepNo = 0; nextTime = actx.currentTime + 0.08;
   clearInterval(timer); timer = setInterval(tick, 20); tick();
 }
-function stop() { playing = false; clearInterval(timer); document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); }
+function stop() { sweepStop(); playing = false; clearInterval(timer); document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); }
 function tick() {
   while (playing && nextTime < actx.currentTime + 0.12) {
     const i = stepNo % 16, hits = [];
     for (const [id] of SLOTS) if (pattern[id][i]) hits.push({ id, vel: pattern[id][i] });
-    if (hits.length) playHits(hits, nextTime, i === 0);
+    if (hits.length) playHits(hits, nextTime, i === 0, feel(hits, i, false));
     const at = (nextTime - actx.currentTime) * 1000, idx = i;
     setTimeout(() => { document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); document.querySelectorAll(`.cell[data-i="${idx}"]`).forEach(e => e.classList.add("now")); }, Math.max(0, at));
     nextTime += stepDur(); stepNo++;
@@ -529,10 +704,11 @@ function tick() {
 $("playBtn").onclick = start;
 $("stopBtn").onclick = stop;
 $("bpm").oninput = () => { $("bpmOut").textContent = $("bpm").value; store.set("bpm", +$("bpm").value); };
-for (const id of ["noiseVol", "pulseVol"]) $(id).oninput = () => { $(id + "Out").textContent = $(id).value; store.set(id, +$(id).value); if (id === "pulseVol") chordUpdate(); };
-$("chord").onchange = async () => { await ctx(); chordUpdate(); };
+const SLIDERS = { pulseVol: "pulseVol4", human: "human", dilla: "dilla" };   // element -> storage key
+for (const [id, key] of Object.entries(SLIDERS)) $(id).oninput = () => { $(id + "Out").textContent = $(id).value; store.set(key, +$(id).value); if (id === "pulseVol") chordUpdate(); else showCode(); };
+$("chord").onchange = async () => { await ctx(); store.set("chord", $("chord").value); chordUpdate(); };
+$("tri").onchange = async () => { await ctx(); store.set("tri", $("tri").checked); chordUpdate(); };
 $("seed").onchange = () => { store.set("seed", +$("seed").value); showCode(); };
-$("layer").onchange = () => store.set("layer", $("layer").value);
 
 // ====================================================================== keytar (Web MIDI in)
 let midi = null, midiIn = null, clockCount = -1;
@@ -569,31 +745,34 @@ function onMidi(e) {
   clearTimeout(pendTimer);
   pendTimer = setTimeout(() => {
     const hits = pend; pend = [];
-    const downbeat = clockCount >= 0 && (clockCount % 96) < 3;
-    playHits(hits, actx.currentTime + 0.005, downbeat);
+    const downbeat = clockCount >= 0 && (clockCount % 96) < 3, step = clockCount >= 0 ? Math.round(clockCount / 6) % 16 : 0;
+    playHits(hits, actx.currentTime + 0.005, downbeat, feel(hits, step, true));
   }, 4);
 }
 
 // ====================================================================== UI: families
 function groupNames() { return store.get("groupNames", {}); }
-function groupLabel(fam, g) { return groupNames()[fam + g] || `${FAM_NAME[fam]} ${String.fromCharCode(64 + g)}`; }
+function groupLabel(fam, g) {
+  const f = fams[fam], src = f && f.bySource && f.groups[g - 1] ? SOURCES[f.groups[g - 1].source][3] : null;
+  return groupNames()[fam + g] || src || `${FAM_NAME[fam]} ${String.fromCharCode(64 + g)}`;
+}
 function drawFams() {
   const box = $("fams"); box.innerHTML = "";
   for (const fam of DRUM_FAMS.concat(FAMS.map(f => f[0]).filter(f => !DRUM_FAMS.includes(f)))) {
     const f = fams[fam]; if (!f) continue;
     const el = document.createElement("div"); el.className = "fam";
-    el.innerHTML = `<h3>${FAM_NAME[fam]} <small>${f.list.length} samples · ${f.groups.length} group${f.groups.length > 1 ? "s" : ""}</small></h3>`;
+    el.innerHTML = `<h3>${FAM_NAME[fam]} <small>${f.list.length} samples · ${f.groups.length} group${f.groups.length > 1 ? "s" : ""}${f.bySource ? " by source" : ""}</small></h3>`;
     f.groups.forEach((g, i) => {
       const gi = i + 1, L = med(g.map(s => s.L)), P = med(g.map(s => s.P));
       const word = (v, a, b, c) => v < 34 ? a : v < 67 ? b : c;
       const d = document.createElement("div"); d.className = "grp";
       d.innerHTML = `<input type="text" value="${groupLabel(fam, gi).replace(/"/g, "&quot;")}" aria-label="Name of ${FAM_NAME[fam]} group ${gi}">
-        <p class="desc">Group ${gi}: mostly ${word(L, "short", "medium", "long")}, ${word(P, "low", "mid", "high")} · ${g.length} sample${g.length > 1 ? "s" : ""}</p><div class="chips"></div>`;
+        <p class="desc">Group ${gi}: ${f.bySource ? `${g[0].id}–${g[g.length - 1].id}` : `mostly ${word(L, "short", "medium", "long")}, ${word(P, "low", "mid", "high")}`} · ${g.length} sample${g.length > 1 ? "s" : ""}</p><div class="chips"></div>`;
       d.querySelector("input").onchange = e => { const n = groupNames(); n[fam + gi] = e.target.value; store.set("groupNames", n); drawSlots(); };
       const chips = d.querySelector(".chips");
       for (const s of g) {
         const c = document.createElement("button"); c.className = "chip"; c.textContent = s.id;
-        c.title = `length ${Math.round(s.L)}, pitch ${Math.round(s.P)} (${Math.round(s.lenMs)} ms, ${Math.round(s.pitchHz)} Hz) at speed ${s.native}`;
+        c.title = `length ${Math.round(s.L)}, pitch ${Math.round(s.P)} (${Math.round(s.lenMs)} ms, ${Math.round(s.pitchHz)} Hz${s.f0 ? `, tone ${Math.round(s.f0)} Hz ${noteName(s.f0)}` : ""}) at speed ${s.native}`;
         c.onclick = async () => { await ctx(); hitDmc(s, s.native, actx.currentTime + 0.01, 0); };
         chips.append(c);
       }
@@ -608,52 +787,69 @@ function drawFams() {
 const word3 = (v, a, b, c) => v < 34 ? a : v < 67 ? b : c;
 function drawSlots() {
   const box = $("slots"); box.innerHTML = "";
+  const chg = v => v === 0 ? "never" : v === 100 ? "every hit" : v + "%";
   for (const [id, name, note] of SLOTS) {
     const s = kit[id], el = document.createElement("div");
     el.className = "slot"; el.dataset.id = id;
-    const fam = fams[s.fam], ng = fam ? fam.groups.length : 0;
+    const fam = fams[s.fam], ng = fam ? fam.groups.length : 0, noise = s.src === "noise", walk = id === "tom" && s.walk && !noise;
     const famOpts = FAMS.filter(([k]) => fams[k]).map(([k, l]) => `<option value="${k}"${k === s.fam ? " selected" : ""}>${l}</option>`).join("");
     const grpOpts = `<option value="0">Any group</option>` + Array.from({ length: ng }, (_, i) => `<option value="${i + 1}"${s.group === i + 1 ? " selected" : ""}>${groupLabel(s.fam, i + 1)}</option>`).join("");
     const sp = i => Array.from({ length: 16 }, (_, k) => 15 - k).map(k => `<option value="${k}"${k === i ? " selected" : ""}>${k}</option>`).join("");
+    const hiHz = TOM_BASE * Math.pow(2, s.hi / 12);
     el.innerHTML = `<h3>${name} <small>SHS-10 note ${note}</small></h3>
       <div class="g2">
-        <label class="field"><span>Sound from</span><select data-k="src"><option value="sample"${s.src === "sample" ? " selected" : ""}>Samples</option><option value="noise"${s.src === "noise" ? " selected" : ""}>NES noise</option></select></label>
-        <label class="field"><span>Noise sound</span><select data-k="noise">${Object.keys(NOISE).map(k => `<option${k === s.noise ? " selected" : ""}>${k}</option>`).join("")}</select></label>
+        <label class="field"><span>Sound from</span><select data-k="src"><option value="sample"${!noise ? " selected" : ""}>Samples</option><option value="noise"${noise ? " selected" : ""}>NES noise</option></select></label>
+        <label class="field"${!noise && id !== "cy" ? " hidden" : ""}><span>Noise sound${id === "cy" && !noise ? " <em>(when the sample channel is busy)</em>" : ""}</span><select data-k="noise">${Object.keys(NOISE).map(k => `<option${k === s.noise ? " selected" : ""}>${k}</option>`).join("")}</select></label>
       </div>
-      <div class="g2 sm">
+      <div class="g2">
+        <label class="field"${!noise && id !== "cy" ? " hidden" : ""}><span>Noise volume <output>${s.nvol}</output></span><input type="range" min="0" max="15" value="${s.nvol}" data-k="nvol"></label>
+        <label class="field"${walk ? " hidden" : ""}><span>Change <output>${chg(s.change)}</output></span><input type="range" min="0" max="100" step="10" value="${s.change}" data-k="change"></label>
+      </div>
+      <div class="g2 sm"${noise ? " hidden" : ""}>
         <label class="field"><span>Family</span><select data-k="fam">${famOpts}</select></label>
         <label class="field"><span>Group</span><select data-k="group">${grpOpts}</select></label>
       </div>
-      <div class="g2 sm">
-        <label class="field"><span>Length <output>${s.L} · ${word3(s.L, "short", "medium", "long")}</output></span><input type="range" min="0" max="100" step="5" value="${s.L}" data-k="L"></label>
-        <label class="field"><span>Pitch <output>${s.P} · ${word3(s.P, "low", "mid", "high")}</output></span><input type="range" min="0" max="100" step="5" value="${s.P}" data-k="P"></label>
-        <label class="field"><span>Spread <output>${s.spread}</output></span><input type="range" min="0" max="60" step="4" value="${s.spread}" data-k="spread"></label>
-        <label class="field"><span>Change</span><select data-k="change">${CHANGE.map(([k, l]) => `<option value="${k}"${k === s.change ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      ${id === "tom" ? `<label class="check sm"${noise ? " hidden" : ""}><input type="checkbox" data-k="walk"${s.walk ? " checked" : ""}> Hi / Mid / Lo toms, walking down in fills</label>
+      <div class="g2 sm"${!walk ? " hidden" : ""}>
+        <label class="field"><span>Hi tom <output>${noteName(hiHz)} · ${Math.round(hiHz)} Hz</output></span><input type="range" min="0" max="31" value="${s.hi}" data-k="hi"></label>
+        <label class="field"><span>Toms apart</span><select data-k="iv">${[[3, "Minor third"], [4, "Major third"], [5, "Fourth"], [7, "Fifth"]].map(([v, l]) => `<option value="${v}"${v === s.iv ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      </div>` : ""}
+      <div class="g2 sm"${noise ? " hidden" : ""}>
+        <label class="field"${walk ? " hidden" : ""}><span>Length <output>${s.L} · ${word3(s.L, "short", "medium", "long")}</output></span><input type="range" min="0" max="100" step="5" value="${s.L}" data-k="L"></label>
+        <label class="field"${walk ? " hidden" : ""}><span>Pitch <output>${s.P} · ${word3(s.P, "low", "mid", "high")}</output></span><input type="range" min="0" max="100" step="5" value="${s.P}" data-k="P"></label>
+        <label class="field"${walk ? " hidden" : ""}><span>Spread <output>${s.spread}</output></span><input type="range" min="0" max="100" step="5" value="${s.spread}" data-k="spread"></label>
         <label class="field"><span>Speeds from</span><select data-k="smin">${sp(s.smin)}</select></label>
         <label class="field"><span>to</span><select data-k="smax">${sp(s.smax)}</select></label>
         <label class="field"><span>Pitch drop at the end</span><select data-k="drop"><option value="0">None</option><option value="2"${s.drop === 2 ? " selected" : ""}>Small (2 speeds)</option><option value="5"${s.drop === 5 ? " selected" : ""}>Big (5 speeds)</option><option value="10"${s.drop === 10 ? " selected" : ""}>Huge (10 speeds)</option></select></label>
-        <div class="field"><span>&nbsp;</span><div class="row"><button class="btn small" data-a="test">Home</button><button class="btn small" data-a="var">Variation</button></div></div>
       </div>
+      <div class="row">${walk ? `<button class="btn small" data-a="toms">Hi Mid Lo</button>` : `<button class="btn small" data-a="test">Home</button><button class="btn small" data-a="var">Variation</button>`}</div>
       <p class="home"></p>`;
-    el.querySelectorAll(".sm").forEach(x => x.hidden = s.src === "noise");
     el.querySelectorAll("[data-k]").forEach(inp => {
       const k = inp.dataset.k, ev = inp.type === "range" ? "input" : "change";
       inp.addEventListener(ev, () => {
-        let v = inp.value; if (["L", "P", "spread", "group", "smin", "smax", "drop"].includes(k)) v = +v;
+        let v = inp.type === "checkbox" ? inp.checked : inp.value;
+        if (["L", "P", "spread", "group", "smin", "smax", "drop", "nvol", "change", "hi", "iv"].includes(k)) v = +v;
         s[k] = v;
         if (k === "fam") s.group = 0;
+        if (k === "noise" && s.nvol === 6 && v !== "closed" && v !== "metal") s.nvol = 5;   // open hats and cymbals sit a little lower
+        if (k === "noise" && s.nvol === 5 && v === "closed") s.nvol = 6;
         if (k === "smin" && s.smax < v) s.smax = v;
         if (k === "smax" && s.smin > v) s.smin = v;
         saveKit();
-        if (inp.type === "range") { const o = inp.parentElement.querySelector("output"); o.textContent = k === "spread" ? v : `${v} · ${k === "L" ? word3(v, "short", "medium", "long") : word3(v, "low", "mid", "high")}`; showHome(id, el); }
-        else drawSlots();
+        if (inp.type === "range") {
+          const o = inp.parentElement.querySelector("output");
+          o.textContent = k === "spread" || k === "nvol" ? v : k === "change" ? chg(v) : k === "hi" ? `${noteName(TOM_BASE * Math.pow(2, v / 12))} · ${Math.round(TOM_BASE * Math.pow(2, v / 12))} Hz` : `${v} · ${k === "L" ? word3(v, "short", "medium", "long") : word3(v, "low", "mid", "high")}`;
+          showHome(id, el);
+        } else drawSlots();
       });
     });
-    el.querySelector('[data-a="test"]').onclick = async () => { await ctx(); playHits([{ id, vel: 64 }], actx.currentTime + 0.01, false); };
-    el.querySelector('[data-a="var"]').onclick = async () => {
-      await ctx(); const keep = s.change; if (s.change === "none") s.change = "always";
+    const b = a => el.querySelector(`[data-a="${a}"]`);
+    if (b("test")) b("test").onclick = async () => { await ctx(); playHits([{ id, vel: 64 }], actx.currentTime + 0.01, false); };
+    if (b("var")) b("var").onclick = async () => {
+      await ctx(); const keep = s.change; if (!s.change) s.change = 100;
       const save = rng; rng = Math.random; playHits([{ id, vel: 64 }], actx.currentTime + 0.01, false); rng = save; s.change = keep;
     };
+    if (b("toms")) b("toms").onclick = async () => { await ctx(); const t = actx.currentTime + 0.02; tomLast = -9; for (let i = 0; i < 3; i++) playHits([{ id: "tom", vel: 64 }], t + i * 0.2, false); };
     box.append(el);
     showHome(id, el);
   }
@@ -661,33 +857,41 @@ function drawSlots() {
 }
 function showHome(id, el) {
   const s = kit[id], p = el.querySelector(".home");
-  if (s.src === "noise") { p.innerHTML = `NES noise “${s.noise}”, volume from the Play card.`; return; }
+  if (s.src === "noise") { p.innerHTML = `NES noise “${s.noise}” at ${s.nvol}${s.change ? `; ${s.change}% of hits a step higher or lower and ±1 louder` : ""}.`; return; }
+  if (id === "tom" && s.walk) {
+    const set = tomSet(s);
+    if (!set) { p.textContent = "Not enough toms in this family / group and speed range for three."; return; }
+    p.innerHTML = set.map((c, i) => `${["Hi", "Mid", "Lo"][i]} <b>${c.s.id} @${c.p}</b> ${Math.round(c.hz)} Hz ${noteName(c.hz)}`).join(" · ");
+    return;
+  }
   const list = scored(s, s.L, s.P);
   if (!list.length) { p.textContent = "No samples in this family / group."; return; }
   const home = list[0], pool = list.filter(c => c.d <= home.d + s.spread);
   const ids = [...new Set(pool.map(c => c.s.id))];
-  p.innerHTML = `Home: <b>${home.s.id} @${home.p}</b> · ${s.change === "none" ? "always this one" : `${pool.length} choice${pool.length > 1 ? "s" : ""} (${ids.length} sample${ids.length > 1 ? "s" : ""}): ${ids.slice(0, 8).join(" ")}${ids.length > 8 ? " …" : ""}`}`;
+  p.innerHTML = `Home: <b>${home.s.id} @${home.p}</b> · ${!s.change ? "always this one" : `${pool.length} choice${pool.length > 1 ? "s" : ""} (${ids.length} sample${ids.length > 1 ? "s" : ""}): ${ids.slice(0, 8).join(" ")}${ids.length > 8 ? " …" : ""}`}`;
 }
-function saveKit() { store.set("kit", kit); showCode(); }
+function saveKit() { store.set("kit3", kit); showCode(); }
 $("starterBtn").onclick = () => { kit = starter(); saveKit(); drawSlots(); };
 
 // ====================================================================== kit codes
-// sample slot: src 1, fam 4, group 3, L 5 (steps of 5), P 5, spread 4 (steps of 4), change 2, smin 4, smax 4, drop 2, noise 2 = 36 bits;
-// noise slot: src 1 + noise 2. Then seed 16, noise volume 4, layer 1. Base 32 plus a check character.
+// version 3. Sample slot: src 1, fam 4, group 3, L 5 (steps of 5), P 5, spread 5 (steps of 5), change 4 (steps of 10),
+// smin 4, smax 4, drop 2, noise 2, noise volume 4 (+ tom: walk 1, hi 5, interval 2).
+// Noise slot: src 1, noise 2, noise volume 4, change 4. Then seed 16, humanize 4, Dilla 4 (steps of 10). Base 32 plus a check character.
 const B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";   // Crockford base 32 (no I L O U)
-const DROPS = [0, 2, 5, 10], NOISES = Object.keys(NOISE), FAMKEYS = FAMS.map(f => f[0]);
+const DROPS = [0, 2, 5, 10], NOISES = Object.keys(NOISE), FAMKEYS = FAMS.map(f => f[0]), IVS = [3, 4, 5, 7];
 function encode() {
   const bits = [];
   const put = (v, n) => { for (let i = n - 1; i >= 0; i--) bits.push((v >> i) & 1); };
-  put(2, 3);   // version
+  put(3, 3);   // version
   for (const [id] of SLOTS) {
     const s = kit[id];
     put(s.src === "noise" ? 1 : 0, 1);
-    if (s.src === "noise") { put(NOISES.indexOf(s.noise), 2); continue; }
+    if (s.src === "noise") { put(NOISES.indexOf(s.noise), 2); put(s.nvol, 4); put(Math.round(s.change / 10), 4); continue; }
     put(FAMKEYS.indexOf(s.fam), 4); put(s.group, 3); put(Math.round(s.L / 5), 5); put(Math.round(s.P / 5), 5);
-    put(Math.min(15, Math.round(s.spread / 4)), 4); put(CHANGE.findIndex(c => c[0] === s.change), 2); put(s.smin, 4); put(s.smax, 4); put(DROPS.indexOf(s.drop), 2); put(NOISES.indexOf(s.noise), 2);
+    put(Math.round(s.spread / 5), 5); put(Math.round(s.change / 10), 4); put(s.smin, 4); put(s.smax, 4); put(DROPS.indexOf(s.drop), 2); put(NOISES.indexOf(s.noise), 2); put(s.nvol, 4);
+    if (id === "tom") { put(s.walk ? 1 : 0, 1); put(s.hi, 5); put(IVS.indexOf(s.iv), 2); }
   }
-  put(+$("seed").value & 0xFFFF, 16); put(+$("noiseVol").value, 4); put(+$("layer").value, 1);
+  put(+$("seed").value & 0xFFFF, 16); put(Math.round(+$("human").value / 10), 4); put(Math.round(+$("dilla").value / 10), 4);
   while (bits.length % 5) bits.push(0);
   let out = "", sum = 0;
   for (let i = 0; i < bits.length; i += 5) { const v = bits.slice(i, i + 5).reduce((a, b) => a * 2 + b, 0); out += B32[v]; sum = (sum * 7 + v + 1) % 32; }
@@ -702,34 +906,78 @@ function decode(code) {
   if (sum !== chk) throw new Error("check character doesn't match (a typo?)");
   const bits = []; for (const v of vals) for (let i = 4; i >= 0; i--) bits.push((v >> i) & 1);
   let pos = 0; const get = n => { let v = 0; for (let i = 0; i < n; i++) v = v * 2 + (bits[pos++] || 0); return v; };
-  if (get(3) !== 2) throw new Error("unknown code version");
+  const ver = get(3);
+  if (ver === 2) throw new Error("it's an older code (before the Change slider); please make it again");
+  if (ver !== 3) throw new Error("unknown code version");
   const k = {};
   for (const [id] of SLOTS) {
-    if (get(1)) { k[id] = { ...defSlot(kit[id].fam, kit[id].L, kit[id].P), src: "noise", noise: NOISES[get(2)] }; continue; }
-    k[id] = { src: "sample", fam: FAMKEYS[get(4)], group: get(3), L: get(5) * 5, P: get(5) * 5, spread: get(4) * 4, change: CHANGE[get(2)][0], smin: get(4), smax: get(4), drop: DROPS[get(2)], noise: NOISES[get(2)] };
+    if (get(1)) { k[id] = { ...kit[id], src: "noise", noise: NOISES[get(2)], nvol: get(4), change: Math.min(100, get(4) * 10) }; continue; }
+    k[id] = { ...defSlot("kick", 50, 50), src: "sample", fam: FAMKEYS[get(4)], group: get(3), L: get(5) * 5, P: get(5) * 5, spread: Math.min(100, get(5) * 5), change: Math.min(100, get(4) * 10), smin: get(4), smax: get(4), drop: DROPS[get(2)], noise: NOISES[get(2)], nvol: get(4) };
+    if (id === "tom") { k[id].walk = !!get(1); k[id].hi = get(5); k[id].iv = IVS[get(2)]; }
     if (!k[id].fam) throw new Error("unknown family");
   }
-  return { kit: k, seed: get(16), noiseVol: get(4), layer: get(1) };
+  return { kit: k, seed: get(16), human: Math.min(100, get(4) * 10), dilla: Math.min(100, get(4) * 10) };
 }
 function showCode() { $("code").textContent = encode(); }
 $("copyCode").onclick = async () => { try { await navigator.clipboard.writeText(encode()); $("codeStatus").textContent = "Copied."; } catch { $("codeStatus").textContent = "Select the code above and copy it."; } };
 $("loadCode").onclick = () => {
   try {
     const d = decode($("codeIn").value);
-    kit = d.kit; $("seed").value = d.seed; $("noiseVol").value = d.noiseVol; $("noiseVolOut").textContent = d.noiseVol; $("layer").value = String(d.layer);
-    saveKit(); drawSlots(); $("codeStatus").textContent = "Loaded.";
+    kit = d.kit; $("seed").value = d.seed;
+    for (const id of ["human", "dilla"]) { $(id).value = d[id]; $(id + "Out").textContent = d[id]; store.set(id, d[id]); }
+    store.set("seed", d.seed); saveKit(); drawSlots(); $("codeStatus").textContent = "Loaded.";
   } catch (e) { $("codeStatus").textContent = "That code didn't load: " + e.message + "."; }
 };
+
+// ====================================================================== UI: sweep pad
+for (const id of ["swMin", "swMax"]) for (let k = 15; k >= 0; k--) $(id).add(new Option(k, k));
+$("swMin").value = store.get("swMin", 0); $("swMax").value = store.get("swMax", 15); $("swLoop").checked = store.get("swLoop", false);
+for (const id of ["swMin", "swMax"]) $(id).onchange = () => { store.set(id, +$(id).value); sweepShow(sweepParts()); };
+$("swLoop").onchange = () => { store.set("swLoop", $("swLoop").checked); if (!$("swLoop").checked && !sw.held) sweepStop(); };
+$("swStop").onclick = () => sweepStop();
+function drawPad() { sweepShow(sweepParts()); }
+function sweepShow(parts) {
+  const cv = $("padCv"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!r.width) return;
+  if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const g = cv.getContext("2d"), css = getComputedStyle(document.documentElement), W = cv.width, H = cv.height;
+  const col = n => css.getPropertyValue(n).trim();
+  g.clearRect(0, 0, W, H);
+  const n = parts.length || 1, lo = Math.min(+$("swMin").value, +$("swMax").value), hi = Math.max(+$("swMin").value, +$("swMax").value);
+  // speed bands (rows) and parts (columns)
+  g.fillStyle = col("--border");
+  for (let k = 0; k <= hi - lo; k++) { const y = Math.round(H - (k + 0.5) / (hi - lo + 1) * H); g.fillRect(0, y, W, Math.max(1, dpr * 0.5)); }
+  g.font = `${11 * dpr}px ${col("--mono")}`; g.fillStyle = col("--muted");
+  for (let i = 0; i < n; i++) {
+    const x0 = i / n * W; g.fillStyle = col("--border"); g.fillRect(Math.round(x0), 0, Math.max(1, dpr), H);
+    if (i % 4 === 0 && parts[i]) { g.fillStyle = col("--muted"); g.fillText(parts[i].id, x0 + 3 * dpr, H - 5 * dpr); }
+  }
+  if (sw.on) {
+    const x0 = sw.part / n * W; g.fillStyle = col("--accent"); g.globalAlpha = 0.18; g.fillRect(x0, 0, W / n, H); g.globalAlpha = 1;
+  }
+  const px = sw.X * W, py = (1 - sw.Y) * H;
+  g.beginPath(); g.arc(px, py, (sw.on ? 9 : 6) * dpr, 0, 7); g.fillStyle = sw.on ? col("--accent") : col("--muted"); g.fill();
+  $("padStatus").textContent = parts.length ? (sw.on ? `${parts[sw.part].id} at speed ${sweepSpeed()}${sw.held ? "" : " (looping)"}` : `${parts.length} parts · speeds ${lo}–${hi}`) : "Needs the sample data.";
+}
+(() => {
+  const pad = $("pad");
+  const at = e => { const r = pad.getBoundingClientRect(); sw.X = Math.max(0, Math.min(0.9999, (e.clientX - r.left) / r.width)); sw.Y = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)); };
+  pad.addEventListener("pointerdown", e => { if (!sweepParts().length) return; pad.setPointerCapture(e.pointerId); sw.held = true; at(e); sweepStart(); });
+  pad.addEventListener("pointermove", e => { if (!sw.held) return; at(e); sweepShow(sweepParts()); });
+  const up = () => { if (!sw.held) return; sw.held = false; if (!$("swLoop").checked) sweepStop(); else sweepShow(sweepParts()); };
+  pad.addEventListener("pointerup", up); pad.addEventListener("pointercancel", up);
+  addEventListener("resize", () => sweepShow(sweepParts()));
+})();
 
 // ====================================================================== start
 (async () => {
   $("bpm").value = store.get("bpm", 100); $("bpmOut").textContent = $("bpm").value;
-  for (const id of ["noiseVol", "pulseVol"]) { $(id).value = store.get(id, +$(id).value); $(id + "Out").textContent = $(id).value; }
-  $("seed").value = store.get("seed", 1); $("layer").value = store.get("layer", "1");
+  for (const [id, key] of Object.entries(SLIDERS)) { $(id).value = store.get(key, +$(id).value); $(id + "Out").textContent = $(id).value; }
+  $("seed").value = store.get("seed", 1); $("chord").value = store.get("chord", "0"); $("tri").checked = store.get("tri", false);
   drawSeq();
   let raw = [];
   try { raw = await loadFromDb(); } catch { /* */ }
-  const go = r => { prepare(r); if (!store.get("kit", null)) kit = starter(); drawFams(); drawSlots(); };
+  const go = r => { prepare(r); tomCache.clear(); if (!store.get("kit3", null)) kit = starter(); drawFams(); drawSlots(); drawPad(); };
   if (raw.length) go(raw);
   else {
     $("noData").hidden = false;
