@@ -244,23 +244,23 @@ function centred(x) {   // remove the sample's own DC, 1 ms fades
 // ====================================================================== what gets sorted
 const FAM_NAME = { kick: "Kick", snare: "Snare", clap: "Clap", hatc: "Closed hat", hato: "Open hat", cymbal: "Cymbal", tom: "Tom", perc: "Percussion", fx: "FX" };
 const FAM_COLOR = { kick: "#d9473f", snare: "#e0902b", clap: "#c9a227", hatc: "#2f9e8f", hato: "#3d7fd6", cymbal: "#6a5acd", tom: "#a0522d", perc: "#c2459b", fx: "#6b8e23" };
-const SORT_FAM = { A62: "perc" };   // the tambourine sorts with the percussion
+const SORT_FAM = { A62: "perc", A24: "perc", A25: "perc" };   // the tambourine and the claps sort with the percussion
 const isSweep = s => s.bank === "B" && s.note >= 95;
 const MODES = [
   { id: "kick", name: "Kicks", fams: ["kick"] },
-  { id: "snare", name: "Snares + claps", fams: ["snare", "clap"] },
+  { id: "snare", name: "Snares", fams: ["snare"] },
   { id: "hatc", name: "Closed hats", fams: ["hatc"] },
-  { id: "hato", name: "Open hats + cymbals", fams: ["hato", "cymbal"] },
+  { id: "hato", name: "Open hats", fams: ["hato"] },   // cymbals wait for kit assembly
   { id: "tom", name: "Toms", fams: ["tom"] },
   { id: "fx", name: "FX", fams: ["fx"] },
   { id: "perc", name: "Percussion", fams: ["perc"], kind: "cat" },
-  { id: "kit", name: "Kits", fams: ["kick", "snare", "clap", "hatc"], kind: "kit" },
+  { id: "kit", name: "Kits", fams: ["kick", "snare", "hatc"], kind: "kit" },
 ];
 const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
 const KIT_ROLE = { kick: "kick", snare: "snare", clap: "snare", hatc: "hat" };
 const STYLES = ["Boombap", "DnB", "808", "909", "Electro", "Acoustic", "Lo-fi"];
 const CHARS = ["Clean", "Punchy", "Grimey", "Soft", "Big"];
-const PERC_CATS = ["Cowbell", "Clave / wood block", "Rim shot", "Conga / bongo", "Tambourine / shaker", "Tom-like", "Other"];
+const PERC_CATS = ["Clap", "Cowbell", "Clave / wood block", "Rim shot", "Conga / bongo", "Tambourine / shaker", "Tom-like", "Other"];
 
 let samples = [], byId = {};
 function prepare(raw) {
@@ -276,6 +276,7 @@ const members = mode => samples.filter(s => MODE[mode].fams.includes(s.sf)).map(
 // ====================================================================== saved state
 let rounds = store.get("rounds", []);          // [{id, mode, t, b: [[ids], ...]}]
 let perc = store.get("perc", { names: PERC_CATS.slice(), of: {} });
+if (!perc.names.includes("Clap")) perc.names.unshift("Clap");
 let tags = store.get("tags", {});              // id -> ["style:DnB", "char:Grimey"]
 let styleList = store.get("styles", STYLES.slice()), charList = store.get("chars", CHARS.slice());
 const saveAll = () => { store.set("rounds", rounds); store.set("perc", perc); store.set("tags", tags); store.set("styles", styleList); store.set("chars", charList); };
@@ -521,7 +522,7 @@ for (const [v, l] of VIEWS) $("view").add(new Option(l, v));
 $("view").value = store.get("view", "all"); $("colorBy").value = store.get("colorBy", "fam");
 function viewIds() {
   const v = $("view").value;
-  if (v === "all") { const s = new Set(); for (const k of stats.keys()) for (const id of k.split("|")) if (byId[id]) s.add(id); for (const id in perc.of) if (byId[id]) s.add(id); return [...s]; }
+  if (v === "all") { const s = new Set(), sortable = new Set(MODES.flatMap(m => members(m.id))); for (const k of stats.keys()) for (const id of k.split("|")) if (sortable.has(id)) s.add(id); for (const id in perc.of) if (sortable.has(id)) s.add(id); return [...s]; }
   return members(v);
 }
 function weight(a, b) {   // net together-minus-apart, plus a link for percussion named the same
@@ -743,7 +744,7 @@ function drawAll() { drawSort(); buildGraph(); drawTags(); drawGroups(); }
 (async () => {
   let raw = [];
   try { raw = await loadFromDb(); } catch { /* */ }
-  const go = r => { prepare(r); computeStats(); if (cur && cur.items.some(id => !byId[id])) cur = null; drawAll(); };
+  const go = r => { prepare(r); computeStats(); if (cur && cur.items.some(id => !byId[id] || !members(cur.mode).includes(id))) cur = null; drawAll(); };
   if (raw.length) go(raw);
   else {
     $("noData").hidden = false; drawGraph();
