@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fat Chip Sound Sorter</title>
+<meta name="description" content="Sort the MidiNES drum samples into buckets of sounds that go together, build a graph of how they relate, and tag patches of it by style and character.">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f3fb; --surface: #ffffff; --surface-2: #efeaf7; --border: #ddd5ec; --text: #1d1730; --muted: #675d84;
+  --accent: #c4302a; --accent-strong: #a8231e; --accent-ink: #ffffff; --ok: #2e9b3a; --warn: #b77900; --danger: #cf3a3a;
+  --hit: #c4302a; --step: #e3dcf0; --step-on: #c4302a; --step-acc: #7a1612; --step-soft: #e89a95;
+  --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Chakra Petch", "Inter", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+    --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
+    --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+  --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
+  --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Inter", system-ui, sans-serif; padding-bottom: 64px; }
+a { color: var(--accent-strong); }
+.top { padding: 28px 16px 8px; max-width: 1100px; margin: 0 auto; }
+.crumb { margin: 0 0 2px; color: var(--muted); font-size: 14px; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4vw, 34px); letter-spacing: 0.02em; margin: 0; }
+.top h1::before { content: ""; display: inline-block; width: 0.55em; height: 0.85em; background: var(--accent); margin-right: 0.35em; vertical-align: -0.08em; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .top h1::before { animation: none; } }
+.sub { margin: 4px 0 0; color: var(--muted); }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 20px; margin: 14px 0; min-width: 0; }
+.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.step-n { font-family: var(--mono); font-size: 13px; color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 1px 7px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.field output { font-family: var(--mono); font-size: 12.5px; color: var(--accent-strong); }
+select, input[type=text], input[type=number] { font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; width: 100%; min-width: 0; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hint { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.status-line { margin: 0; color: var(--muted); }
+code { font-family: var(--mono); font-size: 13px; }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--warn); background: var(--surface-2); }
+/* families */
+.fams { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.fam { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); min-width: 0; }
+.fam h3 { margin: 0 0 6px; font-size: 15px; }
+
+/* sorter */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { font: 600 13px/1 "Inter", system-ui, sans-serif; padding: 8px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.tab small { font: 500 11.5px var(--mono); color: var(--muted); margin-left: 4px; }
+.tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tab[aria-pressed="true"] small { color: var(--accent-ink); opacity: 0.8; }
+.zone { border: 1.5px dashed var(--border); border-radius: 10px; padding: 8px; min-height: 64px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.zone.over { border-color: var(--accent); border-style: solid; }
+.zone .zh { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.zone .zh input { padding: 3px 6px; font-size: 12.5px; font-weight: 600; background: var(--surface); }
+.zone .items { display: flex; flex-wrap: wrap; gap: 6px; min-height: 34px; align-content: flex-start; }
+.tray { border-style: solid; }
+.buckets { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 10px; }
+.snd { font: 600 13px/1 var(--mono); padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.snd .f { font: 500 10.5px var(--mono); color: var(--muted); margin-left: 5px; }
+.snd.old { box-shadow: inset 3px 0 0 var(--warn); }
+.snd.lit, .snd:hover { border-color: var(--accent); }
+.snd.lit { background: var(--accent); color: var(--accent-ink); }
+.snd.lit .f { color: var(--accent-ink); }
+.snd.ghost { position: fixed; z-index: 10; pointer-events: none; opacity: 0.9; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.snd.away { opacity: 0.3; }
+.play { border: 0; background: none; color: var(--accent-strong); cursor: pointer; font: 600 12.5px "Inter", system-ui, sans-serif; padding: 2px 4px; }
+.stats { font: 12.5px/1.45 var(--mono); color: var(--muted); margin: 10px 0 0; }
+.graphwrap { position: relative; height: min(640px, 75vh); border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); overflow: hidden; touch-action: none; }
+.graphwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tags .lab { font-size: 12.5px; font-weight: 600; color: var(--muted); width: 72px; }
+.tag { font: 600 12.5px/1 "Inter", system-ui, sans-serif; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.tag.all { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tag.some { border-color: var(--accent); }
+.tag:disabled { opacity: 0.45; cursor: not-allowed; }
+.tags input { width: 120px; padding: 5px 8px; font-size: 12.5px; }
+.groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 10px; }
+.grpc { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface-2); font: 12.5px/1.45 var(--mono); }
+.grpc b { font-family: "Inter", system-ui, sans-serif; }
+.sel { font: 12.5px/1.45 var(--mono); color: var(--muted); margin: 8px 0; min-height: 1.45em; }
+.sel b { color: var(--text); }
+.split { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="crumb"><a href="../../tools/">Tools</a> / <a href="../">Fat Chip</a> /</p>
+  <h1>Sound Sorter</h1>
+  <p class="sub">Sort the MidiNES drum samples into buckets of sounds that go together. Every round adds to a map of how the sounds relate, and patches of the map can be tagged by style and character.</p>
+</header>
+<main>
+  <div id="noData" class="banner" hidden>
+    <strong>No sample data in this browser yet.</strong> Load the <code>midines-dmc</code> folder in the <a href="../samples/">Sample Lab</a> first (it keeps it in this browser for this page too), or choose it here:
+    <label class="btn small" for="dmcFolder" style="margin-left:6px">Choose the midines-dmc folder</label>
+    <input id="dmcFolder" type="file" webkitdirectory multiple hidden>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">1</span>Sort</h2>
+      <span class="status-line" id="roundStatus"></span>
+    </div>
+    <div class="tabs" id="tabs" role="group" aria-label="What to sort"></div>
+    <p class="hint" id="modeHint"></p>
+    <div class="zone tray" id="tray" data-b="-1">
+      <div class="zh"><span id="trayLabel">To sort</span><button class="play" data-play="-1">Play all</button></div>
+      <div class="items"></div>
+    </div>
+    <div class="buckets" id="buckets"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="doneBtn" class="btn primary">Done, next round</button>
+      <button id="skipBtn" class="btn">New samples</button>
+      <span class="status-line" id="doneStatus"></span>
+    </div>
+    <p class="stats" id="stats"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">2</span>Map</h2>
+      <div class="row">
+        <label class="field" style="width:170px"><span>Show</span><select id="view"></select></label>
+        <label class="field" style="width:170px"><span>Colour by</span><select id="colorBy"><option value="fam">Family</option><option value="group">Suggested group</option><option value="style">Style tag</option><option value="char">Character tag</option></select></label>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:0">Sounds you put in the same bucket pull together; ones you keep apart push away. Lines show what you've sorted (green together, red apart). Click a dot to hear it and select it; Shift-click to add; drag on empty space to select a patch; drag a dot to move it.</p>
+    <div class="graphwrap" id="gw"><canvas id="cv"></canvas></div>
+    <div class="legend" id="legend"></div>
+    <p class="sel" id="selInfo"></p>
+    <div class="row" style="margin-bottom:10px">
+      <button id="playSel" class="btn small">Play selected</button>
+      <button id="clearSel" class="btn small">Clear selection</button>
+      <button id="relayout" class="btn small">Shake the map</button>
+    </div>
+    <div class="tags" id="styleTags"></div>
+    <div class="tags" id="charTags" style="margin-top:8px"></div>
+    <h3 style="font-size:15px;margin:18px 0 0">Suggested groups</h3>
+    <p class="hint" style="margin-top:4px">Sounds that keep landing in the same bucket. Select a group to hear it or tag it.</p>
+    <div class="groups" id="groups"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">3</span>Save and share</h2>
+    </div>
+    <div class="row">
+      <button id="exportBtn" class="btn small primary">Export sorting</button>
+      <label class="btn small" for="importIn">Import and merge</label>
+      <input id="importIn" type="file" accept=".json,application/json" hidden>
+      <button id="resetBtn" class="btn small">Start over</button>
+      <span class="status-line" id="saveStatus"></span>
+    </div>
+    <p class="hint">Everything stays in this browser. Export to back it up or to hand to someone; importing a file merges their rounds, percussion names and tags with yours (rounds are never counted twice). No sample data goes in the file.</p>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sorter." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("sorter." + k, JSON.stringify(v)); } catch { /* */ } },
+};
+const MAP = {"A0":["kick","kick"],"A1":["bass",""],"A2":["kick","kick"],"A3":["kick",""],"A4":["kick","kick"],"A5":["kick","kick"],"A6":["snare","snare"],"A7":["snare","snare"],"A8":["snare","snare"],"A9":["snare","snare"],"A10":["kick","kick"],"A11":["snare","snare"],"A12":["hatc","hat"],"A13":["hato","ohat"],"A14":["hatc","hat"],"A15":["hatc","hat"],"A16":["snare","snare"],"A17":["tom","tom"],"A18":["kick","kick"],"A19":["kick","kick"],"A20":["hato","ohat"],"A21":["hatc","hat"],"A22":["kick","kick hat"],"A23":["snare","snare"],"A24":["clap","clap"],"A25":["clap","clap"],"A26":["hatc","ohat"],"A27":["hato","ohat"],"A28":["snare","snare"],"A29":["snare","snare"],"A30":["tom","tom"],"A31":["tom","tom"],"A32":["snare","snare"],"A33":["snare","snare"],"A34":["snare","snare"],"A35":["snare","snare"],"A36":["kick","kick"],"A37":["kick","kick"],"A38":["perc","perc"],"A39":["hatc","hat"],"A40":["snare","snare clap"],"A41":["perc","perc"],"A42":["hato","ohat"],"A43":["tom","tom"],"A44":["hatc","hat"],"A45":["perc","perc"],"A46":["tom","tom"],"A47":["tom","tom"],"A48":["perc","perc"],"A49":["perc","perc"],"A50":["perc","perc"],"A51":["snare","snare"],"A52":["perc","perc"],"A53":["perc","perc"],"A54":["cymbal","cymbal"],"A55":["hatc","hat"],"A56":["hato","ohat"],"A57":["kick","kick"],"A58":["hato","ohat"],"A59":["snare","snare hat"],"A60":["snare","snare"],"A61":["snare","snare"],"A62":["hatc","perc"],"A63":["perc","perc"],"A64":["snare","snare"],"A65":["snare","snare"],"A66":["kick","kick"],"A67":["kick","kick"],"A68":["kick","kick"],"A69":["snare","snare"],"A70":["snare","snare ohat"],"A71":["snare","snare"],"A72":["snare","snare"],"A73":["kick","kick hat"],"A74":["hatc","hat"],"A75":["snare","snare"],"A76":["perc","perc"],"A77":["cymbal","cymbal"],"A78":["perc","perc"],"A79":["perc","perc"],"A80":["perc","perc"],"A81":["hatc","ohat"],"A82":["hato","ohat"],"A83":["hatc","hat"],"A84":["hatc","hat"],"A85":["fx",""],"A86":["kick","kick hat"],"A87":["hato","snare cymbal"],"A88":["snare","snare"],"A89":["hatc","hat"],"A90":["snare","snare"],"A91":["kick","kick hat"],"A92":["kick","kick"],"A93":["snare","snare hat"],"A94":["hatc","hat"],"A95":["snare","snare hat"],"A96":["snare","hat"],"A97":["snare","snare"],"A98":["kick","kick cymbal"],"A99":["snare","snare cymbal"],"A100":["kick","kick cymbal"],"A101":["hato","ohat"],"A102":["kick","kick hat"],"A103":["snare","snare"],"A104":["snare","snare"],"A105":["vocal","vocal"],"A106":["kick","kick"],"A107":["kick","kick"],"A108":["snare","snare"],"A109":["snare","snare"],"A110":["snare","snare tom"],"A111":["snare","snare"],"A112":["kick","kick cymbal"],"A113":["snare","snare cymbal"],"A114":["hato","ohat"],"A115":["kick","kick hat"],"A116":["hato","ohat"],"A117":["snare","snare"],"A118":["hatc","hat"],"A119":["kick","kick"],"A120":["snare","snare"],"A121":["snare","snare"],"A122":["snare","snare"],"A123":["hato","ohat"],"A124":["snare","snare"],"A125":["snare","snare"],"A126":["snare","snare hat"],"A127":["snare","snare"],"B0":["snare","snare"],"B1":["snare","snare"],"B2":["kick","kick ohat"],"B3":["kick","kick ohat"],"B4":["snare","snare hat"],"B5":["kick","kick ohat"],"B6":["kick","kick cymbal"],"B7":["kick","kick ohat"],"B8":["kick","kick"],"B9":["snare","snare hat"],"B10":["kick","kick"],"B11":["kick","kick"],"B12":["kick","kick"],"B13":["snare","snare"],"B14":["kick","kick"],"B15":["kick","kick"],"B16":["kick","kick"],"B17":["snare",""],"B18":["perc",""],"B19":["perc","perc"],"B20":["fx",""],"B21":["hatc","hat"],"B22":["vocal","vocal"],"B23":["vocal","vocal"],"B24":["vocal","vocal"],"B25":["vocal","vocal"],"B26":["vocal",""],"B27":["vocal",""],"B28":["vocal",""],"B29":["vocal",""],"B30":["vocal","vocal"],"B31":["vocal","vocal"],"B32":["vocal","vocal"],"B33":["vocal","vocal"],"B34":["vocal","vocal"],"B35":["vocal","vocal"],"B36":["tonal","vocal"],"B37":["vocal","vocal"],"B38":["vocal","vocal"],"B39":["vocal","vocal"],"B40":["vocal","vocal"],"B41":["fx",""],"B42":["tonal",""],"B43":["tonal",""],"B44":["tonal",""],"B45":["fx",""],"B46":["fx",""],"B47":["fx",""],"B48":["fx",""],"B49":["fx",""],"B50":["vocal","vocal"],"B51":["vocal",""],"B52":["vocal",""],"B53":["vocal",""],"B54":["vocal",""],"B55":["vocal",""],"B56":["vocal",""],"B57":["vocal",""],"B58":["vocal",""],"B59":["vocal",""],"B60":["tonal",""],"B61":["tonal",""],"B62":["tonal",""],"B63":["tonal",""],"B64":["tonal",""],"B65":["tonal",""],"B66":["tonal","tom"],"B67":["tonal","tom"],"B68":["tonal","tom"],"B69":["tonal","tom"],"B70":["tonal",""],"B71":["tonal",""],"B72":["tonal",""],"B73":["tonal",""],"B74":["tonal",""],"B75":["fx",""],"B76":["fx",""],"B77":["fx",""],"B78":["fx",""],"B79":["fx",""],"B80":["fx",""],"B81":["vocal","vocal"],"B82":["vocal","vocal"],"B83":["vocal","vocal"],"B84":["vocal","vocal"],"B85":["vocal","vocal"],"B86":["vocal","vocal"],"B87":["vocal","vocal"],"B88":["vocal","vocal"],"B89":["vocal","vocal"],"B90":["vocal","vocal"],"B91":["vocal","vocal"],"B92":["vocal","vocal"],"B93":["vocal","vocal"],"B94":["vocal","vocal"],"B95":["fx",""],"B96":["fx",""],"B97":["fx",""],"B98":["fx",""],"B99":["fx",""],"B100":["fx",""],"B101":["fx",""],"B102":["fx",""],"B103":["fx",""],"B104":["fx",""],"B105":["fx",""],"B106":["fx",""],"B107":["fx",""],"B108":["fx",""],"B109":["fx",""],"B110":["fx",""],"B111":["fx",""],"B112":["fx",""],"B113":["fx",""],"B114":["fx",""],"B115":["fx",""],"B116":["fx",""],"B117":["fx",""],"B118":["fx",""],"B119":["fx",""],"B120":["fx",""],"B121":["fx",""],"B122":["fx",""],"B123":["fx",""],"B124":["fx",""],"B125":["fx",""],"B126":["fx",""],"B127":["fx",""]};   // Reeve's categories (Sample Lab, 2026-11-04), used where this browser has none
+const HZ = [4181.7, 4709.9, 5264.0, 5593.0, 6258.0, 7046.4, 7919.4, 8363.4, 9419.9, 11186.1, 12604.0, 13982.6, 16884.6, 21306.8, 24858.0, 33143.9];
+const SR = 48000;
+function dbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("fatchip-samplelab", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("clips", { keyPath: "key" });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function loadFromDb() {
+  const db = await dbOpen();
+  const all = await new Promise((res, rej) => { const q = db.transaction("clips").objectStore("clips").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+  return all.filter(c => c.set === "dmc" && c.bytes).map(c => ({ bank: c.bank, note: c.note, bytes: new Uint8Array(c.bytes), native: c.native, cat: c.cat, has: c.has }));
+}
+async function loadFiles(files) {
+  const out = [];
+  for (const f of files) {
+    const m = f.name.match(/bank([AB])_n(\d{3})\.dmc$/i);
+    if (m) out.push({ bank: m[1].toUpperCase(), note: +m[2], bytes: new Uint8Array(await f.arrayBuffer()) });
+  }
+  return out;
+}
+
+// DMC renderer: bits from bit 0, 1 = up 2, 0 = down 2 (0..127); rate per step from rateAt(k)
+function renderDmc(bytes, pidx, opt = {}) {
+  const nbits = bytes.length * 8, drop = opt.drop || 0, dropFrom = opt.dropFrom ?? 0.6;
+  const rateAt = k => { if (!drop || k < nbits * dropFrom) return HZ[pidx]; const f = (k - nbits * dropFrom) / (nbits * (1 - dropFrom)); return HZ[Math.max(0, pidx - Math.round(f * drop))]; };
+  let total = 0; for (let k = 0; k < nbits; k += 8) total += 8 / rateAt(k);
+  const n = Math.ceil(total * SR) + 2, out = new Float32Array(n);
+  let v = opt.start ?? 64, t = 0;
+  for (let k = 0; k < nbits; k++) {
+    const bit = (bytes[k >> 3] >> (k & 7)) & 1;
+    if (bit) { if (v <= 125) v += 2; } else if (v >= 2) v -= 2;
+    const dt = SR / rateAt(k);
+    let a = t, t1 = t + dt;
+    while (a < t1) { const i = Math.floor(a), b = Math.min(t1, i + 1); out[i] += v * (b - a); a = b; }
+    t = t1;
+  }
+  return { out, end: v, n: Math.ceil(t) };
+}
+function centred(x) {   // remove the sample's own DC, 1 ms fades
+  let m = 0; for (const v of x) m += v; m /= x.length;
+  const f = Math.round(SR * 0.001), y = new Float32Array(x.length);
+  for (let i = 0; i < x.length; i++) y[i] = (x[i] - m) * Math.min(1, i / f, (x.length - 1 - i) / f);
+  return y;
+}
+
+// ====================================================================== what gets sorted
+const FAM_NAME = { kick: "Kick", snare: "Snare", clap: "Clap", hatc: "Closed hat", hato: "Open hat", cymbal: "Cymbal", tom: "Tom", perc: "Percussion", fx: "FX" };
+const FAM_COLOR = { kick: "#d9473f", snare: "#e0902b", clap: "#c9a227", hatc: "#2f9e8f", hato: "#3d7fd6", cymbal: "#6a5acd", tom: "#a0522d", perc: "#c2459b", fx: "#6b8e23" };
+const SORT_FAM = { A62: "perc" };   // the tambourine sorts with the percussion
+const isSweep = s => s.bank === "B" && s.note >= 95;
+const MODES = [
+  { id: "kick", name: "Kicks", fams: ["kick"] },
+  { id: "snare", name: "Snares + claps", fams: ["snare", "clap"] },
+  { id: "hatc", name: "Closed hats", fams: ["hatc"] },
+  { id: "hato", name: "Open hats + cymbals", fams: ["hato", "cymbal"] },
+  { id: "tom", name: "Toms", fams: ["tom"] },
+  { id: "fx", name: "FX", fams: ["fx"] },
+  { id: "perc", name: "Percussion", fams: ["perc"], kind: "cat" },
+  { id: "kit", name: "Kits", fams: ["kick", "snare", "clap", "hatc"], kind: "kit" },
+];
+const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
+const KIT_ROLE = { kick: "kick", snare: "snare", clap: "snare", hatc: "hat" };
+const STYLES = ["Boombap", "DnB", "808", "909", "Electro", "Acoustic", "Lo-fi"];
+const CHARS = ["Clean", "Punchy", "Grimey", "Soft", "Big"];
+const PERC_CATS = ["Cowbell", "Clave / wood block", "Rim shot", "Conga / bongo", "Tambourine / shaker", "Tom-like", "Other"];
+
+let samples = [], byId = {};
+function prepare(raw) {
+  samples = raw.map(r => {
+    const id = r.bank + r.note, m = MAP[id] || ["fx", ""];
+    const fam = r.cat || m[0];
+    return { id, bank: r.bank, note: r.note, bytes: r.bytes, native: r.native ?? (r.bank === "A" || r.note <= 21 ? 15 : 12), fam, sf: SORT_FAM[id] || fam };
+  }).filter(s => FAM_NAME[s.sf] && !isSweep(s)).sort((a, b) => a.bank.localeCompare(b.bank) || a.note - b.note);
+  byId = Object.fromEntries(samples.map(s => [s.id, s]));
+}
+const members = mode => samples.filter(s => MODE[mode].fams.includes(s.sf)).map(s => s.id);
+
+// ====================================================================== saved state
+let rounds = store.get("rounds", []);          // [{id, mode, t, b: [[ids], ...]}]
+let perc = store.get("perc", { names: PERC_CATS.slice(), of: {} });
+let tags = store.get("tags", {});              // id -> ["style:DnB", "char:Grimey"]
+let styleList = store.get("styles", STYLES.slice()), charList = store.get("chars", CHARS.slice());
+const saveAll = () => { store.set("rounds", rounds); store.set("perc", perc); store.set("tags", tags); store.set("styles", styleList); store.set("chars", charList); };
+
+// pair statistics from every round: together / apart counts
+let stats = new Map();
+const pk = (a, b) => a < b ? a + "|" + b : b + "|" + a;
+function computeStats() {
+  stats = new Map();
+  const add = (a, b, k) => { const key = pk(a, b); let o = stats.get(key); if (!o) stats.set(key, o = { t: 0, a: 0 }); o[k]++; };
+  for (const r of rounds) {
+    const kit = r.mode === "kit";
+    const role = id => byId[id] ? KIT_ROLE[byId[id].sf] : null;
+    r.b.forEach((B, i) => {
+      for (let x = 0; x < B.length; x++) for (let y = x + 1; y < B.length; y++) if (!kit || role(B[x]) !== role(B[y])) add(B[x], B[y], "t");
+      r.b.forEach((C, j) => { if (j <= i) return; for (const a of B) for (const b of C) if (!kit || role(a) !== role(b)) add(a, b, "a"); });
+    });
+  }
+}
+const pair = (a, b) => stats.get(pk(a, b));
+
+// ====================================================================== audio
+let actx = null, master = null, playing = [], timers = [];
+async function ctx() {
+  if (!actx) { actx = new AudioContext({ sampleRate: SR, latencyHint: "interactive" }); master = actx.createGain(); master.gain.value = 0.012; master.connect(actx.destination); }
+  if (actx.state === "suspended") await actx.resume();
+}
+const bufCache = {};
+function bufFor(s) {
+  if (!bufCache[s.id]) { const r = renderDmc(s.bytes, s.native), d = centred(r.out.subarray(0, r.n)); const b = actx.createBuffer(1, d.length, SR); b.copyToChannel(d, 0); bufCache[s.id] = b; }
+  return bufCache[s.id];
+}
+function stopAll() { for (const p of playing) { try { p.stop(); } catch { /* */ } } playing = []; for (const t of timers) clearTimeout(t); timers = []; document.querySelectorAll(".snd.lit").forEach(e => e.classList.remove("lit")); litNodes.clear(); }
+function hit(id, when) { const src = actx.createBufferSource(); src.buffer = bufFor(byId[id]); src.connect(master); src.start(when); playing.push(src); }
+function light(id, at, ms = 220) {
+  timers.push(setTimeout(() => {
+    document.querySelectorAll(`.snd[data-id="${id}"]`).forEach(e => e.classList.add("lit")); litNodes.add(id); drawGraph();
+    timers.push(setTimeout(() => { document.querySelectorAll(`.snd[data-id="${id}"]`).forEach(e => e.classList.remove("lit")); litNodes.delete(id); drawGraph(); }, ms));
+  }, Math.max(0, at)));
+}
+async function playOne(id) { await ctx(); stopAll(); hit(id, actx.currentTime + 0.01); light(id, 0); }
+async function playList(ids, gap = 0.4) {   // one after another
+  await ctx(); stopAll(); const t0 = actx.currentTime + 0.03;
+  ids.forEach((id, i) => { hit(id, t0 + i * gap); light(id, (i * gap + 0.03) * 1000); });
+}
+async function playKit(ids) {   // a two-bar beat: kick, hat eighths, snare on 2 and 4 (one bar per kick / snare / hat if there are two)
+  await ctx(); stopAll();
+  const by = { kick: [], snare: [], hat: [] }; for (const id of ids) { const r = KIT_ROLE[byId[id].sf]; if (r) by[r].push(id); }
+  const bars = Math.max(2, by.kick.length, by.snare.length, by.hat.length), e = 60 / 92 / 2, t0 = actx.currentTime + 0.03;
+  for (let bar = 0; bar < bars; bar++) {
+    const k = by.kick[bar % by.kick.length], s = by.snare[bar % by.snare.length], h = by.hat[bar % by.hat.length];
+    for (let st = 0; st < 8; st++) {
+      const t = t0 + (bar * 8 + st) * e, at = (t - t0 + 0.03) * 1000;
+      if (h) { hit(h, t); light(h, at, 120); }
+      if (k && (st === 0 || st === 5)) { hit(k, t); light(k, at, 160); }
+      if (s && (st === 2 || st === 6)) { hit(s, t); light(s, at, 160); }
+    }
+  }
+}
+
+// ====================================================================== rounds
+let mode = store.get("mode", "kick"), cur = store.get("cur", null);   // cur: {mode, items, where: {id: bucket | -1}, old: [ids]}
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function seenCount(m) { const c = {}; for (const r of rounds) if (r.mode === m) for (const B of r.b) for (const id of B) c[id] = (c[id] || 0) + 1; return c; }
+function newRound(m) {
+  const M = members(m);
+  let items = [], old = [];
+  if (MODE[m].kind === "cat") items = M.filter(id => !perc.of[id]);
+  else if (MODE[m].kind === "kit") {
+    const cross = {}; for (const [k, o] of stats) { const [a, b] = k.split("|"); if (byId[a] && byId[b] && KIT_ROLE[byId[a].sf] && KIT_ROLE[byId[b].sf] && KIT_ROLE[byId[a].sf] !== KIT_ROLE[byId[b].sf]) { cross[a] = (cross[a] || 0) + o.t + o.a; cross[b] = (cross[b] || 0) + o.t + o.a; } }
+    for (const role of ["kick", "snare", "hat"]) {
+      const pool = M.filter(id => KIT_ROLE[byId[id].sf] === role).map(id => [id, (cross[id] || 0) + Math.random() * 3]).sort((a, b) => a[1] - b[1]);
+      items.push(...pool.slice(0, 2).map(p => p[0]));
+    }
+    old = items.filter(id => cross[id]);
+  } else {
+    const n = Math.min(6, M.length), seen = seenCount(m), any = rounds.some(r => r.mode === m);
+    if (!any) items = shuffle(M.slice()).slice(0, n);
+    else {
+      const unknown = id => M.filter(o => o !== id && !pair(id, o)).length;
+      const seenIds = M.filter(id => seen[id]).map(id => [id, unknown(id) + Math.random() * 2]).sort((a, b) => b[1] - a[1]);
+      const unseen = M.filter(id => !seen[id]);
+      const nAnchor = Math.min(seenIds.length, unseen.length >= n - 2 ? 2 : n);   // 1–2 sounds you've sorted before link this round to the others
+      items = seenIds.slice(0, Math.min(nAnchor, 2)).map(p => p[0]);
+      const pairScore = (a, b) => { const o = pair(a, b); if (!o) return 1; const c = Math.min(o.t, o.a) / (o.t + o.a); return c > 0.25 ? 0.8 : 0.1 / (o.t + o.a); };
+      while (items.length < n) {
+        let best = null, bs = -1;
+        for (const c of M) {
+          if (items.includes(c)) continue;
+          const sc = (seen[c] ? 0 : 3) - 0.1 * (seen[c] || 0) + items.reduce((a, p) => a + pairScore(c, p), 0) + Math.random() * 0.6;
+          if (sc > bs) { bs = sc; best = c; }
+        }
+        if (!best) break; items.push(best);
+      }
+      old = items.filter(id => seen[id]);
+      items = shuffle(items);
+    }
+  }
+  cur = { mode: m, items, where: Object.fromEntries(items.map(id => [id, -1])), old };
+  store.set("cur", cur);
+}
+function compact() {   // renumber buckets so there are no empty ones
+  const used = [...new Set(Object.values(cur.where).filter(b => b >= 0))].sort((a, b) => a - b), map = Object.fromEntries(used.map((b, i) => [b, i]));
+  for (const id in cur.where) if (cur.where[id] >= 0) cur.where[id] = map[cur.where[id]];
+}
+
+// ====================================================================== sort UI
+function drawTabs() {
+  const box = $("tabs"); box.innerHTML = "";
+  for (const m of MODES) {
+    const b = document.createElement("button"); b.className = "tab"; b.setAttribute("aria-pressed", m.id === mode);
+    const n = m.kind === "cat" ? `${members("perc").filter(id => perc.of[id]).length}/${members("perc").length}` : rounds.filter(r => r.mode === m.id).length;
+    b.innerHTML = `${m.name}<small>${n}</small>`;
+    b.onclick = () => { mode = m.id; store.set("mode", mode); if (!cur || cur.mode !== mode || MODE[mode].kind === "cat") newRound(mode); drawSort(); };
+    box.append(b);
+  }
+}
+function chip(id) {
+  const s = byId[id], b = document.createElement("button");
+  b.className = "snd" + (cur.old.includes(id) ? " old" : ""); b.dataset.id = id; b.type = "button";
+  b.innerHTML = `${id}<span class="f">${MODE[mode].kind === "kit" || MODE[mode].fams.length > 1 ? FAM_NAME[s.sf] : ""}</span>`;
+  b.title = cur.old.includes(id) ? "You've sorted this one before; it links this round to the earlier ones" : "Click to hear it, drag it into a bucket (or press 1–9, 0 for the tray, N for a new bucket)";
+  b.setAttribute("aria-label", `${id}, ${FAM_NAME[s.sf]}. Click to play; keys 1 to 9 move it to a bucket, 0 back to the tray, N to a new bucket.`);
+  return b;
+}
+function zone(b, title, ids, opts = {}) {
+  const z = document.createElement("div"); z.className = "zone"; z.dataset.b = b;
+  z.innerHTML = `<div class="zh">${opts.input ? `<input type="text" value="${title.replace(/"/g, "&quot;")}" aria-label="Category name">` : `<span>${title}</span>`}${ids.length ? `<button class="play" data-play="${b}">${MODE[mode].kind === "kit" ? "Play beat" : "Play"}</button>` : ""}</div><div class="items"></div>`;
+  for (const id of ids) z.querySelector(".items").append(chip(id));
+  if (opts.input) z.querySelector("input").onchange = e => { const old = perc.names[b], nv = e.target.value.trim() || old; perc.names[b] = nv; for (const id in perc.of) if (perc.of[id] === old) perc.of[id] = nv; saveAll(); drawAll(); };
+  return z;
+}
+function drawSort() {
+  drawTabs();
+  const m = MODE[mode], tray = $("tray"), box = $("buckets");
+  if (!cur || cur.mode !== mode) newRound(mode);
+  const kind = m.kind || "pair";
+  $("modeHint").innerHTML = kind === "cat" ? "Name what each percussion sound is: drag it into a category (rename them, or drop on <b>New category</b>). This saves as you go." :
+    kind === "kit" ? "Two kicks, two snares, two hats. Put the ones that make <b>one kit</b> together in a bucket; <b>Play beat</b> hears it as a groove. Only kick ↔ snare ↔ hat links count here." :
+    "Put sounds that <b>go together</b> (could be the same kit) in one bucket, and ones that don't in different buckets. Leave a sound in the tray if you're not sure. <span style='color:var(--warn)'>▎</span>Marked ones you've sorted before.";
+  $("trayLabel").textContent = kind === "cat" ? "Not named yet" : "To sort";
+  tray.querySelector(".items").innerHTML = "";
+  if (kind === "cat") {
+    const M = members("perc");
+    for (const id of M) if (!perc.of[id]) tray.querySelector(".items").append(chip(id));
+    box.innerHTML = "";
+    perc.names.forEach((n, i) => box.append(zone(i, n, M.filter(id => perc.of[id] === n), { input: true })));
+    box.append(zone(perc.names.length, "New category", []));
+    $("doneBtn").hidden = $("skipBtn").hidden = true;
+  } else {
+    for (const id of cur.items) if (cur.where[id] < 0) tray.querySelector(".items").append(chip(id));
+    box.innerHTML = "";
+    const nb = Math.max(-1, ...Object.values(cur.where)) + 1;
+    for (let i = 0; i <= nb; i++) box.append(zone(i, i === nb ? "New bucket" : `${kind === "kit" ? "Kit" : "Bucket"} ${i + 1}`, cur.items.filter(id => cur.where[id] === i)));
+    $("doneBtn").hidden = $("skipBtn").hidden = false;
+    $("doneBtn").disabled = cur.items.filter(id => cur.where[id] >= 0).length < 2;
+  }
+  tray.querySelector(".play").hidden = !tray.querySelector(".snd");
+  drawStats();
+}
+function moveTo(id, b) {
+  if (MODE[mode].kind === "cat") {
+    if (b < 0) delete perc.of[id];
+    else { if (b >= perc.names.length) perc.names.push(`Category ${perc.names.length + 1}`); perc.of[id] = perc.names[b]; }
+    saveAll(); drawAll(); return;
+  }
+  cur.where[id] = b; compact(); store.set("cur", cur); drawSort();
+  const el = document.querySelector(`.snd[data-id="${id}"]`); if (el) el.focus();
+}
+function drawStats() {
+  const m = MODE[mode];
+  if (m.kind === "cat") { const M = members("perc"); $("stats").textContent = `${M.filter(id => perc.of[id]).length} of ${M.length} percussion sounds named.`; $("roundStatus").textContent = ""; return; }
+  const M = members(mode), R = rounds.filter(r => r.mode === mode).length;
+  let heard = 0, total = 0;
+  const parent = Object.fromEntries(M.map(id => [id, id])), find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
+  const role = id => KIT_ROLE[byId[id].sf];
+  for (let i = 0; i < M.length; i++) for (let j = i + 1; j < M.length; j++) {
+    if (m.kind === "kit" && role(M[i]) === role(M[j])) continue;
+    total++; if (pair(M[i], M[j])) { heard++; parent[find(M[i])] = find(M[j]); }
+  }
+  const seen = M.filter(id => [...stats.keys()].some(k => k.split("|").includes(id) && M.includes(k.split("|").find(x => x !== id))));
+  const islands = new Set(seen.map(find)).size;
+  $("roundStatus").textContent = `${R} round${R === 1 ? "" : "s"}`;
+  $("stats").textContent = `${M.length} sounds · ${M.length - seen.length} not sorted yet · ${heard} of ${total} pairs heard` + (seen.length ? ` · ${islands === 1 ? "all linked up" : `${islands} separate islands (later rounds will join them)`}` : "");
+}
+$("doneBtn").onclick = () => {
+  const b = []; for (const id of cur.items) { const w = cur.where[id]; if (w >= 0) (b[w] ||= []).push(id); }
+  const r = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), mode, t: Date.now(), b: b.filter(Boolean) };
+  rounds.push(r); saveAll(); computeStats();
+  const n = r.b.flat().length;
+  $("doneStatus").textContent = `Saved: ${n} sounds in ${r.b.length} bucket${r.b.length > 1 ? "s" : ""}.`;
+  setTimeout(() => $("doneStatus").textContent = "", 2500);
+  newRound(mode); drawAll();
+};
+$("skipBtn").onclick = () => { newRound(mode); drawSort(); };
+
+// drag and drop (pointer events: mouse, pen and touch), click to play
+let drag = null;
+document.addEventListener("pointerdown", e => {
+  const c = e.target.closest(".snd"); if (!c || c.classList.contains("ghost")) return;
+  drag = { id: c.dataset.id, el: c, x: e.clientX, y: e.clientY, on: false };
+});
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (!drag.on && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) {
+    drag.on = true; const r = drag.el.getBoundingClientRect();
+    drag.g = drag.el.cloneNode(true); drag.g.classList.add("ghost"); drag.g.style.width = r.width + "px"; document.body.append(drag.g);
+    drag.dx = e.clientX - r.left; drag.dy = e.clientY - r.top; drag.el.classList.add("away");
+  }
+  if (drag.on) {
+    e.preventDefault();
+    drag.g.style.left = (e.clientX - drag.dx) + "px"; drag.g.style.top = (e.clientY - drag.dy) + "px";
+    document.querySelectorAll(".zone.over").forEach(z => z.classList.remove("over"));
+    const z = document.elementFromPoint(e.clientX, e.clientY)?.closest(".zone"); if (z) z.classList.add("over");
+  }
+}, { passive: false });
+document.addEventListener("pointerup", e => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (!d.on) { playOne(d.id); return; }
+  d.g.remove(); d.el.classList.remove("away");
+  document.querySelectorAll(".zone.over").forEach(z => z.classList.remove("over"));
+  const z = document.elementFromPoint(e.clientX, e.clientY)?.closest(".zone");
+  if (z) moveTo(d.id, +z.dataset.b);
+});
+document.addEventListener("pointercancel", () => { if (drag?.g) { drag.g.remove(); drag.el.classList.remove("away"); } drag = null; });
+document.addEventListener("click", e => {
+  const p = e.target.closest("[data-play]"); if (!p) return;
+  const z = p.closest(".zone"), ids = [...z.querySelectorAll(".snd")].map(c => c.dataset.id);
+  if (MODE[mode].kind === "kit" && z.dataset.b !== "-1") playKit(ids); else playList(ids);
+});
+document.addEventListener("keydown", e => {
+  const c = e.target.closest?.(".snd"); if (!c || c.classList.contains("ghost")) return;
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playOne(c.dataset.id); return; }
+  if (/^[0-9]$/.test(e.key)) { moveTo(c.dataset.id, +e.key - 1); e.preventDefault(); }
+  else if (e.key === "n" || e.key === "N") { moveTo(c.dataset.id, document.querySelectorAll("#buckets .zone").length - 1); e.preventDefault(); }
+});
+
+// ====================================================================== map
+let nodes = [], nodeOf = {}, alpha = 1, sel = new Set(), litNodes = new Set(), groupsOf = {}, groupList = [], raf = 0;
+const VIEWS = [["all", "All sorted sounds"], ...MODES.filter(m => m.kind !== "kit").map(m => [m.id, m.name]), ["kit", "Kits: kick, snare, hat"]];
+for (const [v, l] of VIEWS) $("view").add(new Option(l, v));
+$("view").value = store.get("view", "all"); $("colorBy").value = store.get("colorBy", "fam");
+function viewIds() {
+  const v = $("view").value;
+  if (v === "all") { const s = new Set(); for (const k of stats.keys()) for (const id of k.split("|")) if (byId[id]) s.add(id); for (const id in perc.of) if (byId[id]) s.add(id); return [...s]; }
+  return members(v);
+}
+function weight(a, b) {   // net together-minus-apart, plus a link for percussion named the same
+  const o = pair(a, b); let t = o ? o.t : 0, ap = o ? o.a : 0;
+  if (perc.of[a] && perc.of[a] === perc.of[b]) t += 1;
+  return { t, a: ap };
+}
+const hash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) / 4294967296; };
+function buildGraph() {
+  const ids = viewIds(), old = nodeOf; nodeOf = {};
+  nodes = ids.map(id => { const o = old[id]; const n = o ? o : { id, x: (hash(id) - 0.5) * 600, y: (hash(id + "y") - 0.5) * 600, vx: 0, vy: 0 }; nodeOf[id] = n; return n; });
+  nodes.edges = [];
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const w = weight(nodes[i].id, nodes[j].id), n = w.t + w.a; if (!n) continue;
+    nodes.edges.push({ a: nodes[i], b: nodes[j], s: (w.t - w.a) / n, n, net: w.t - w.a });
+  }
+  for (const id of [...sel]) if (!nodeOf[id]) sel.delete(id);
+  findGroups(); alpha = Math.max(alpha, 0.6); run();
+}
+function findGroups() {   // label propagation on the net together-minus-apart weights
+  const lab = Object.fromEntries(nodes.map(n => [n.id, n.id])), nb = {};
+  for (const e of nodes.edges) { (nb[e.a.id] ||= []).push([e.b.id, e.net]); (nb[e.b.id] ||= []).push([e.a.id, e.net]); }
+  const order = nodes.map(n => n.id).sort((a, b) => hash(a) - hash(b));
+  for (let it = 0; it < 30; it++) {
+    let changed = false;
+    for (const id of order) {
+      const sc = {}; for (const [o, w] of nb[id] || []) sc[lab[o]] = (sc[lab[o]] || 0) + w;
+      let best = lab[id], bv = sc[lab[id]] || 0;
+      for (const [l, v] of Object.entries(sc)) if (v > bv || (v === bv && v > 0 && l < best)) { best = l; bv = v; }
+      if (bv <= 0) best = id;
+      if (best !== lab[id]) { lab[id] = best; changed = true; }
+    }
+    if (!changed) break;
+  }
+  const g = {}; for (const id in lab) (g[lab[id]] ||= []).push(id);
+  groupList = Object.values(g).filter(x => x.length > 1).sort((a, b) => b.length - a.length);
+  groupsOf = {}; groupList.forEach((G, i) => G.forEach(id => groupsOf[id] = i));
+}
+function step() {
+  const N = nodes.length; if (!N) return;
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+    const a = nodes[i], b = nodes[j]; let dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy + 1; const d = Math.sqrt(d2);
+    let f = Math.min(8, 2600 / d2);
+    if (a.id && byId[a.id].sf === byId[b.id].sf && d > 150) f -= 0.002 * (d - 150);   // same family drifts together a little
+    dx /= d; dy /= d; a.vx -= dx * f * alpha; a.vy -= dy * f * alpha; b.vx += dx * f * alpha; b.vy += dy * f * alpha;
+  }
+  for (const e of nodes.edges) {
+    const a = e.a, b = e.b; let dx = b.x - a.x, dy = b.y - a.y; const d = Math.hypot(dx, dy) + 0.01;
+    const conf = 1 - 1 / (1 + e.n);
+    let f = 0;
+    if (e.s > 0) f = 0.05 * conf * e.s * (d - (34 + 50 * (1 - e.s)));
+    else if (d < 260) f = 0.04 * conf * e.s * (260 - d);   // apart: push out to 260
+    dx /= d; dy /= d; a.vx += dx * f * alpha; a.vy += dy * f * alpha; b.vx -= dx * f * alpha; b.vy -= dy * f * alpha;
+  }
+  for (const n of nodes) { if (n === dragNode) { n.vx = n.vy = 0; continue; } n.vx -= n.x * 0.004 * alpha; n.vy -= n.y * 0.004 * alpha; n.vx *= 0.82; n.vy *= 0.82; n.x += n.vx; n.y += n.vy; }
+}
+function run() { cancelAnimationFrame(raf); const tick = () => { for (let k = 0; k < 2; k++) step(); alpha *= 0.985; drawGraph(); if (alpha > 0.02 || dragNode) raf = requestAnimationFrame(tick); }; raf = requestAnimationFrame(tick); }
+// view transform: fit everything, smoothly
+let T = { s: 1, ox: 0, oy: 0 };
+function fit(W, H) {
+  if (!nodes.length) return;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const n of nodes) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y); }
+  const pad = 40, s = Math.min((W - 2 * pad) / Math.max(80, x1 - x0), (H - 2 * pad) / Math.max(80, y1 - y0), 3);
+  const tgt = { s, ox: W / 2 - (x0 + x1) / 2 * s, oy: H / 2 - (y0 + y1) / 2 * s };
+  if (dragNode || rect) return;
+  for (const k in T) T[k] += (tgt[k] - T[k]) * 0.15;
+}
+const PAL = ["#d9473f", "#3d7fd6", "#2f9e8f", "#e0902b", "#6a5acd", "#c2459b", "#6b8e23", "#a0522d", "#1f8fb3", "#b5651d", "#7d3cb5", "#4b8b3b"];
+function colorOf(id) {
+  const by = $("colorBy").value;
+  if (by === "fam") return FAM_COLOR[byId[id].sf];
+  if (by === "group") return groupsOf[id] != null ? PAL[groupsOf[id] % PAL.length] : null;
+  const pre = by === "style" ? "style:" : "char:", list = by === "style" ? styleList : charList;
+  const t = (tags[id] || []).find(x => x.startsWith(pre)); return t ? PAL[list.indexOf(t.slice(pre.length)) % PAL.length] : null;
+}
+function drawLegend() {
+  const by = $("colorBy").value, box = $("legend");
+  let items = [];
+  if (by === "fam") items = [...new Set(nodes.map(n => byId[n.id].sf))].map(f => [FAM_COLOR[f], FAM_NAME[f]]);
+  else if (by === "group") items = groupList.slice(0, 12).map((g, i) => [PAL[i % PAL.length], `Group ${i + 1} (${g.length})`]);
+  else { const list = by === "style" ? styleList : charList; items = list.map((t, i) => [PAL[i % PAL.length], t]); }
+  if (by !== "fam") items.push(["var(--muted)", "none"]);
+  box.innerHTML = items.map(([c, l]) => `<span><i style="background:${c}"></i>${l}</span>`).join("");
+}
+let lastLegend = "";
+function drawGraph() {
+  const cv = $("cv"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; if (!r.width) return;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const g = cv.getContext("2d"), css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
+  fit(r.width, r.height);
+  const P = n => [n.x * T.s + T.ox, n.y * T.s + T.oy];
+  if (!nodes.length) { g.fillStyle = col("--muted"); g.font = "14px Inter, system-ui, sans-serif"; g.fillText(samples.length ? "Sort a round and the sounds appear here." : "Needs the sample data.", 16, 28); return; }
+  for (const e of nodes.edges) {
+    if (e.s < 0 && !(sel.has(e.a.id) || sel.has(e.b.id))) continue;   // "apart" lines only for the selection, to keep it readable
+    const [x1, y1] = P(e.a), [x2, y2] = P(e.b);
+    g.strokeStyle = e.s > 0 ? col("--ok") : col("--danger"); g.globalAlpha = Math.min(0.85, 0.15 + 0.25 * e.n) * Math.abs(e.s) + 0.05; g.lineWidth = 1 + Math.min(3, e.n * 0.6) * Math.max(0, e.s);
+    g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+  }
+  g.globalAlpha = 1; g.font = `600 11px ${col("--mono")}`;
+  for (const n of nodes) {
+    const [x, y] = P(n), c = colorOf(n.id), lit = litNodes.has(n.id);
+    g.beginPath(); g.arc(x, y, lit ? 9 : 6.5, 0, 7); g.fillStyle = lit ? col("--accent") : c || col("--muted"); g.fill();
+    if (sel.has(n.id)) { g.lineWidth = 2.5; g.strokeStyle = col("--text"); g.beginPath(); g.arc(x, y, 10, 0, 7); g.stroke(); }
+    g.fillStyle = col("--text"); g.fillText(n.id, x + 9, y + 4);
+  }
+  if (rect) { g.strokeStyle = col("--accent"); g.lineWidth = 1; g.setLineDash([4, 3]); g.strokeRect(rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0); g.setLineDash([]); }
+  const key = $("colorBy").value + groupList.length + nodes.length + styleList.length + charList.length;
+  if (key !== lastLegend) { lastLegend = key; drawLegend(); }
+}
+let dragNode = null, rect = null, down = null;
+(() => {
+  const gw = $("gw");
+  const pt = e => { const r = gw.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const nearest = (x, y) => { let best = null, bd = 12; for (const n of nodes) { const d = Math.hypot(n.x * T.s + T.ox - x, n.y * T.s + T.oy - y); if (d < bd) { bd = d; best = n; } } return best; };
+  gw.addEventListener("pointerdown", e => {
+    const [x, y] = pt(e); gw.setPointerCapture(e.pointerId);
+    const n = nearest(x, y);
+    down = { x, y, n, shift: e.shiftKey || e.metaKey || e.ctrlKey, moved: false };
+  });
+  gw.addEventListener("pointermove", e => {
+    if (!down) return; const [x, y] = pt(e);
+    if (!down.moved && Math.hypot(x - down.x, y - down.y) > 4) { down.moved = true; if (down.n) { dragNode = down.n; alpha = Math.max(alpha, 0.3); run(); } else rect = { x0: down.x, y0: down.y, x1: x, y1: y }; }
+    if (dragNode) { dragNode.x = (x - T.ox) / T.s; dragNode.y = (y - T.oy) / T.s; }
+    if (rect) { rect.x1 = x; rect.y1 = y; drawGraph(); }
+  });
+  const up = () => {
+    if (!down) return;
+    if (!down.moved) {
+      if (down.n) { if (!down.shift) sel.clear(); if (down.shift && sel.has(down.n.id)) sel.delete(down.n.id); else sel.add(down.n.id); playOne(down.n.id); }
+      else if (!down.shift) sel.clear();
+    } else if (rect) {
+      if (!down.shift) sel.clear();
+      const [a, b] = [Math.min(rect.x0, rect.x1), Math.max(rect.x0, rect.x1)], [c, d] = [Math.min(rect.y0, rect.y1), Math.max(rect.y0, rect.y1)];
+      for (const n of nodes) { const x = n.x * T.s + T.ox, y = n.y * T.s + T.oy; if (x >= a && x <= b && y >= c && y <= d) sel.add(n.id); }
+    }
+    down = null; dragNode = null; rect = null; drawTags(); drawGraph();
+  };
+  gw.addEventListener("pointerup", up); gw.addEventListener("pointercancel", up);
+  addEventListener("resize", drawGraph);
+})();
+$("view").onchange = () => { store.set("view", $("view").value); sel.clear(); buildGraph(); drawTags(); drawGroups(); };
+$("colorBy").onchange = () => { store.set("colorBy", $("colorBy").value); drawGraph(); };
+$("playSel").onclick = () => { if (sel.size) playList([...sel], 0.35); };
+$("clearSel").onclick = () => { sel.clear(); drawTags(); drawGraph(); };
+$("relayout").onclick = () => { for (const n of nodes) { n.x = (Math.random() - 0.5) * 600; n.y = (Math.random() - 0.5) * 600; } alpha = 1; run(); };
+
+// ====================================================================== tags and groups
+function drawTags() {
+  const ids = [...sel];
+  $("selInfo").innerHTML = ids.length ? `<b>${ids.length} selected:</b> ${ids.slice(0, 24).join(" ")}${ids.length > 24 ? " …" : ""}` : "Select sounds on the map (or a suggested group) to tag them.";
+  for (const [box, label, list, pre, key] of [[$("styleTags"), "Style", styleList, "style:", "styles"], [$("charTags"), "Character", charList, "char:", "chars"]]) {
+    box.innerHTML = `<span class="lab">${label}</span>`;
+    for (const t of list) {
+      const full = pre + t, have = ids.filter(id => (tags[id] || []).includes(full)).length;
+      const b = document.createElement("button"); b.className = "tag" + (ids.length && have === ids.length ? " all" : have ? " some" : "");
+      const total = Object.values(tags).filter(x => x.includes(full)).length;
+      b.textContent = t + (total ? ` · ${total}` : ""); b.disabled = !ids.length;
+      b.setAttribute("aria-pressed", ids.length > 0 && have === ids.length);
+      b.onclick = () => {
+        const on = have !== ids.length;
+        for (const id of ids) { const s = new Set(tags[id] || []); on ? s.add(full) : s.delete(full); if (s.size) tags[id] = [...s]; else delete tags[id]; }
+        saveAll(); drawTags(); drawGraph(); drawGroups();
+      };
+      box.append(b);
+    }
+    const inp = document.createElement("input"); inp.type = "text"; inp.placeholder = "+ new " + label.toLowerCase(); inp.setAttribute("aria-label", "Add a " + label.toLowerCase() + " tag");
+    inp.onkeydown = e => { if (e.key !== "Enter") return; const v = inp.value.trim(); if (v && !list.includes(v)) { list.push(v); store.set(key, list); drawTags(); drawGraph(); } };
+    box.append(inp);
+  }
+}
+function drawGroups() {
+  const box = $("groups"); box.innerHTML = "";
+  if (!groupList.length) { box.innerHTML = `<p class="hint" style="margin:0">None yet: they show up once some sounds have shared a bucket.</p>`; return; }
+  groupList.forEach((G, i) => {
+    const d = document.createElement("div"); d.className = "grpc";
+    const tagCount = {}; for (const id of G) for (const t of tags[id] || []) tagCount[t] = (tagCount[t] || 0) + 1;
+    const tl = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t, n]) => `${t.split(":")[1]} ${n}/${G.length}`).join(", ");
+    d.innerHTML = `<b><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PAL[i % PAL.length]};margin-right:6px"></i>Group ${i + 1}</b> · ${G.length} sounds${tl ? ` · ${tl}` : ""}<br>${G.join(" ")}<div class="row" style="margin-top:6px"><button class="btn small" data-g="sel">Select</button><button class="btn small" data-g="play">Play</button></div>`;
+    d.querySelector('[data-g="sel"]').onclick = () => { sel = new Set(G); drawTags(); drawGraph(); };
+    d.querySelector('[data-g="play"]').onclick = () => playList(G, 0.35);
+    box.append(d);
+  });
+}
+
+// ====================================================================== save / share
+$("exportBtn").onclick = () => {
+  const data = { app: "fatchip-sound-sorter", version: 1, exported: new Date().toISOString(), rounds, perc, tags, styles: styleList, chars: charList };
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+  a.download = `sound-sorter-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $("saveStatus").textContent = `Exported ${rounds.length} rounds.`;
+};
+$("importIn").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()); if (d.app !== "fatchip-sound-sorter") throw new Error("not a Sound Sorter file");
+    const have = new Set(rounds.map(r => r.id)); let added = 0;
+    for (const r of d.rounds || []) if (!have.has(r.id)) { rounds.push(r); added++; }
+    for (const n of d.perc?.names || []) if (!perc.names.includes(n)) perc.names.push(n);
+    for (const [id, c] of Object.entries(d.perc?.of || {})) if (!perc.of[id]) perc.of[id] = c;
+    for (const [id, t] of Object.entries(d.tags || {})) tags[id] = [...new Set([...(tags[id] || []), ...t])];
+    for (const t of d.styles || []) if (!styleList.includes(t)) styleList.push(t);
+    for (const t of d.chars || []) if (!charList.includes(t)) charList.push(t);
+    saveAll(); computeStats(); drawAll();
+    $("saveStatus").textContent = `Merged: ${added} new round${added === 1 ? "" : "s"}.`;
+  } catch (err) { $("saveStatus").textContent = "That file didn't import: " + err.message + "."; }
+  e.target.value = "";
+};
+let resetArmed = 0;
+$("resetBtn").onclick = () => {
+  if (Date.now() - resetArmed > 4000) { resetArmed = Date.now(); $("resetBtn").textContent = "Click again to erase all sorting"; setTimeout(() => $("resetBtn").textContent = "Start over", 4000); return; }
+  rounds = []; perc = { names: PERC_CATS.slice(), of: {} }; tags = {}; styleList = STYLES.slice(); charList = CHARS.slice(); saveAll(); computeStats(); newRound(mode); drawAll();
+  $("resetBtn").textContent = "Start over"; $("saveStatus").textContent = "Erased.";
+};
+
+// ====================================================================== start
+function drawAll() { drawSort(); buildGraph(); drawTags(); drawGroups(); }
+(async () => {
+  let raw = [];
+  try { raw = await loadFromDb(); } catch { /* */ }
+  const go = r => { prepare(r); computeStats(); if (cur && cur.items.some(id => !byId[id])) cur = null; drawAll(); };
+  if (raw.length) go(raw);
+  else {
+    $("noData").hidden = false; drawGraph();
+    $("dmcFolder").onchange = async e => { const r = await loadFiles([...e.target.files]); if (r.length) { $("noData").hidden = true; go(r); } };
+  }
+})();
+
+</script>
+</body>
+</html>
