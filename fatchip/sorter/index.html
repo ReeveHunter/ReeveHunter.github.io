@@ -263,7 +263,7 @@ const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
 const KIT_ROLE = { kick: "kick", snare: "snare", clap: "snare", hatc: "hat" };
 const STYLES = ["Boombap", "DnB", "808", "909", "Electro", "Acoustic", "Lo-fi"];
 const CHARS = ["Clean", "Punchy", "Grimey", "Soft", "Big"];
-const PERC_CATS = ["Clap", "Cowbell", "Clave / wood block", "Rim shot", "Conga / bongo", "Tambourine / shaker", "Tom-like", "Other"];
+const PERC_CATS = ["Clap", "Cowbell", "Clave / wood block", "Rim shot", "Conga / bongo", "Tambourine / shaker", "Other"];
 
 let samples = [], byId = {};
 function prepare(raw) {
@@ -280,6 +280,10 @@ const members = mode => samples.filter(s => MODE[mode].fams.includes(s.sf)).map(
 let rounds = store.get("rounds", []);          // [{id, mode, t, b: [[ids], ...]}]
 let perc = store.get("perc", { names: PERC_CATS.slice(), of: {} });
 if (!perc.names.includes("Clap")) perc.names.unshift("Clap");
+if (!store.get("dropTomLike", false)) {   // "Tom-like" retired (2026-11-05); anything in it goes back to "not named yet"
+  perc.names = perc.names.filter(n => n !== "Tom-like"); for (const id in perc.of) if (perc.of[id] === "Tom-like") delete perc.of[id];
+  store.set("dropTomLike", true); store.set("perc", perc);
+}
 // finer types within a family (a ride vs a crash): family -> {names, of: {id: type}}
 const TYPE_FAMS = [["kick", "Kicks", ["Long", "Punchy", "Thud", "Layered"]], ["snare", "Snares", ["Tight", "Fat", "Layered"]], ["hatc", "Closed hats", ["Tight", "Loose", "Pedal"]], ["hato", "Open hats", ["Open", "Half open", "Open → closed"]], ["cymbal", "Cymbals", ["Crash", "Ride"]]];
 const freshTypes = () => Object.fromEntries(TYPE_FAMS.map(([f, , n]) => [f, { names: n.slice(), of: {} }]));
@@ -416,8 +420,9 @@ function chip(id) {
 }
 function zone(b, title, ids, opts = {}) {
   const z = document.createElement("div"); z.className = "zone"; z.dataset.b = b;
-  z.innerHTML = `<div class="zh">${opts.input ? `<input type="text" value="${title.replace(/"/g, "&quot;")}" aria-label="Category name">` : `<span>${title}</span>`}${ids.length ? `<button class="play" data-play="${b}">${MODE[mode].kind === "kit" ? "Play beat" : "Play"}</button>` : ""}</div><div class="items"></div>`;
+  z.innerHTML = `<div class="zh">${opts.input ? `<input type="text" value="${title.replace(/"/g, "&quot;")}" aria-label="Category name">` : `<span>${title}</span>`}<span>${ids.length ? `<button class="play" data-play="${b}">${MODE[mode].kind === "kit" ? "Play beat" : "Play"}</button>` : ""}${opts.input ? `<button class="play" data-del="${b}" title="Delete this ${naming().word}; its sounds go back to the tray" aria-label="Delete ${title.replace(/"/g, "&quot;")}">✕</button>` : ""}</span></div><div class="items"></div>`;
   for (const id of ids) z.querySelector(".items").append(chip(id));
+  if (opts.input) z.querySelector("[data-del]").onclick = () => { const st = naming().st, name = st.names[b]; st.names.splice(b, 1); for (const id in st.of) if (st.of[id] === name) delete st.of[id]; saveAll(); drawAll(); };
   if (opts.input) z.querySelector("input").onchange = e => { const st = naming().st, old = st.names[b], nv = e.target.value.trim() || old; st.names[b] = nv; for (const id in st.of) if (st.of[id] === old) st.of[id] = nv; saveAll(); drawAll(); };
   return z;
 }
