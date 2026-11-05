@@ -204,7 +204,6 @@ label.btn { display: inline-block; }
           <option value="disagree">Sounds unlike Reeve's guess</option>
           <option value="untagged">Not categorised by me</option>
           <option value="layered">Layered (2+ sounds)</option>
-          <option value="dup">Possible duplicates</option>
         </select>
       </label>
       <label class="field"><span>Has</span><select id="fHas"><option value="">Anything</option></select></label>
@@ -317,12 +316,7 @@ label.btn { display: inline-block; }
     <p class="hint">Each note waits for its sound to finish (silence for the time above, or the longest clip), so short drums go quickly and long dialogue gets its full length. Before the run the DMC gets the bank (CC14), the pitch (CC3), and loop, start offset, length, override and Wave Traveller all off. Pitch 12 (CC3 96) is the samples' normal speed (Reeve, by ear on the vocals), so it's the default; the library can play clips back at any other pitch (sped up or slowed down in the browser, which isn't quite the NES's own sound at that pitch). <b>Play through</b> plays the same notes without recording anything, to set levels: with the audio input on it waits for each sound to end and reports the peaks (and the loudest notes at the end); without it, notes are spaced by the play-through spacing.</p>
   </section>
 
-  <div class="columns">
-    <section class="card">
-      <h2>Same sound twice?</h2>
-      <div id="dups" class="dups"><p class="empty" style="text-align:left">Nothing recorded yet.</p></div>
-      <p class="hint">Clips whose length and sound envelope match closely. A bank may store one sample under two notes; the old v1 set (16 sounds) may be among them.</p>
-    </section>
+  <div>
     <section class="card">
       <h2>Log</h2>
       <div class="row">
@@ -1033,6 +1027,7 @@ function findDups() {
 }
 function clipLabel(c) { return `${c.bank}${String(c.note).padStart(3, "0")} ${noteName(c.note)}`; }
 function renderDups() {
+  if (!$("dups")) return;   // (twin listing retired: Reeve confirmed no repeats)
   const sel = $("setSel").value;
   const seen = new Set(), out = [];
   for (const [k, g] of dupOf) {
@@ -1228,7 +1223,7 @@ function clipRow(c) {
       <div title="${esc(g.join(" · "))}"><span class="lbl">Reeve</span>${esc(g[0] || "?")}${g[1] ? ` <span style="color:var(--muted)">· ${esc(g[1])}</span>` : ""}</div>
       <div class="auto${disagrees(c) ? " disagree" : ""}" title="Nearest by sound: ${esc(c.near?.keys.join(", ") || "")}"><span class="lbl">Like</span><b>${esc(CAT_NAME[c.near?.cat] || "?")}</b> <span style="color:var(--muted)">· ${c.near ? `${c.near.n} of 5 nearest: ${esc(c.near.keys.join(" "))}` : ""}</span></div>
     </div>
-    <div class="facts">${c.bytes ? c.bytes.length + " B · " : ""}${a.dur ? a.dur.toFixed(2) : "?"} s · peak ${a.peakDb != null ? a.peakDb.toFixed(0) : "?"} dB${f0}<br>bright ${a.centroid ? (a.centroid / 1000).toFixed(1) : "?"} kHz · low ${Math.round(((a.sub || 0) + (a.low || 0)) * 100)}% · high ${Math.round(((a.high || 0) + (a.air || 0)) * 100)}%${dupOf.has(c.key) ? " · <span style=\"color:var(--warn)\">twin</span>" : ""}${c.cut ? " · cut" : ""}</div>
+    <div class="facts">${c.bytes ? c.bytes.length + " B · " : ""}${a.dur ? a.dur.toFixed(2) : "?"} s · peak ${a.peakDb != null ? a.peakDb.toFixed(0) : "?"} dB${f0}<br>bright ${a.centroid ? (a.centroid / 1000).toFixed(1) : "?"} kHz · low ${Math.round(((a.sub || 0) + (a.low || 0)) * 100)}% · high ${Math.round(((a.high || 0) + (a.air || 0)) * 100)}%${c.cut ? " · cut" : ""}</div>
     <button class="btn small play" aria-label="Play ${c.bank}${c.note}">▶</button>
     <div class="mine${c.bytes ? " dmc" : ""}">
       ${c.bytes ? `<select class="native" aria-label="This sample's own pitch" title="This sample's own pitch">${Array.from({ length: 16 }, (_, i) => 15 - i).map(i => `<option value="${i}"${c.native === i ? " selected" : ""}>Pitch ${i}</option>`).join("")}</select>` : ""}
@@ -1400,10 +1395,10 @@ function zip(files) {        // [{name, data: Uint8Array}] -> Blob (stored, no c
 }
 const CSV_COLS = ["bank", "note", "name", "pitch_index", "cc3", "video_mode", "reeve_guess", "reeve_notes", "guess_cat", "sounds_like", "nearest", "my_cat", "has", "my_notes",
   "dur_s", "peak_db", "rms_db", "attack_ms", "decay20_ms", "decay40_ms", "centroid_hz", "early_centroid_hz", "rolloff_hz", "flatness", ...BAND_NAMES,
-  "f0_hz", "f0_note", "clarity", "speech", "bursts", "sweep", "zcr", "latency_ms", "twins", "cut", "file", "input", "channel", "recorded"];
+  "f0_hz", "f0_note", "clarity", "speech", "bursts", "sweep", "zcr", "latency_ms", "twins_unused", "cut", "file", "input", "channel", "recorded"];
 function csvRow(c) {
   const a = c.auto || {}, g = GUESS[c.bank][c.note], r = x => x == null || Number.isNaN(x) ? "" : (typeof x === "number" ? +x.toFixed(4) : x);
-  const twins = dupOf.has(c.key) ? [...dupOf.get(c.key)].filter(k => k !== c.key).map(k => { const o = clips.get(k); return o ? o.bank + o.note : ""; }).join(" ") : "";
+  const twins = "";
   return [c.bank, c.note, noteName(c.note), c.pidx, c.pidx * 8, c.mode, g[0], g[1], guessCat(g[0]), c.near?.cat || "", c.near ? c.near.keys.join(" ") : "", c.cat, hasOf(c).join(" "), c.notes,
     a.dur, a.peakDb, a.rmsDb, a.attackMs, a.decay20Ms, a.decay40Ms, a.centroid, a.earlyCentroid, a.rolloff, a.flatness, ...BAND_NAMES.map(b => a[b]),
     a.f0, a.f0Note, a.clarity, a.speech, a.bursts, a.sweep, a.zcr, c.lat, twins, c.cut ? 1 : 0, fileName(c), c.input, c.chan, c.at]
@@ -1431,7 +1426,7 @@ $("copyBtn").addEventListener("click", async () => {
     "note | Reeve's guess | sounds like (nearest) | mine | has | length | notes"];
   for (const c of list) {
     const a = c.auto || {}, g = GUESS[c.bank][c.note];
-    const twins = dupOf.has(c.key) ? " twin:" + [...dupOf.get(c.key)].filter(k => k !== c.key).map(k => { const o = clips.get(k); return o ? o.bank + o.note : ""; }).join("/") : "";
+    const twins = "";
     lines.push(`${c.bank}${c.note} ${noteName(c.note)} | ${g[0] || "?"}${g[1] ? " (" + g[1] + ")" : ""} | like ${CAT_NAME[c.near?.cat] || "?"} (${c.near ? c.near.n + "/5: " + c.near.keys.join(" ") : ""})${disagrees(c) ? " !" : ""} | ${CAT_NAME[c.cat] || "-"} | ${hasOf(c).map(k => HAS_NAME[k]).join(" + ") || "-"} | ${a.dur ? a.dur.toFixed(2) + "s" : "?"}${twins} | ${c.notes || ""}`);
   }
   try { await navigator.clipboard.writeText(lines.join("\n")); log(`Copied ${list.length} lines.`); }
