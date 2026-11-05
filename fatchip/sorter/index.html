@@ -134,6 +134,7 @@ code { font-family: var(--mono); font-size: 13px; }
       <span class="status-line" id="roundStatus"></span>
     </div>
     <div class="tabs" id="tabs" role="group" aria-label="What to sort"></div>
+    <div class="tabs" id="subtabs" role="group" aria-label="Which family to name types for" style="margin-top:8px" hidden></div>
     <p class="hint" id="modeHint"></p>
     <div class="zone tray" id="tray" data-b="-1">
       <div class="zh"><span id="trayLabel">To sort</span><button class="play" data-play="-1">Play all</button></div>
@@ -154,7 +155,7 @@ code { font-family: var(--mono); font-size: 13px; }
       <h2><span class="step-n">2</span>Map</h2>
       <div class="row">
         <label class="field" style="width:170px"><span>Show</span><select id="view"></select></label>
-        <label class="field" style="width:170px"><span>Colour by</span><select id="colorBy"><option value="fam">Family</option><option value="group">Suggested group</option><option value="style">Style tag</option><option value="char">Character tag</option></select></label>
+        <label class="field" style="width:170px"><span>Colour by</span><select id="colorBy"><option value="fam">Family</option><option value="group">Suggested group</option><option value="type">Type</option><option value="style">Style tag</option><option value="char">Character tag</option></select></label>
       </div>
     </div>
     <p class="hint" style="margin-top:0">Sounds you put in the same bucket pull together; ones you keep apart push away. Lines show what you've sorted (green together, red apart). Click a dot to hear it and select it; Shift-click to add; drag on empty space to select a patch; drag a dot to move it.</p>
@@ -184,7 +185,7 @@ code { font-family: var(--mono); font-size: 13px; }
       <button id="resetBtn" class="btn small">Start over</button>
       <span class="status-line" id="saveStatus"></span>
     </div>
-    <p class="hint">Everything stays in this browser. Export to back it up or to hand to someone; importing a file merges their rounds, percussion names and tags with yours (rounds are never counted twice). No sample data goes in the file.</p>
+    <p class="hint">Everything stays in this browser. Export to back it up or to hand to someone; importing a file merges their rounds, percussion names, types and tags with yours (rounds are never counted twice). No sample data goes in the file.</p>
   </section>
 </main>
 <script>
@@ -194,7 +195,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("sorter." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("sorter." + k, JSON.stringify(v)); } catch { /* */ } },
 };
-const MAP = {"A0":["kick","kick"],"A1":["bass",""],"A2":["kick","kick"],"A3":["kick",""],"A4":["kick","kick"],"A5":["kick","kick"],"A6":["snare","snare"],"A7":["snare","snare"],"A8":["snare","snare"],"A9":["snare","snare"],"A10":["kick","kick"],"A11":["snare","snare"],"A12":["hatc","hat"],"A13":["hato","ohat"],"A14":["hatc","hat"],"A15":["hatc","hat"],"A16":["snare","snare"],"A17":["tom","tom"],"A18":["kick","kick"],"A19":["kick","kick"],"A20":["hato","ohat"],"A21":["hatc","hat"],"A22":["kick","kick hat"],"A23":["snare","snare"],"A24":["clap","clap"],"A25":["clap","clap"],"A26":["hatc","ohat"],"A27":["hato","ohat"],"A28":["snare","snare"],"A29":["snare","snare"],"A30":["tom","tom"],"A31":["tom","tom"],"A32":["snare","snare"],"A33":["snare","snare"],"A34":["snare","snare"],"A35":["snare","snare"],"A36":["kick","kick"],"A37":["kick","kick"],"A38":["perc","perc"],"A39":["hatc","hat"],"A40":["snare","snare clap"],"A41":["perc","perc"],"A42":["hato","ohat"],"A43":["tom","tom"],"A44":["hatc","hat"],"A45":["perc","perc"],"A46":["tom","tom"],"A47":["tom","tom"],"A48":["perc","perc"],"A49":["perc","perc"],"A50":["perc","perc"],"A51":["snare","snare"],"A52":["perc","perc"],"A53":["perc","perc"],"A54":["cymbal","cymbal"],"A55":["hatc","hat"],"A56":["hato","ohat"],"A57":["kick","kick"],"A58":["hato","ohat"],"A59":["snare","snare hat"],"A60":["snare","snare"],"A61":["snare","snare"],"A62":["hatc","perc"],"A63":["perc","perc"],"A64":["snare","snare"],"A65":["snare","snare"],"A66":["kick","kick"],"A67":["kick","kick"],"A68":["kick","kick"],"A69":["snare","snare"],"A70":["snare","snare ohat"],"A71":["snare","snare"],"A72":["snare","snare"],"A73":["kick","kick hat"],"A74":["hatc","hat"],"A75":["snare","snare"],"A76":["perc","perc"],"A77":["cymbal","cymbal"],"A78":["perc","perc"],"A79":["perc","perc"],"A80":["perc","perc"],"A81":["hatc","ohat"],"A82":["hato","ohat"],"A83":["hatc","hat"],"A84":["hatc","hat"],"A85":["fx",""],"A86":["kick","kick hat"],"A87":["hato","snare cymbal"],"A88":["snare","snare"],"A89":["hatc","hat"],"A90":["snare","snare"],"A91":["kick","kick hat"],"A92":["kick","kick"],"A93":["snare","snare hat"],"A94":["hatc","hat"],"A95":["snare","snare hat"],"A96":["snare","hat"],"A97":["snare","snare"],"A98":["kick","kick cymbal"],"A99":["snare","snare cymbal"],"A100":["kick","kick cymbal"],"A101":["hato","ohat"],"A102":["kick","kick hat"],"A103":["snare","snare"],"A104":["snare","snare"],"A105":["vocal","vocal"],"A106":["kick","kick"],"A107":["kick","kick"],"A108":["snare","snare"],"A109":["snare","snare"],"A110":["snare","snare tom"],"A111":["snare","snare"],"A112":["kick","kick cymbal"],"A113":["snare","snare cymbal"],"A114":["hato","ohat"],"A115":["kick","kick hat"],"A116":["hato","ohat"],"A117":["snare","snare"],"A118":["hatc","hat"],"A119":["kick","kick"],"A120":["snare","snare"],"A121":["snare","snare"],"A122":["snare","snare"],"A123":["hato","ohat"],"A124":["snare","snare"],"A125":["snare","snare"],"A126":["snare","snare hat"],"A127":["snare","snare"],"B0":["snare","snare"],"B1":["snare","snare"],"B2":["kick","kick ohat"],"B3":["kick","kick ohat"],"B4":["snare","snare hat"],"B5":["kick","kick ohat"],"B6":["kick","kick cymbal"],"B7":["kick","kick ohat"],"B8":["kick","kick"],"B9":["snare","snare hat"],"B10":["kick","kick"],"B11":["kick","kick"],"B12":["kick","kick"],"B13":["snare","snare"],"B14":["kick","kick"],"B15":["kick","kick"],"B16":["kick","kick"],"B17":["snare",""],"B18":["perc",""],"B19":["perc","perc"],"B20":["fx",""],"B21":["hatc","hat"],"B22":["vocal","vocal"],"B23":["vocal","vocal"],"B24":["vocal","vocal"],"B25":["vocal","vocal"],"B26":["vocal",""],"B27":["vocal",""],"B28":["vocal",""],"B29":["vocal",""],"B30":["vocal","vocal"],"B31":["vocal","vocal"],"B32":["vocal","vocal"],"B33":["vocal","vocal"],"B34":["vocal","vocal"],"B35":["vocal","vocal"],"B36":["tonal","vocal"],"B37":["vocal","vocal"],"B38":["vocal","vocal"],"B39":["vocal","vocal"],"B40":["vocal","vocal"],"B41":["fx",""],"B42":["tonal",""],"B43":["tonal",""],"B44":["tonal",""],"B45":["fx",""],"B46":["fx",""],"B47":["fx",""],"B48":["fx",""],"B49":["fx",""],"B50":["vocal","vocal"],"B51":["vocal",""],"B52":["vocal",""],"B53":["vocal",""],"B54":["vocal",""],"B55":["vocal",""],"B56":["vocal",""],"B57":["vocal",""],"B58":["vocal",""],"B59":["vocal",""],"B60":["tonal",""],"B61":["tonal",""],"B62":["tonal",""],"B63":["tonal",""],"B64":["tonal",""],"B65":["tonal",""],"B66":["tonal","tom"],"B67":["tonal","tom"],"B68":["tonal","tom"],"B69":["tonal","tom"],"B70":["tonal",""],"B71":["tonal",""],"B72":["tonal",""],"B73":["tonal",""],"B74":["tonal",""],"B75":["fx",""],"B76":["fx",""],"B77":["fx",""],"B78":["fx",""],"B79":["fx",""],"B80":["fx",""],"B81":["vocal","vocal"],"B82":["vocal","vocal"],"B83":["vocal","vocal"],"B84":["vocal","vocal"],"B85":["vocal","vocal"],"B86":["vocal","vocal"],"B87":["vocal","vocal"],"B88":["vocal","vocal"],"B89":["vocal","vocal"],"B90":["vocal","vocal"],"B91":["vocal","vocal"],"B92":["vocal","vocal"],"B93":["vocal","vocal"],"B94":["vocal","vocal"],"B95":["fx",""],"B96":["fx",""],"B97":["fx",""],"B98":["fx",""],"B99":["fx",""],"B100":["fx",""],"B101":["fx",""],"B102":["fx",""],"B103":["fx",""],"B104":["fx",""],"B105":["fx",""],"B106":["fx",""],"B107":["fx",""],"B108":["fx",""],"B109":["fx",""],"B110":["fx",""],"B111":["fx",""],"B112":["fx",""],"B113":["fx",""],"B114":["fx",""],"B115":["fx",""],"B116":["fx",""],"B117":["fx",""],"B118":["fx",""],"B119":["fx",""],"B120":["fx",""],"B121":["fx",""],"B122":["fx",""],"B123":["fx",""],"B124":["fx",""],"B125":["fx",""],"B126":["fx",""],"B127":["fx",""]};   // Reeve's categories (Sample Lab, 2026-11-04), used where this browser has none
+const MAP = {"A0":["kick","kick"],"A1":["bass",""],"A2":["kick","kick"],"A3":["kick",""],"A4":["kick","kick"],"A5":["kick","kick"],"A6":["snare","snare"],"A7":["snare","snare"],"A8":["snare","snare"],"A9":["snare","snare"],"A10":["kick","kick"],"A11":["snare","snare"],"A12":["hatc","hat"],"A13":["hato","ohat"],"A14":["hatc","hat"],"A15":["hatc","hat"],"A16":["snare","snare"],"A17":["tom","tom"],"A18":["kick","kick"],"A19":["kick","kick"],"A20":["hato","ohat"],"A21":["hatc","hat"],"A22":["kick","kick hat"],"A23":["snare","snare"],"A24":["clap","clap"],"A25":["clap","clap"],"A26":["hatc","ohat"],"A27":["hato","ohat"],"A28":["snare","snare"],"A29":["snare","snare"],"A30":["tom","tom"],"A31":["tom","tom"],"A32":["snare","snare"],"A33":["snare","snare"],"A34":["snare","snare"],"A35":["snare","snare"],"A36":["kick","kick"],"A37":["kick","kick"],"A38":["perc","perc"],"A39":["hatc","hat"],"A40":["snare","snare clap"],"A41":["perc","perc"],"A42":["hato","ohat"],"A43":["tom","tom"],"A44":["hatc","hat"],"A45":["perc","perc"],"A46":["tom","tom"],"A47":["tom","tom"],"A48":["perc","perc"],"A49":["perc","perc"],"A50":["perc","perc"],"A51":["snare","snare"],"A52":["perc","perc"],"A53":["perc","perc"],"A54":["cymbal","cymbal"],"A55":["hatc","hat"],"A56":["hato","ohat"],"A57":["kick","kick"],"A58":["hato","ohat"],"A59":["snare","snare hat"],"A60":["snare","snare"],"A61":["snare","snare"],"A62":["hatc","perc"],"A63":["perc","perc"],"A64":["snare","snare"],"A65":["snare","snare"],"A66":["kick","kick"],"A67":["kick","kick"],"A68":["kick","kick"],"A69":["snare","snare"],"A70":["snare","snare ohat"],"A71":["snare","snare"],"A72":["snare","snare"],"A73":["kick","kick hat"],"A74":["hatc","hat"],"A75":["snare","snare"],"A76":["perc","perc"],"A77":["cymbal","cymbal"],"A78":["perc","perc"],"A79":["perc","perc"],"A80":["perc","perc"],"A81":["hato","ohat"],"A82":["cymbal","cymbal"],"A83":["hatc","hat"],"A84":["hatc","hat"],"A85":["fx",""],"A86":["kick","kick hat"],"A87":["hato","snare cymbal"],"A88":["snare","snare"],"A89":["hatc","hat"],"A90":["snare","snare"],"A91":["kick","kick hat"],"A92":["kick","kick"],"A93":["snare","snare hat"],"A94":["hatc","hat"],"A95":["snare","snare hat"],"A96":["snare","hat"],"A97":["snare","snare"],"A98":["kick","kick cymbal"],"A99":["snare","snare cymbal"],"A100":["kick","kick cymbal"],"A101":["hato","ohat"],"A102":["kick","kick hat"],"A103":["snare","snare"],"A104":["snare","snare"],"A105":["vocal","vocal"],"A106":["kick","kick"],"A107":["kick","kick"],"A108":["snare","snare"],"A109":["snare","snare"],"A110":["snare","snare tom"],"A111":["snare","snare"],"A112":["kick","kick cymbal"],"A113":["snare","snare cymbal"],"A114":["hato","ohat"],"A115":["kick","kick hat"],"A116":["hato","ohat"],"A117":["snare","snare"],"A118":["hatc","hat"],"A119":["kick","kick"],"A120":["snare","snare"],"A121":["snare","snare"],"A122":["snare","snare"],"A123":["hato","ohat"],"A124":["snare","snare"],"A125":["snare","snare"],"A126":["snare","snare hat"],"A127":["snare","snare"],"B0":["snare","snare"],"B1":["snare","snare"],"B2":["kick","kick ohat"],"B3":["kick","kick ohat"],"B4":["snare","snare hat"],"B5":["kick","kick ohat"],"B6":["kick","kick cymbal"],"B7":["kick","kick ohat"],"B8":["kick","kick"],"B9":["snare","snare hat"],"B10":["kick","kick"],"B11":["kick","kick"],"B12":["kick","kick"],"B13":["snare","snare"],"B14":["kick","kick"],"B15":["kick","kick"],"B16":["kick","kick"],"B17":["snare",""],"B18":["perc",""],"B19":["perc","perc"],"B20":["fx",""],"B21":["hatc","hat"],"B22":["vocal","vocal"],"B23":["vocal","vocal"],"B24":["vocal","vocal"],"B25":["vocal","vocal"],"B26":["vocal",""],"B27":["vocal",""],"B28":["vocal",""],"B29":["vocal",""],"B30":["vocal","vocal"],"B31":["vocal","vocal"],"B32":["vocal","vocal"],"B33":["vocal","vocal"],"B34":["vocal","vocal"],"B35":["vocal","vocal"],"B36":["tonal","vocal"],"B37":["vocal","vocal"],"B38":["vocal","vocal"],"B39":["vocal","vocal"],"B40":["vocal","vocal"],"B41":["fx",""],"B42":["tonal",""],"B43":["tonal",""],"B44":["tonal",""],"B45":["fx",""],"B46":["fx",""],"B47":["fx",""],"B48":["fx",""],"B49":["fx",""],"B50":["vocal","vocal"],"B51":["vocal",""],"B52":["vocal",""],"B53":["vocal",""],"B54":["vocal",""],"B55":["vocal",""],"B56":["vocal",""],"B57":["vocal",""],"B58":["vocal",""],"B59":["vocal",""],"B60":["tonal",""],"B61":["tonal",""],"B62":["tonal",""],"B63":["tonal",""],"B64":["tonal",""],"B65":["tonal",""],"B66":["tonal","tom"],"B67":["tonal","tom"],"B68":["tonal","tom"],"B69":["tonal","tom"],"B70":["tonal",""],"B71":["tonal",""],"B72":["tonal",""],"B73":["tonal",""],"B74":["tonal",""],"B75":["fx",""],"B76":["fx",""],"B77":["fx",""],"B78":["fx",""],"B79":["fx",""],"B80":["fx",""],"B81":["vocal","vocal"],"B82":["vocal","vocal"],"B83":["vocal","vocal"],"B84":["vocal","vocal"],"B85":["vocal","vocal"],"B86":["vocal","vocal"],"B87":["vocal","vocal"],"B88":["vocal","vocal"],"B89":["vocal","vocal"],"B90":["vocal","vocal"],"B91":["vocal","vocal"],"B92":["vocal","vocal"],"B93":["vocal","vocal"],"B94":["vocal","vocal"],"B95":["fx",""],"B96":["fx",""],"B97":["fx",""],"B98":["fx",""],"B99":["fx",""],"B100":["fx",""],"B101":["fx",""],"B102":["fx",""],"B103":["fx",""],"B104":["fx",""],"B105":["fx",""],"B106":["fx",""],"B107":["fx",""],"B108":["fx",""],"B109":["fx",""],"B110":["fx",""],"B111":["fx",""],"B112":["fx",""],"B113":["fx",""],"B114":["fx",""],"B115":["fx",""],"B116":["fx",""],"B117":["fx",""],"B118":["fx",""],"B119":["fx",""],"B120":["fx",""],"B121":["fx",""],"B122":["fx",""],"B123":["fx",""],"B124":["fx",""],"B125":["fx",""],"B126":["fx",""],"B127":["fx",""]};   // Reeve's categories (Sample Lab, 2026-11-04), used where this browser has none
 const HZ = [4181.7, 4709.9, 5264.0, 5593.0, 6258.0, 7046.4, 7919.4, 8363.4, 9419.9, 11186.1, 12604.0, 13982.6, 16884.6, 21306.8, 24858.0, 33143.9];
 const SR = 48000;
 function dbOpen() {
@@ -255,6 +256,7 @@ const MODES = [
   { id: "tom", name: "Toms", fams: ["tom"] },
   { id: "fx", name: "FX", fams: ["fx"] },
   { id: "perc", name: "Percussion", fams: ["perc"], kind: "cat" },
+  { id: "types", name: "Types", fams: [], kind: "cat" },
   { id: "kit", name: "Kits", fams: ["kick", "snare", "hatc"], kind: "kit" },
 ];
 const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
@@ -278,9 +280,18 @@ const members = mode => samples.filter(s => MODE[mode].fams.includes(s.sf)).map(
 let rounds = store.get("rounds", []);          // [{id, mode, t, b: [[ids], ...]}]
 let perc = store.get("perc", { names: PERC_CATS.slice(), of: {} });
 if (!perc.names.includes("Clap")) perc.names.unshift("Clap");
+// finer types within a family (a ride vs a crash): family -> {names, of: {id: type}}
+const TYPE_FAMS = [["kick", "Kicks", ["Long", "Punchy", "Thud", "Layered"]], ["snare", "Snares", ["Tight", "Fat", "Layered"]], ["hatc", "Closed hats", ["Tight", "Loose", "Pedal"]], ["hato", "Open hats", ["Open", "Half open", "Open → closed"]], ["cymbal", "Cymbals", ["Crash", "Ride"]]];
+const freshTypes = () => Object.fromEntries(TYPE_FAMS.map(([f, , n]) => [f, { names: n.slice(), of: {} }]));
+let types = store.get("types", freshTypes()); for (const [f, , n] of TYPE_FAMS) if (!types[f]) types[f] = { names: n.slice(), of: {} };
+let typeFam = store.get("typeFam", "kick");
+const famIds = f => samples.filter(s => s.sf === f).map(s => s.id);
+// the naming screen being shown: percussion categories, or one family's types
+const naming = () => mode === "perc" ? { st: perc, M: members("perc"), word: "category" } : { st: types[typeFam], M: famIds(typeFam), word: "type" };
+const typeOf = id => { const f = byId[id]?.sf; return types[f]?.of[id] || null; };
 let tags = store.get("tags", {});              // id -> ["style:DnB", "char:Grimey"]
 let styleList = store.get("styles", STYLES.slice()), charList = store.get("chars", CHARS.slice());
-const saveAll = () => { store.set("rounds", rounds); store.set("perc", perc); store.set("tags", tags); store.set("styles", styleList); store.set("chars", charList); };
+const saveAll = () => { store.set("rounds", rounds); store.set("perc", perc); store.set("types", types); store.set("tags", tags); store.set("styles", styleList); store.set("chars", charList); };
 
 // pair statistics from every round: together / apart counts
 let stats = new Map();
@@ -345,7 +356,7 @@ function seenCount(m) { const c = {}; for (const r of rounds) if (r.mode === m) 
 function newRound(m) {
   const M = members(m);
   let items = [], old = [];
-  if (MODE[m].kind === "cat") items = M.filter(id => !perc.of[id]);
+  if (MODE[m].kind === "cat") items = [];
   else if (MODE[m].kind === "kit") {
     const cross = {}; for (const [k, o] of stats) { const [a, b] = k.split("|"); if (byId[a] && byId[b] && KIT_ROLE[byId[a].sf] && KIT_ROLE[byId[b].sf] && KIT_ROLE[byId[a].sf] !== KIT_ROLE[byId[b].sf]) { cross[a] = (cross[a] || 0) + o.t + o.a; cross[b] = (cross[b] || 0) + o.t + o.a; } }
     for (const role of ["kick", "snare", "hat"]) {
@@ -389,7 +400,7 @@ function drawTabs() {
   const box = $("tabs"); box.innerHTML = "";
   for (const m of MODES) {
     const b = document.createElement("button"); b.className = "tab"; b.setAttribute("aria-pressed", m.id === mode);
-    const n = m.kind === "cat" ? `${members("perc").filter(id => perc.of[id]).length}/${members("perc").length}` : rounds.filter(r => r.mode === m.id).length;
+    const n = m.id === "perc" ? `${members("perc").filter(id => perc.of[id]).length}/${members("perc").length}` : m.id === "types" ? (() => { const all = TYPE_FAMS.flatMap(([f]) => famIds(f)); return `${all.filter(typeOf).length}/${all.length}`; })() : rounds.filter(r => r.mode === m.id).length;
     b.innerHTML = `${m.name}<small>${n}</small>`;
     b.onclick = () => { mode = m.id; store.set("mode", mode); if (!cur || cur.mode !== mode || MODE[mode].kind === "cat") newRound(mode); drawSort(); };
     box.append(b);
@@ -407,7 +418,7 @@ function zone(b, title, ids, opts = {}) {
   const z = document.createElement("div"); z.className = "zone"; z.dataset.b = b;
   z.innerHTML = `<div class="zh">${opts.input ? `<input type="text" value="${title.replace(/"/g, "&quot;")}" aria-label="Category name">` : `<span>${title}</span>`}${ids.length ? `<button class="play" data-play="${b}">${MODE[mode].kind === "kit" ? "Play beat" : "Play"}</button>` : ""}</div><div class="items"></div>`;
   for (const id of ids) z.querySelector(".items").append(chip(id));
-  if (opts.input) z.querySelector("input").onchange = e => { const old = perc.names[b], nv = e.target.value.trim() || old; perc.names[b] = nv; for (const id in perc.of) if (perc.of[id] === old) perc.of[id] = nv; saveAll(); drawAll(); };
+  if (opts.input) z.querySelector("input").onchange = e => { const st = naming().st, old = st.names[b], nv = e.target.value.trim() || old; st.names[b] = nv; for (const id in st.of) if (st.of[id] === old) st.of[id] = nv; saveAll(); drawAll(); };
   return z;
 }
 function drawSort() {
@@ -415,17 +426,28 @@ function drawSort() {
   const m = MODE[mode], tray = $("tray"), box = $("buckets");
   if (!cur || cur.mode !== mode) newRound(mode);
   const kind = m.kind || "pair";
-  $("modeHint").innerHTML = kind === "cat" ? "Name what each percussion sound is: drag it into a category (rename them, or drop on <b>New category</b>). This saves as you go." :
+  $("subtabs").hidden = mode !== "types";
+  if (mode === "types") {
+    $("subtabs").innerHTML = "";
+    for (const [f, name] of TYPE_FAMS) {
+      const ids = famIds(f), b = document.createElement("button"); b.className = "tab"; b.setAttribute("aria-pressed", f === typeFam);
+      b.innerHTML = `${name}<small>${ids.filter(id => types[f].of[id]).length}/${ids.length}</small>`;
+      b.onclick = () => { typeFam = f; store.set("typeFam", f); drawSort(); };
+      $("subtabs").append(b);
+    }
+  }
+  $("modeHint").innerHTML = mode === "types" ? "What kind of each sound is it? Drag it into a type (rename them, or drop on <b>New type</b>). This saves as you go, separately from the go-together rounds." :
+    kind === "cat" ? "Name what each percussion sound is: drag it into a category (rename them, or drop on <b>New category</b>). This saves as you go." :
     kind === "kit" ? "Two kicks, two snares, two hats. Put the ones that make <b>one kit</b> together in a bucket; <b>Play beat</b> hears it as a groove. Only kick ↔ snare ↔ hat links count here." :
     "Put sounds that <b>go together</b> (could be the same kit) in one bucket, and ones that don't in different buckets. Leave a sound in the tray if you're not sure. <span style='color:var(--warn)'>▎</span>Marked ones you've sorted before.";
   $("trayLabel").textContent = kind === "cat" ? "Not named yet" : "To sort";
   tray.querySelector(".items").innerHTML = "";
   if (kind === "cat") {
-    const M = members("perc");
-    for (const id of M) if (!perc.of[id]) tray.querySelector(".items").append(chip(id));
+    const { st, M, word } = naming();
+    for (const id of M) if (!st.of[id]) tray.querySelector(".items").append(chip(id));
     box.innerHTML = "";
-    perc.names.forEach((n, i) => box.append(zone(i, n, M.filter(id => perc.of[id] === n), { input: true })));
-    box.append(zone(perc.names.length, "New category", []));
+    st.names.forEach((n, i) => box.append(zone(i, n, M.filter(id => st.of[id] === n), { input: true })));
+    box.append(zone(st.names.length, "New " + word, []));
     $("doneBtn").hidden = $("skipBtn").hidden = $("clearTab").hidden = true;
   } else {
     for (const id of cur.items) if (cur.where[id] < 0) tray.querySelector(".items").append(chip(id));
@@ -442,8 +464,9 @@ function drawSort() {
 }
 function moveTo(id, b) {
   if (MODE[mode].kind === "cat") {
-    if (b < 0) delete perc.of[id];
-    else { if (b >= perc.names.length) perc.names.push(`Category ${perc.names.length + 1}`); perc.of[id] = perc.names[b]; }
+    const { st, word } = naming();
+    if (b < 0) delete st.of[id];
+    else { if (b >= st.names.length) st.names.push(`${word[0].toUpperCase() + word.slice(1)} ${st.names.length + 1}`); st.of[id] = st.names[b]; }
     saveAll(); drawAll(); return;
   }
   cur.where[id] = b; compact(); store.set("cur", cur); drawSort();
@@ -451,7 +474,7 @@ function moveTo(id, b) {
 }
 function drawStats() {
   const m = MODE[mode];
-  if (m.kind === "cat") { const M = members("perc"); $("stats").textContent = `${M.filter(id => perc.of[id]).length} of ${M.length} percussion sounds named.`; $("roundStatus").textContent = ""; return; }
+  if (m.kind === "cat") { const { st, M } = naming(); $("stats").textContent = `${M.filter(id => st.of[id]).length} of ${M.length} ${mode === "perc" ? "percussion sounds" : FAM_NAME[typeFam].toLowerCase() + "s"} named.`; $("roundStatus").textContent = ""; return; }
   const M = members(mode), R = rounds.filter(r => r.mode === mode).length;
   let heard = 0, total = 0;
   const parent = Object.fromEntries(M.map(id => [id, id])), find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
@@ -527,7 +550,7 @@ document.addEventListener("keydown", e => {
 
 // ====================================================================== map
 let nodes = [], nodeOf = {}, alpha = 1, sel = new Set(), litNodes = new Set(), groupsOf = {}, groupList = [], raf = 0;
-const VIEWS = [["all", "All sorted sounds"], ...MODES.filter(m => m.kind !== "kit").map(m => [m.id, m.name]), ["kit", "Kits: kick, snare, hat"]];
+const VIEWS = [["all", "All sorted sounds"], ...MODES.filter(m => m.kind !== "kit" && m.id !== "types").map(m => [m.id, m.name]), ["kit", "Kits: kick, snare, hat"]];
 for (const [v, l] of VIEWS) $("view").add(new Option(l, v));
 $("view").value = store.get("view", "all"); $("colorBy").value = store.get("colorBy", "fam");
 function viewIds() {
@@ -606,6 +629,7 @@ function colorOf(id) {
   const by = $("colorBy").value;
   if (by === "fam") return FAM_COLOR[byId[id].sf];
   if (by === "group") return groupsOf[id] != null ? PAL[groupsOf[id] % PAL.length] : null;
+  if (by === "type") { const t = typeOf(id), st = types[byId[id].sf]; return t ? PAL[st.names.indexOf(t) % PAL.length] : null; }
   const pre = by === "style" ? "style:" : "char:", list = by === "style" ? styleList : charList;
   const t = (tags[id] || []).find(x => x.startsWith(pre)); return t ? PAL[list.indexOf(t.slice(pre.length)) % PAL.length] : null;
 }
@@ -614,6 +638,7 @@ function drawLegend() {
   let items = [];
   if (by === "fam") items = [...new Set(nodes.map(n => byId[n.id].sf))].map(f => [FAM_COLOR[f], FAM_NAME[f]]);
   else if (by === "group") items = groupList.slice(0, 12).map((g, i) => [PAL[i % PAL.length], `Group ${i + 1} (${g.length})`]);
+  else if (by === "type") { const seen = new Map(); for (const n of nodes) { const st = types[byId[n.id].sf]; if (st) st.names.forEach((t, i) => { if (!seen.has(t)) seen.set(t, PAL[i % PAL.length]); }); } items = [...seen].map(([t, c]) => [c, t]); }
   else { const list = by === "style" ? styleList : charList; items = list.map((t, i) => [PAL[i % PAL.length], t]); }
   if (by !== "fam") items.push(["var(--muted)", "none"]);
   box.innerHTML = items.map(([c, l]) => `<span><i style="background:${c}"></i>${l}</span>`).join("");
@@ -721,7 +746,7 @@ function drawGroups() {
 
 // ====================================================================== save / share
 $("exportBtn").onclick = () => {
-  const data = { app: "fatchip-sound-sorter", version: 1, exported: new Date().toISOString(), rounds, perc, tags, styles: styleList, chars: charList };
+  const data = { app: "fatchip-sound-sorter", version: 1, exported: new Date().toISOString(), rounds, perc, types, tags, styles: styleList, chars: charList };
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
   a.download = `sound-sorter-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   $("saveStatus").textContent = `Exported ${rounds.length} rounds.`;
@@ -734,6 +759,7 @@ $("importIn").onchange = async e => {
     for (const r of d.rounds || []) if (!have.has(r.id)) { rounds.push(r); added++; }
     for (const n of d.perc?.names || []) if (!perc.names.includes(n)) perc.names.push(n);
     for (const [id, c] of Object.entries(d.perc?.of || {})) if (!perc.of[id]) perc.of[id] = c;
+    for (const [f, o] of Object.entries(d.types || {})) { if (!types[f]) types[f] = { names: [], of: {} }; for (const n of o.names || []) if (!types[f].names.includes(n)) types[f].names.push(n); for (const [id, t] of Object.entries(o.of || {})) if (!types[f].of[id]) types[f].of[id] = t; }
     for (const [id, t] of Object.entries(d.tags || {})) tags[id] = [...new Set([...(tags[id] || []), ...t])];
     for (const t of d.styles || []) if (!styleList.includes(t)) styleList.push(t);
     for (const t of d.chars || []) if (!charList.includes(t)) charList.push(t);
@@ -745,7 +771,7 @@ $("importIn").onchange = async e => {
 let resetArmed = 0;
 $("resetBtn").onclick = () => {
   if (Date.now() - resetArmed > 4000) { resetArmed = Date.now(); $("resetBtn").textContent = "Click again to erase all sorting"; setTimeout(() => $("resetBtn").textContent = "Start over", 4000); return; }
-  rounds = []; perc = { names: PERC_CATS.slice(), of: {} }; tags = {}; styleList = STYLES.slice(); charList = CHARS.slice(); saveAll(); computeStats(); newRound(mode); drawAll();
+  rounds = []; perc = { names: PERC_CATS.slice(), of: {} }; types = freshTypes(); tags = {}; styleList = STYLES.slice(); charList = CHARS.slice(); saveAll(); computeStats(); newRound(mode); drawAll();
   $("resetBtn").textContent = "Start over"; $("saveStatus").textContent = "Erased.";
 };
 
