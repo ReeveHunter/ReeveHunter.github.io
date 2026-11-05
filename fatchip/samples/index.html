@@ -109,7 +109,7 @@ code { font-family: var(--mono); font-size: 13px; }
 .progress i { display: block; height: 100%; width: 0; background: var(--accent); }
 canvas.big { width: 100%; height: 110px; display: block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; margin-top: 10px; }
 /* library */
-.filters { display: grid; grid-template-columns: 1.3fr 0.7fr 1fr 1fr 1.4fr; gap: 10px; }
+.filters { display: grid; grid-template-columns: 1.3fr 0.6fr 1fr 1fr 0.8fr 1.2fr; gap: 10px; }
 @media (max-width: 860px) { .filters { grid-template-columns: 1fr 1fr; } }
 .counts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .chip { font: 600 12px/1 "Inter", system-ui, sans-serif; padding: 6px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
@@ -127,7 +127,7 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
 .clip .who .auto b { font-weight: 600; }
 .clip .who .auto.disagree b { color: var(--warn); }
 .clip .facts { font: 12px/1.4 var(--mono); color: var(--muted); }
-.clip .mine { grid-column: 3 / -1; display: grid; grid-template-columns: 150px auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.clip .mine { grid-column: 3 / -1; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px; align-items: center; }
 .clip .mine select, .clip .mine input { padding: 5px 8px; font-size: 13px; }
 .tagset { display: flex; gap: 4px; flex-wrap: wrap; }
 .tagset .chip { padding: 5px 7px; font-size: 11.5px; }
@@ -149,7 +149,8 @@ canvas.big { width: 100%; height: 110px; display: block; background: var(--surfa
 .tools > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 label.btn { display: inline-block; }
 .clip.now { box-shadow: inset 4px 0 0 var(--ok); }
-.clip .mine.dmc { grid-template-columns: 150px 110px auto minmax(0, 1fr); }
+.clip .mine.dmc { grid-template-columns: 100px 150px minmax(0, 1fr); }
+.clip .mine input[type=text] { grid-column: 1 / -1; }
 @media (max-width: 760px) { .clip .mine.dmc { grid-template-columns: 1fr 1fr; } }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
@@ -202,14 +203,15 @@ label.btn { display: inline-block; }
           <option value="">Everything</option>
           <option value="disagree">Sounds unlike Reeve's guess</option>
           <option value="untagged">Not categorised by me</option>
-          <option value="tagged">Tagged</option>
+          <option value="layered">Layered (2+ sounds)</option>
           <option value="dup">Possible duplicates</option>
         </select>
       </label>
+      <label class="field"><span>Has</span><select id="fHas"><option value="">Anything</option></select></label>
       <label class="field"><span>Search</span><input id="fText" type="search" placeholder="Name, note, notes…"></label>
     </div>
     <div class="counts" id="catChips" aria-label="Filter by category"></div>
-    <p class="hint">Click a clip or use <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Space</kbd> to play, <kbd>P</kbd> to play on through the following notes (for samples cut into parts, like the sweeps or “That's” + “Tough”; <kbd>Esc</kbd> stops), <kbd>1</kbd>–<kbd>5</kbd> for the tags (GNARLY, TEXTURE, RHYTHMIC, BASS, KEEP), <kbd>C</kbd> to pick a category. Changes are saved in this browser as you go.</p>
+    <p class="hint">Click a clip or use <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Space</kbd> to play, <kbd>P</kbd> to play on through the following notes (for samples cut into parts, like the sweeps or “That's” + “Tough”; <kbd>Esc</kbd> stops), <kbd>1</kbd>–<kbd>9</kbd> for what it has (kick, snare, hi-hat, open hat, cymbal, clap, tom, perc, vocal: a layered hit gets several; they start from your spreadsheet's types), <kbd>C</kbd> to pick a category. Changes are saved in this browser as you go.</p>
     <div class="clips" id="clips" tabindex="-1"></div>
   </section>
 
@@ -349,7 +351,27 @@ const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", 
 const noteName = n => NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 2);   // Logic: middle C = C3
 // NTSC DMC rates for CC3 = 0, 8, ... 120 (index = CC3 >> 3)
 const DMC_HZ = [4181.7, 4709.9, 5264.0, 5593.0, 6258.0, 7046.4, 7919.4, 8363.4, 9419.9, 11186.1, 12604.0, 13982.6, 16884.6, 21306.8, 24858.0, 33143.9];
-const TAGS = ["GNARLY", "TEXTURE", "RHYTHMIC", "BASS", "KEEP"];
+// "Has": every sound a sample contains, so layered hits (kick + hat, snare +
+// cymbal...) can stand in for two drums at once in patterns
+const HAS = [["kick", "Kick"], ["snare", "Snare"], ["hat", "Hi-hat"], ["ohat", "Open hat"], ["cymbal", "Cymbal"], ["clap", "Clap"], ["tom", "Tom"], ["perc", "Perc"], ["vocal", "Vocal"]];
+const HAS_NAME = Object.fromEntries(HAS);
+// first guess from Reeve's spreadsheet: its type text and emoji (e.g. "Kick/Cymbal 🦵+🟠", "Hi-Hat Closed 🦵+🎩")
+function hasFromGuess(text) {
+  const t = (text || "").toLowerCase(), h = new Set();
+  if (/sweep/.test(t)) return [];
+  if (/kick/.test(t) || t.includes("🦵")) h.add("kick");
+  if (/snare|rim/.test(t) || t.includes("🥁")) h.add("snare");
+  const open = /open/.test(t) || t.includes("📂");
+  const emojiOpenHat = t.includes("📂") && !t.includes("🟠");   // "Kick/Cymbal 🦵+📂🎩, half open hat": the emoji wins
+  if (/hi-?hat|hats\b/.test(t) || t.includes("🎩")) h.add(open ? "ohat" : "hat");
+  if ((/cymbal|crash/.test(t) && !emojiOpenHat) || t.includes("🟠")) h.add("cymbal");
+  if (/clap/.test(t) || t.includes("👏")) h.add("clap");
+  if (/\btom|roto/.test(t) || t.includes("🛢")) h.add("tom");
+  if (/conga|clave|cowbell|tamb|percussion/.test(t) || t.includes("🪇") || t.includes("🪘")) h.add("perc");
+  if (/vocal|laugh|yeah/.test(t) || t.includes("🎤")) h.add("vocal");
+  return HAS.map(([k]) => k).filter(k => h.has(k));
+}
+const hasOf = c => c.has ?? hasFromGuess(GUESS[c.bank][c.note][0]);
 const CATS = [["kick", "Kick"], ["snare", "Snare"], ["clap", "Clap"], ["hatc", "Hi-hat closed"], ["hato", "Hi-hat open"], ["cymbal", "Cymbal"],
   ["tom", "Tom"], ["perc", "Percussion"], ["bass", "Bass"], ["tonal", "Tonal / music"], ["vocal", "Vocal"], ["fx", "FX"], ["sweep", "Sweep / pad"], ["silent", "Silent"]];
 const CAT_NAME = Object.fromEntries(CATS);
@@ -1098,7 +1120,7 @@ async function loadDmc(files) {
     const bytes = new Uint8Array(await f.arrayBuffer());
     const key = `${DMC_SET}|${bank}|${note}`, old = clips.get(key);
     const c = { key, set: DMC_SET, bank, note, bytes, native: old?.native ?? nativeDefault(bank, note), mode: "", lat: null, cut: false,
-      at: new Date().toISOString(), cat: old?.cat || "", tags: old?.tags || [], notes: old?.notes || "", input: "decoded data", chan: "" };
+      at: new Date().toISOString(), cat: old?.cat || "", tags: old?.tags || [], has: old?.has, notes: old?.notes || "", input: "decoded data", chan: "" };
     dmcClipPrepare(c);
     clips.set(key, c);
     await dbPut(c);
@@ -1145,7 +1167,8 @@ function refreshSets(want) {
   pa.value = [...pa.options].some(o => o.value === want2) ? want2 : "rec";
 }
 $("setSel").addEventListener("change", () => { store.set("set", $("setSel").value); refreshSets(); renderLibrary(); renderDups(); });
-for (const id of ["fBank", "fShow"]) $(id).addEventListener("change", renderLibrary);
+for (const id of ["fBank", "fShow", "fHas"]) $(id).addEventListener("change", renderLibrary);
+for (const [k, l] of HAS) $("fHas").add(new Option(l, k));
 $("fText").addEventListener("input", renderLibrary);
 
 function visible() {
@@ -1157,10 +1180,12 @@ function visible() {
     if (catFilter && cat !== catFilter) return false;
     if (show === "disagree" && !disagrees(c)) return false;
     if (show === "untagged" && c.cat) return false;
-    if (show === "tagged" && !c.tags.length) return false;
+    if (show === "layered" && hasOf(c).length < 2) return false;
+    const want = $("fHas").value;
+    if (want && !hasOf(c).includes(want)) return false;
     if (show === "dup" && !dupOf.has(c.key)) return false;
     if (q) {
-      const hay = [c.bank + c.note, noteName(c.note), ...GUESS[c.bank][c.note], CAT_NAME[cat], c.notes, ...c.tags].join(" ").toLowerCase();
+      const hay = [c.bank + c.note, noteName(c.note), ...GUESS[c.bank][c.note], CAT_NAME[cat], c.notes, ...hasOf(c).map(k => HAS_NAME[k])].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -1208,7 +1233,7 @@ function clipRow(c) {
     <div class="mine${c.bytes ? " dmc" : ""}">
       ${c.bytes ? `<select class="native" aria-label="This sample's own pitch" title="This sample's own pitch">${Array.from({ length: 16 }, (_, i) => 15 - i).map(i => `<option value="${i}"${c.native === i ? " selected" : ""}>Pitch ${i}</option>`).join("")}</select>` : ""}
       <select class="mycat" aria-label="My category"><option value="">My category…</option>${CATS.map(([k, l]) => `<option value="${k}"${c.cat === k ? " selected" : ""}>${l}</option>`).join("")}</select>
-      <div class="tagset">${TAGS.map((t, i) => `<button class="chip" data-tag="${t}" aria-pressed="${c.tags.includes(t)}" title="${i + 1}">${t}</button>`).join("")}</div>
+      <div class="tagset" aria-label="Has">${HAS.map(([k, l], i) => `<button class="chip" data-has="${k}" aria-pressed="${hasOf(c).includes(k)}" title="Key ${i + 1}">${l}</button>`).join("")}</div>
       <input type="text" placeholder="Notes" value="${esc(c.notes)}" aria-label="My notes">
     </div>`;
   drawWave(el.querySelector("canvas"), c.pcm, false);
@@ -1217,7 +1242,7 @@ function clipRow(c) {
   el.querySelector("select.mycat").addEventListener("change", e => { c.cat = e.target.value; dbPut(c); updateNear(); refreshRow(c); renderChips(); });
   el.querySelector("select.native")?.addEventListener("change", e => { c.native = +e.target.value; dmcClipPrepare(c); dbPut(c); updateNear(); refreshRow(c); renderChips(); play(c); });
   el.querySelector("input").addEventListener("change", e => { c.notes = e.target.value; dbPut(c); });
-  el.querySelectorAll(".tagset .chip").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); toggleTag(c, b.dataset.tag); }));
+  el.querySelectorAll(".tagset .chip").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); toggleHas(c, b.dataset.has); }));
   return el;
 }
 function refreshRow(c) {
@@ -1227,11 +1252,12 @@ function refreshRow(c) {
   old.replaceWith(nw);
   if (selKey === c.key) nw.classList.add("sel");
 }
-function toggleTag(c, t) {
-  c.tags = c.tags.includes(t) ? c.tags.filter(x => x !== t) : [...c.tags, t];
+function toggleHas(c, k) {
+  const cur = hasOf(c);
+  c.has = cur.includes(k) ? cur.filter(x => x !== k) : HAS.map(([x]) => x).filter(x => x === k || cur.includes(x));
   dbPut(c);
-  const b = document.querySelector(`.clip[data-key="${CSS.escape(c.key)}"] [data-tag="${t}"]`);
-  if (b) b.setAttribute("aria-pressed", c.tags.includes(t));
+  const b = document.querySelector(`.clip[data-key="${CSS.escape(c.key)}"] [data-has="${k}"]`);
+  if (b) b.setAttribute("aria-pressed", c.has.includes(k));
 }
 function select(key) { selKey = key; markSel(true); }
 function markSel(scroll) {
@@ -1322,7 +1348,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowDown" || e.key === "j") { i = Math.min(rows.length - 1, i + 1); select(rows[i].dataset.key); play(clips.get(selKey)); e.preventDefault(); }
   else if (e.key === "ArrowUp" || e.key === "k") { i = Math.max(0, i - 1); select(rows[i].dataset.key); play(clips.get(selKey)); e.preventDefault(); }
   else if ((e.key === " " || e.key === "Enter") && c) { play(c); e.preventDefault(); }
-  else if (/^[1-5]$/.test(e.key) && c) { toggleTag(c, TAGS[+e.key - 1]); e.preventDefault(); }
+  else if (/^[1-9]$/.test(e.key) && c) { toggleHas(c, HAS[+e.key - 1][0]); e.preventDefault(); }
   else if ((e.key === "c" || e.key === "C") && c) { document.querySelector(`.clip.sel select.mycat`)?.focus(); e.preventDefault(); }
   else if ((e.key === "p" || e.key === "P") && c) { playOn(c); e.preventDefault(); }
   else if (e.key === "Escape") { stopPlaying(); panic(); }
@@ -1372,13 +1398,13 @@ function zip(files) {        // [{name, data: Uint8Array}] -> Blob (stored, no c
   end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, csize, true); end.setUint32(16, off, true);
   return new Blob([...parts, ...central, end.buffer], { type: "application/zip" });
 }
-const CSV_COLS = ["bank", "note", "name", "pitch_index", "cc3", "video_mode", "reeve_guess", "reeve_notes", "guess_cat", "sounds_like", "nearest", "my_cat", "tags", "my_notes",
+const CSV_COLS = ["bank", "note", "name", "pitch_index", "cc3", "video_mode", "reeve_guess", "reeve_notes", "guess_cat", "sounds_like", "nearest", "my_cat", "has", "my_notes",
   "dur_s", "peak_db", "rms_db", "attack_ms", "decay20_ms", "decay40_ms", "centroid_hz", "early_centroid_hz", "rolloff_hz", "flatness", ...BAND_NAMES,
   "f0_hz", "f0_note", "clarity", "speech", "bursts", "sweep", "zcr", "latency_ms", "twins", "cut", "file", "input", "channel", "recorded"];
 function csvRow(c) {
   const a = c.auto || {}, g = GUESS[c.bank][c.note], r = x => x == null || Number.isNaN(x) ? "" : (typeof x === "number" ? +x.toFixed(4) : x);
   const twins = dupOf.has(c.key) ? [...dupOf.get(c.key)].filter(k => k !== c.key).map(k => { const o = clips.get(k); return o ? o.bank + o.note : ""; }).join(" ") : "";
-  return [c.bank, c.note, noteName(c.note), c.pidx, c.pidx * 8, c.mode, g[0], g[1], guessCat(g[0]), c.near?.cat || "", c.near ? c.near.keys.join(" ") : "", c.cat, c.tags.join(" "), c.notes,
+  return [c.bank, c.note, noteName(c.note), c.pidx, c.pidx * 8, c.mode, g[0], g[1], guessCat(g[0]), c.near?.cat || "", c.near ? c.near.keys.join(" ") : "", c.cat, hasOf(c).join(" "), c.notes,
     a.dur, a.peakDb, a.rmsDb, a.attackMs, a.decay20Ms, a.decay40Ms, a.centroid, a.earlyCentroid, a.rolloff, a.flatness, ...BAND_NAMES.map(b => a[b]),
     a.f0, a.f0Note, a.clarity, a.speech, a.bursts, a.sweep, a.zcr, c.lat, twins, c.cut ? 1 : 0, fileName(c), c.input, c.chan, c.at]
     .map(r).map(v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v).join(",");
@@ -1402,11 +1428,11 @@ $("copyBtn").addEventListener("click", async () => {
   const list = [...clips.values()].filter(c => c.set === set).sort((p, q) => p.bank.localeCompare(q.bank) || p.note - q.note);
   if (!list.length) return;
   const lines = [`MidiNES Sample Lab — set ${set} (video mode ${list[0].mode}, pitch ${list[0].pidx}), ${list.length} clips`,
-    "note | Reeve's guess | sounds like (nearest) | mine | tags | length | notes"];
+    "note | Reeve's guess | sounds like (nearest) | mine | has | length | notes"];
   for (const c of list) {
     const a = c.auto || {}, g = GUESS[c.bank][c.note];
     const twins = dupOf.has(c.key) ? " twin:" + [...dupOf.get(c.key)].filter(k => k !== c.key).map(k => { const o = clips.get(k); return o ? o.bank + o.note : ""; }).join("/") : "";
-    lines.push(`${c.bank}${c.note} ${noteName(c.note)} | ${g[0] || "?"}${g[1] ? " (" + g[1] + ")" : ""} | like ${CAT_NAME[c.near?.cat] || "?"} (${c.near ? c.near.n + "/5: " + c.near.keys.join(" ") : ""})${disagrees(c) ? " !" : ""} | ${CAT_NAME[c.cat] || "-"} | ${c.tags.join(" ") || "-"} | ${a.dur ? a.dur.toFixed(2) + "s" : "?"}${twins} | ${c.notes || ""}`);
+    lines.push(`${c.bank}${c.note} ${noteName(c.note)} | ${g[0] || "?"}${g[1] ? " (" + g[1] + ")" : ""} | like ${CAT_NAME[c.near?.cat] || "?"} (${c.near ? c.near.n + "/5: " + c.near.keys.join(" ") : ""})${disagrees(c) ? " !" : ""} | ${CAT_NAME[c.cat] || "-"} | ${hasOf(c).map(k => HAS_NAME[k]).join(" + ") || "-"} | ${a.dur ? a.dur.toFixed(2) + "s" : "?"}${twins} | ${c.notes || ""}`);
   }
   try { await navigator.clipboard.writeText(lines.join("\n")); log(`Copied ${list.length} lines.`); }
   catch { log("Couldn't use the clipboard; use Download zip (analysis.csv) instead."); }
