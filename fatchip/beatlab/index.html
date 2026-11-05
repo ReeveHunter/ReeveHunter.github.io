@@ -171,12 +171,14 @@ code { font-family: var(--mono); font-size: 13px; }
       <h2><span class="step-n">4</span>Sweep pad</h2>
       <span class="status-line" id="padStatus"></span>
     </div>
-    <p class="hint" style="margin-top:0">B95–B127 played as one sound. Drag left and right to move through the parts (each one runs into the next), up and down for the speed. Hold still to repeat a part; let go to stop, unless Loop is on.</p>
+    <p class="hint" style="margin-top:0">B95–B127 played as one sound. Drag left and right to move through the parts (each one runs into the next), up and down for the speed. Hold still to repeat a part; let go to stop, unless Loop is on. <b>Clicking</b> instead glides from your last click to the new one, playing every part on the way in full (the parts are only 5–60 ms each, so “each part” can repeat them to slow the glide) while the speed moves from one height to the other; click again mid-glide to head somewhere else.</p>
     <div class="pad" id="pad" role="application" aria-label="Sweep pad: left and right picks the part, up and down the speed"><canvas id="padCv"></canvas></div>
     <div class="row" style="margin-top:10px">
+      <label class="field" style="width:150px"><span>Play by</span><select id="swMode"><option value="drag">Dragging</option><option value="glide">Clicking (glide)</option></select></label>
+      <label class="field" style="width:120px"><span>Glide: each part</span><select id="swRep"><option value="1">Once</option><option value="2">Twice</option><option value="4">4 times</option><option value="8">8 times</option><option value="16">16 times</option></select></label>
       <label class="field" style="width:110px"><span>Slowest speed</span><select id="swMin"></select></label>
       <label class="field" style="width:110px"><span>Fastest speed</span><select id="swMax"></select></label>
-      <label class="check" style="align-self:flex-end;padding-bottom:8px"><input type="checkbox" id="swLoop"> Loop (keep playing after letting go)</label>
+      <label class="check" style="align-self:flex-end;padding-bottom:8px"><input type="checkbox" id="swLoop"> Loop (keep playing at the end)</label>
       <button id="swStop" class="btn small" style="align-self:flex-end">Stop</button>
     </div>
   </section>
@@ -417,7 +419,7 @@ function chordUpdate() {   // backing: two pulses (held chord) and the triangle 
 // ====================================================================== sweep pad (B95–B127 played in order, scrubbed)
 // Streams the sweep in ~20 ms chunks like the NES would play it: one DAC that carries on from part to part,
 // the speed can change mid-part, and a DC block that keeps its state (no clicks at the joins).
-const sw = { on: false, held: false, part: 0, bit: 0, v: 64, pos: 0, carry: 0, x1: 64, y1: 0, t: 0, timer: 0, gain: null, X: 0, Y: 0.5 };
+const sw = { glide: null, lastX: null, lastY: null, on: false, held: false, part: 0, bit: 0, v: 64, pos: 0, carry: 0, x1: 64, y1: 0, t: 0, timer: 0, gain: null, X: 0, Y: 0.5 };
 function sweepParts() { return SWEEP.map(id => samples.find(s => s.id === id)).filter(Boolean); }
 function sweepSpeed() {
   const lo = Math.min(+$("swMin").value, +$("swMax").value), hi = Math.max(+$("swMin").value, +$("swMax").value);
@@ -425,8 +427,13 @@ function sweepSpeed() {
 }
 function sweepTarget(parts) { return Math.min(parts.length - 1, Math.floor(sw.X * parts.length)); }
 function sweepChunk(parts) {
-  const want = sweepTarget(parts);
-  if (want !== sw.part) { sw.part = want; sw.bit = 0; }        // moved: jump to the start of that part (the DAC carries on)
+  const want = sw.glide ? sw.part : sweepTarget(parts);
+  if (want !== sw.part) { sw.part = want; sw.bit = 0; }
+  if (sw.glide) {   // gliding: speed follows how far along the way we are, and the dot follows the sound
+    const g = sw.glide, nb = parts[sw.part].bytes.length * 8, prog = (Math.abs(sw.part - g.from) + (g.rep + sw.bit / nb) / +$("swRep").value) / (Math.abs(g.to - g.from) + 1);
+    sw.Y = g.y0 + (g.y1 - g.y0) * prog;
+    sw.X = Math.min(0.9999, (sw.part + sw.bit / nb) / parts.length);
+  }        // moved: jump to the start of that part (the DAC carries on)
   const s = parts[sw.part], nbits = s.bytes.length * 8, rate = HZ[sweepSpeed()];
   const n = Math.min(nbits - sw.bit, Math.max(8, Math.round(rate * 0.02 / 8) * 8));
   const dt = SR / rate, total = sw.pos + n * dt, len = Math.floor(total), buf = new Float32Array(len + 2);
@@ -443,7 +450,12 @@ function sweepChunk(parts) {
   for (let i = 0; i < len; i++) { const y = buf[i] - sw.x1 + 0.995 * sw.y1; sw.x1 = buf[i]; sw.y1 = y; out[i] = y; }
   if (sw.bit >= nbits) {   // end of a part: carry on with the next one if the pad has moved there, else repeat this one
     sw.bit = 0;
-    if (!sw.held && !$("swLoop").checked) sw.on = false;
+    if (sw.glide) {   // on to the next part toward the click; at the last one, stop (or loop it)
+      const g = sw.glide;
+      if (++g.rep < +$("swRep").value) { /* play this part again */ }
+      else if (sw.part !== g.to) { sw.part += Math.sign(g.to - sw.part); g.rep = 0; }
+      else { sw.glide = null; sw.X = g.x1; sw.Y = g.y1; if (!$("swLoop").checked) sw.on = false; }
+    } else if (!sw.held && !$("swLoop").checked) sw.on = false;
   }
   return out;
 }
@@ -457,7 +469,7 @@ function sweepPump() {
     sw.t += out.length / SR;
   }
   sweepShow(parts);
-  if (!sw.on) { clearInterval(sw.timer); setTimeout(() => sweepShow(parts), (sw.t - actx.currentTime) * 1000); }
+  if (!sw.on) { clearInterval(sw.timer); const g = sw.gain; setTimeout(() => { g.disconnect(); sweepShow(parts); }, (sw.t - actx.currentTime) * 1000 + 50); }
 }
 async function sweepStart() {
   await ctx();
@@ -472,7 +484,7 @@ async function sweepStart() {
 }
 function sweepStop() {   // cut it like a note off: short fade, no click
   if (!sw.on) return;
-  sw.on = false; clearInterval(sw.timer);
+  sw.on = false; sw.glide = null; clearInterval(sw.timer);
   const g = sw.gain, t = actx.currentTime;
   g.gain.setValueAtTime(W_DMC, t); g.gain.linearRampToValueAtTime(0, t + 0.012);
   setTimeout(() => g.disconnect(), 100);
@@ -481,7 +493,7 @@ function sweepStop() {   // cut it like a note off: short fade, no click
 
 // ====================================================================== kit model
 const q5 = v => Math.max(0, Math.min(100, Math.round(v / 5) * 5));
-const defSlot = (fam, L, P) => ({ src: "sample", fam, group: 0, L: q5(L), P: q5(P), spread: 15, change: 10, smin: 13, smax: 15, drop: 0, noise: "closed", nvol: 6, walk: false, hi: 22, iv: 5 });
+const defSlot = (fam, L, P) => ({ src: "sample", fam, group: 0, L: q5(L), P: q5(P), spread: 15, change: 10, smin: 13, smax: 15, noise: "closed", nvol: 6, walk: false, hi: 22, iv: 5 });
 let kit = fixKit(store.get("kit3", null)) || starter();
 function fixKit(k) { if (!k) return null; for (const [id] of SLOTS) { if (!k[id]) return null; k[id] = { ...defSlot(k[id].fam || "kick", 50, 50), ...k[id] }; } return k; }
 function starter() {
@@ -623,8 +635,8 @@ function playHits(hits, when, downbeat, offs = {}) {
     }
     const c = h.id === "tom" && kit.tom.walk ? chooseTom(when) : choose(h.id, h.vel, downbeat);
     if (!c) { lines.push(`${h.id.toUpperCase()}: no samples in ${FAM_NAME[kit[h.id].fam]}`); continue; }
-    hitDmc(c.s, c.p, at(h.id), kit[h.id].drop); dmcUsed = true; flash.add(h.id);
-    lines.push(`${h.id.toUpperCase()}${h.vel >= 80 ? "!" : h.vel <= 56 ? "." : ""} → ${c.tom ? c.tom + " " : ""}${c.s.id} @${c.p}${c.hz ? ` (${Math.round(c.hz)} Hz ${noteName(c.hz)})` : ""}${kit[h.id].drop ? " drop " + kit[h.id].drop : ""}${ms(h.id)}`);
+    hitDmc(c.s, c.p, at(h.id), 0); dmcUsed = true; flash.add(h.id);
+    lines.push(`${h.id.toUpperCase()}${h.vel >= 80 ? "!" : h.vel <= 56 ? "." : ""} → ${c.tom ? c.tom + " " : ""}${c.s.id} @${c.p}${c.hz ? ` (${Math.round(c.hz)} Hz ${noteName(c.hz)})` : ""}${ms(h.id)}`);
   }
   for (const h of hits) {
     if (kit[h.id].src !== "noise" || (layered && h.id === "hh")) continue;
@@ -820,7 +832,6 @@ function drawSlots() {
         <label class="field"${walk ? " hidden" : ""}><span>Spread <output>${s.spread}</output></span><input type="range" min="0" max="100" step="5" value="${s.spread}" data-k="spread"></label>
         <label class="field"><span>Speeds from</span><select data-k="smin">${sp(s.smin)}</select></label>
         <label class="field"><span>to</span><select data-k="smax">${sp(s.smax)}</select></label>
-        <label class="field"><span>Pitch drop at the end</span><select data-k="drop"><option value="0">None</option><option value="2"${s.drop === 2 ? " selected" : ""}>Small (2 speeds)</option><option value="5"${s.drop === 5 ? " selected" : ""}>Big (5 speeds)</option><option value="10"${s.drop === 10 ? " selected" : ""}>Huge (10 speeds)</option></select></label>
       </div>
       <div class="row">${walk ? `<button class="btn small" data-a="toms">Hi Mid Lo</button>` : `<button class="btn small" data-a="test">Home</button><button class="btn small" data-a="var">Variation</button>`}</div>
       <p class="home"></p>`;
@@ -828,7 +839,7 @@ function drawSlots() {
       const k = inp.dataset.k, ev = inp.type === "range" ? "input" : "change";
       inp.addEventListener(ev, () => {
         let v = inp.type === "checkbox" ? inp.checked : inp.value;
-        if (["L", "P", "spread", "group", "smin", "smax", "drop", "nvol", "change", "hi", "iv"].includes(k)) v = +v;
+        if (["L", "P", "spread", "group", "smin", "smax", "nvol", "change", "hi", "iv"].includes(k)) v = +v;
         s[k] = v;
         if (k === "fam") s.group = 0;
         if (k === "noise" && s.nvol === 6 && v !== "closed" && v !== "metal") s.nvol = 5;   // open hats and cymbals sit a little lower
@@ -874,21 +885,21 @@ function saveKit() { store.set("kit3", kit); showCode(); }
 $("starterBtn").onclick = () => { kit = starter(); saveKit(); drawSlots(); };
 
 // ====================================================================== kit codes
-// version 3. Sample slot: src 1, fam 4, group 3, L 5 (steps of 5), P 5, spread 5 (steps of 5), change 4 (steps of 10),
-// smin 4, smax 4, drop 2, noise 2, noise volume 4 (+ tom: walk 1, hi 5, interval 2).
+// version 4. Sample slot: src 1, fam 4, group 3, L 5 (steps of 5), P 5, spread 5 (steps of 5), change 4 (steps of 10),
+// smin 4, smax 4, noise 2, noise volume 4 (+ tom: walk 1, hi 5, interval 2).
 // Noise slot: src 1, noise 2, noise volume 4, change 4. Then seed 16, humanize 4, Dilla 4 (steps of 10). Base 32 plus a check character.
 const B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";   // Crockford base 32 (no I L O U)
-const DROPS = [0, 2, 5, 10], NOISES = Object.keys(NOISE), FAMKEYS = FAMS.map(f => f[0]), IVS = [3, 4, 5, 7];
+const NOISES = Object.keys(NOISE), FAMKEYS = FAMS.map(f => f[0]), IVS = [3, 4, 5, 7];
 function encode() {
   const bits = [];
   const put = (v, n) => { for (let i = n - 1; i >= 0; i--) bits.push((v >> i) & 1); };
-  put(3, 3);   // version
+  put(4, 3);   // version
   for (const [id] of SLOTS) {
     const s = kit[id];
     put(s.src === "noise" ? 1 : 0, 1);
     if (s.src === "noise") { put(NOISES.indexOf(s.noise), 2); put(s.nvol, 4); put(Math.round(s.change / 10), 4); continue; }
     put(FAMKEYS.indexOf(s.fam), 4); put(s.group, 3); put(Math.round(s.L / 5), 5); put(Math.round(s.P / 5), 5);
-    put(Math.round(s.spread / 5), 5); put(Math.round(s.change / 10), 4); put(s.smin, 4); put(s.smax, 4); put(DROPS.indexOf(s.drop), 2); put(NOISES.indexOf(s.noise), 2); put(s.nvol, 4);
+    put(Math.round(s.spread / 5), 5); put(Math.round(s.change / 10), 4); put(s.smin, 4); put(s.smax, 4); put(NOISES.indexOf(s.noise), 2); put(s.nvol, 4);
     if (id === "tom") { put(s.walk ? 1 : 0, 1); put(s.hi, 5); put(IVS.indexOf(s.iv), 2); }
   }
   put(+$("seed").value & 0xFFFF, 16); put(Math.round(+$("human").value / 10), 4); put(Math.round(+$("dilla").value / 10), 4);
@@ -907,12 +918,12 @@ function decode(code) {
   const bits = []; for (const v of vals) for (let i = 4; i >= 0; i--) bits.push((v >> i) & 1);
   let pos = 0; const get = n => { let v = 0; for (let i = 0; i < n; i++) v = v * 2 + (bits[pos++] || 0); return v; };
   const ver = get(3);
-  if (ver === 2) throw new Error("it's an older code (before the Change slider); please make it again");
-  if (ver !== 3) throw new Error("unknown code version");
+  if (ver === 2 || ver === 3) throw new Error("it's an older code; please make it again");
+  if (ver !== 4) throw new Error("unknown code version");
   const k = {};
   for (const [id] of SLOTS) {
     if (get(1)) { k[id] = { ...kit[id], src: "noise", noise: NOISES[get(2)], nvol: get(4), change: Math.min(100, get(4) * 10) }; continue; }
-    k[id] = { ...defSlot("kick", 50, 50), src: "sample", fam: FAMKEYS[get(4)], group: get(3), L: get(5) * 5, P: get(5) * 5, spread: Math.min(100, get(5) * 5), change: Math.min(100, get(4) * 10), smin: get(4), smax: get(4), drop: DROPS[get(2)], noise: NOISES[get(2)], nvol: get(4) };
+    k[id] = { ...defSlot("kick", 50, 50), src: "sample", fam: FAMKEYS[get(4)], group: get(3), L: get(5) * 5, P: get(5) * 5, spread: Math.min(100, get(5) * 5), change: Math.min(100, get(4) * 10), smin: get(4), smax: get(4), noise: NOISES[get(2)], nvol: get(4) };
     if (id === "tom") { k[id].walk = !!get(1); k[id].hi = get(5); k[id].iv = IVS[get(2)]; }
     if (!k[id].fam) throw new Error("unknown family");
   }
@@ -935,6 +946,10 @@ $("swMin").value = store.get("swMin", 0); $("swMax").value = store.get("swMax", 
 for (const id of ["swMin", "swMax"]) $(id).onchange = () => { store.set(id, +$(id).value); sweepShow(sweepParts()); };
 $("swLoop").onchange = () => { store.set("swLoop", $("swLoop").checked); if (!$("swLoop").checked && !sw.held) sweepStop(); };
 $("swStop").onclick = () => sweepStop();
+const glideMode = () => $("swMode").value === "glide";
+$("swMode").value = store.get("swMode", "drag");
+$("swRep").value = store.get("swRep", "1"); $("swRep").onchange = () => store.set("swRep", $("swRep").value);
+$("swMode").onchange = () => { store.set("swMode", $("swMode").value); sweepStop(); sw.lastX = sw.lastY = null; sweepShow(sweepParts()); };
 function drawPad() { sweepShow(sweepParts()); }
 function sweepShow(parts) {
   const cv = $("padCv"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -955,14 +970,27 @@ function sweepShow(parts) {
   if (sw.on) {
     const x0 = sw.part / n * W; g.fillStyle = col("--accent"); g.globalAlpha = 0.18; g.fillRect(x0, 0, W / n, H); g.globalAlpha = 1;
   }
+  if (glideMode() && sw.lastX != null) { g.strokeStyle = col("--accent"); g.lineWidth = 2 * dpr; g.beginPath(); g.arc(sw.lastX * W, (1 - sw.lastY) * H, 7 * dpr, 0, 7); g.stroke(); }
   const px = sw.X * W, py = (1 - sw.Y) * H;
   g.beginPath(); g.arc(px, py, (sw.on ? 9 : 6) * dpr, 0, 7); g.fillStyle = sw.on ? col("--accent") : col("--muted"); g.fill();
-  $("padStatus").textContent = parts.length ? (sw.on ? `${parts[sw.part].id} at speed ${sweepSpeed()}${sw.held ? "" : " (looping)"}` : `${parts.length} parts · speeds ${lo}–${hi}`) : "Needs the sample data.";
+  $("padStatus").textContent = parts.length ? (sw.on ? `${parts[sw.part].id} at speed ${sweepSpeed()}${sw.glide ? ` · gliding to ${parts[sw.glide.to].id}` : sw.held ? "" : " (looping)"}` : `${parts.length} parts · speeds ${lo}–${hi}`) : "Needs the sample data.";
 }
 (() => {
   const pad = $("pad");
   const at = e => { const r = pad.getBoundingClientRect(); sw.X = Math.max(0, Math.min(0.9999, (e.clientX - r.left) / r.width)); sw.Y = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)); };
-  pad.addEventListener("pointerdown", e => { if (!sweepParts().length) return; pad.setPointerCapture(e.pointerId); sw.held = true; at(e); sweepStart(); });
+  pad.addEventListener("pointerdown", e => {
+    const parts = sweepParts(); if (!parts.length) return;
+    if (glideMode()) {   // click: glide from the last click (or from where it's playing now) to here
+      const r = pad.getBoundingClientRect(), x1 = Math.max(0, Math.min(0.9999, (e.clientX - r.left) / r.width)), y1 = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
+      if (!sw.on) { sw.X = sw.lastX ?? x1; sw.Y = sw.lastY ?? y1; }
+      const from = sw.on ? sw.part : sweepTarget(parts);
+      sw.lastX = x1; sw.lastY = y1;
+      sw.glide = { from, to: Math.min(parts.length - 1, Math.floor(x1 * parts.length)), y0: sw.Y, y1, x1, rep: 0 };
+      if (!sw.on) sw.part = from;
+      sweepStart(); return;
+    }
+    pad.setPointerCapture(e.pointerId); sw.held = true; at(e); sweepStart();
+  });
   pad.addEventListener("pointermove", e => { if (!sw.held) return; at(e); sweepShow(sweepParts()); });
   const up = () => { if (!sw.held) return; sw.held = false; if (!$("swLoop").checked) sweepStop(); else sweepShow(sweepParts()); };
   pad.addEventListener("pointerup", up); pad.addEventListener("pointercancel", up);
