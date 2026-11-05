@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fat Chip Beat Lab</title>
+<meta name="description" content="Try MidiNES drum kits in the browser before they go into Fat Chip: samples picked by target length and pitch, spread and change settings, NES noise hats, test grooves or a live keytar, kit codes.">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f3fb; --surface: #ffffff; --surface-2: #efeaf7; --border: #ddd5ec; --text: #1d1730; --muted: #675d84;
+  --accent: #c4302a; --accent-strong: #a8231e; --accent-ink: #ffffff; --ok: #2e9b3a; --warn: #b77900; --danger: #cf3a3a;
+  --hit: #c4302a; --step: #e3dcf0; --step-on: #c4302a; --step-acc: #7a1612; --step-soft: #e89a95;
+  --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Chakra Petch", "Inter", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+    --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
+    --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+  --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
+  --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Inter", system-ui, sans-serif; padding-bottom: 64px; }
+a { color: var(--accent-strong); }
+.top { padding: 28px 16px 8px; max-width: 1100px; margin: 0 auto; }
+.crumb { margin: 0 0 2px; color: var(--muted); font-size: 14px; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4vw, 34px); letter-spacing: 0.02em; margin: 0; }
+.top h1::before { content: ""; display: inline-block; width: 0.55em; height: 0.85em; background: var(--accent); margin-right: 0.35em; vertical-align: -0.08em; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .top h1::before { animation: none; } }
+.sub { margin: 4px 0 0; color: var(--muted); }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 20px; margin: 14px 0; min-width: 0; }
+.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.step-n { font-family: var(--mono); font-size: 13px; color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 1px 7px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.field output { font-family: var(--mono); font-size: 12.5px; color: var(--accent-strong); }
+select, input[type=text], input[type=number] { font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; width: 100%; min-width: 0; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hint { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.status-line { margin: 0; color: var(--muted); }
+code { font-family: var(--mono); font-size: 13px; }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--warn); background: var(--surface-2); }
+/* families */
+.fams { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.fam { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); min-width: 0; }
+.fam h3 { margin: 0 0 6px; font-size: 15px; }
+.fam h3 small { color: var(--muted); font-weight: 500; }
+.grp { margin-top: 8px; }
+.grp input { padding: 4px 7px; font-size: 13px; font-weight: 600; }
+.grp .desc { font-size: 12px; color: var(--muted); margin: 2px 0 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font: 600 11.5px/1 var(--mono); padding: 5px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+/* kit slots */
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.slot { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.slot.hit { border-color: var(--hit); }
+.slot h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.slot h3 small { font-family: var(--mono); font-weight: 500; color: var(--muted); font-size: 12px; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.home { font: 12.5px/1.4 var(--mono); color: var(--muted); min-height: 2.8em; }
+.home b { color: var(--text); }
+/* sequencer */
+.seq { display: grid; grid-template-columns: 70px repeat(16, minmax(0, 1fr)); gap: 3px; align-items: center; margin-top: 12px; }
+.seq .lbl { font: 600 12px var(--mono); color: var(--muted); }
+.cell { height: 22px; border-radius: 4px; background: var(--step); border: 0; padding: 0; cursor: pointer; }
+.cell.v64 { background: var(--step-on); }
+.cell.v80 { background: var(--step-acc); }
+.cell.v56 { background: var(--step-soft); }
+.cell.beat { box-shadow: inset 0 0 0 1px var(--border); }
+.cell.now { outline: 2px solid var(--ok); outline-offset: 0; }
+.ctl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .ctl { grid-template-columns: 1fr 1fr; } .seq { grid-template-columns: 52px repeat(16, minmax(0, 1fr)); gap: 2px; } }
+.code { font: 600 16px/1.3 var(--mono); letter-spacing: 0.04em; overflow-wrap: anywhere; }
+#hits { font: 12px/1.45 var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; height: 150px; overflow: auto; white-space: pre; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="crumb"><a href="../../tools/">Tools</a> / Fat Chip /</p>
+  <h1>Beat Lab</h1>
+  <p class="sub">Build MidiNES drum kits from the decoded samples and hear them play, before they go into Fat Chip.</p>
+</header>
+<main>
+  <div id="noData" class="banner" hidden>
+    <strong>No sample data in this browser yet.</strong> Load the <code>midines-dmc</code> folder in the <a href="../samples/">Sample Lab</a> first (it keeps it in this browser for this page too), or choose it here:
+    <label class="btn small" for="dmcFolder" style="margin-left:6px">Choose the midines-dmc folder</label>
+    <input id="dmcFolder" type="file" webkitdirectory multiple hidden>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">1</span>Families and groups</h2>
+      <span class="status-line" id="famStatus"></span>
+    </div>
+    <p class="hint" style="margin-top:0">Your categories, each split into groups of samples that sound alike (from the decoded data). Name the groups if you like; click a sample to hear it at its own pitch. <b>Length</b> and <b>pitch</b> are measured within each family: 0 = the shortest / lowest of that family, 100 = the longest / highest.</p>
+    <div class="fams" id="fams" style="margin-top:12px"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">2</span>Kit</h2>
+      <div class="row">
+        <button id="starterBtn" class="btn small">Starter kit</button>
+      </div>
+    </div>
+    <div class="slots" id="slots"></div>
+    <p class="hint"><b>Target</b>: the length and pitch you want, within the family. <b>Spread</b>: how far from the target a substitute may be (0 = only the closest). <b>Change</b>: how often it substitutes. <b>Speeds</b>: which NES sample speeds it may use (faster = higher and shorter). With Change above “none”, accents push toward longer, fuller hits, soft notes toward shorter ones, and beat 1 a little longer. The sample channel plays one sound at a time: kick beats snare beats tom beats cymbal; a cymbal that loses moves to the noise channel.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">3</span>Play</h2>
+      <div class="row">
+        <button id="playBtn" class="btn primary">Play</button>
+        <button id="stopBtn" class="btn">Stop</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label class="field"><span>Groove</span><select id="groove"></select></label>
+      <label class="field"><span>Tempo <output id="bpmOut">100</output> BPM</span><input id="bpm" type="range" min="60" max="180" value="100"></label>
+      <label class="field"><span>Keytar in <em>(SHS-10 rhythm, channel 16)</em></span><select id="midiIn"><option value="">Off</option></select></label>
+      <label class="field"><span>Seed <em>(same seed = same choices)</em></span><input id="seed" type="number" min="0" max="65535" value="1"></label>
+    </div>
+    <div class="seq" id="seq"></div>
+    <div class="ctl" style="margin-top:14px">
+      <label class="field"><span>Noise volume <output id="noiseVolOut"></output></span><input id="noiseVol" type="range" min="0" max="15" value="9"></label>
+      <label class="field"><span>Backing chord on the pulses</span><select id="chord"><option value="0">Off</option><option value="1">C major</option><option value="2">A minor</option></select></label>
+      <label class="field"><span>Pulse volume cap <output id="pulseVolOut"></output></span><input id="pulseVol" type="range" min="0" max="15" value="10"></label>
+      <label class="field"><span>Kick + hat on the same step</span><select id="layer"><option value="1">One layered sample</option><option value="0">Kick sample + noise hat</option></select></label>
+    </div>
+    <p class="hint">Click the grid to change the groove (off → normal → accent → soft). The balance uses the NES's own channel weights, so the noise and pulse levels here are the ones Fat Chip would send (0–15). With a keytar connected, its rhythm plays the kit live (its Start / Stop and clock set the bar).</p>
+    <div id="hits" role="log" aria-live="off"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">4</span>Kit code</h2>
+      <div class="row">
+        <button id="copyCode" class="btn small primary">Copy</button>
+      </div>
+    </div>
+    <p class="code" id="code">—</p>
+    <div class="row" style="margin-top:10px">
+      <input id="codeIn" type="text" placeholder="Paste a kit code" style="max-width:420px" aria-label="Kit code to load">
+      <button id="loadCode" class="btn small">Load</button>
+      <span class="status-line" id="codeStatus"></span>
+    </div>
+    <p class="hint">The whole kit and its seed in one short code with a check character, to write down, share, or (later) type into Fat Chip. Groups are numbered by family, so a code means the same kit as long as the categories stay the same.</p>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("beatlab." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("beatlab." + k, JSON.stringify(v)); } catch { /* */ } },
+};
+const MAP = {"A0":["kick","kick"],"A1":["bass",""],"A2":["kick","kick"],"A3":["kick",""],"A4":["kick","kick"],"A5":["kick","kick"],"A6":["snare","snare"],"A7":["snare","snare"],"A8":["snare","snare"],"A9":["snare","snare"],"A10":["kick","kick"],"A11":["snare","snare"],"A12":["hatc","hat"],"A13":["hato","ohat"],"A14":["hatc","hat"],"A15":["hatc","hat"],"A16":["snare","snare"],"A17":["tom","tom"],"A18":["kick","kick"],"A19":["kick","kick"],"A20":["hato","ohat"],"A21":["hatc","hat"],"A22":["kick","kick hat"],"A23":["snare","snare"],"A24":["clap","clap"],"A25":["clap","clap"],"A26":["hatc","ohat"],"A27":["hato","ohat"],"A28":["snare","snare"],"A29":["snare","snare"],"A30":["tom","tom"],"A31":["tom","tom"],"A32":["snare","snare"],"A33":["snare","snare"],"A34":["snare","snare"],"A35":["snare","snare"],"A36":["kick","kick"],"A37":["kick","kick"],"A38":["perc","perc"],"A39":["hatc","hat"],"A40":["snare","snare clap"],"A41":["perc","perc"],"A42":["hato","ohat"],"A43":["tom","tom"],"A44":["hatc","hat"],"A45":["perc","perc"],"A46":["tom","tom"],"A47":["tom","tom"],"A48":["perc","perc"],"A49":["perc","perc"],"A50":["perc","perc"],"A51":["snare","snare"],"A52":["perc","perc"],"A53":["perc","perc"],"A54":["cymbal","cymbal"],"A55":["hatc","hat"],"A56":["hato","ohat"],"A57":["kick","kick"],"A58":["hato","ohat"],"A59":["snare","snare hat"],"A60":["snare","snare"],"A61":["snare","snare"],"A62":["hatc","perc"],"A63":["perc","perc"],"A64":["snare","snare"],"A65":["snare","snare"],"A66":["kick","kick"],"A67":["kick","kick"],"A68":["kick","kick"],"A69":["snare","snare"],"A70":["snare","snare ohat"],"A71":["snare","snare"],"A72":["snare","snare"],"A73":["kick","kick hat"],"A74":["hatc","hat"],"A75":["snare","snare"],"A76":["perc","perc"],"A77":["cymbal","cymbal"],"A78":["perc","perc"],"A79":["perc","perc"],"A80":["perc","perc"],"A81":["hatc","ohat"],"A82":["hato","ohat"],"A83":["hatc","hat"],"A84":["hatc","hat"],"A85":["fx",""],"A86":["kick","kick hat"],"A87":["hato","snare cymbal"],"A88":["snare","snare"],"A89":["hatc","hat"],"A90":["snare","snare"],"A91":["kick","kick hat"],"A92":["kick","kick"],"A93":["snare","snare hat"],"A94":["hatc","hat"],"A95":["snare","snare hat"],"A96":["snare","hat"],"A97":["snare","snare"],"A98":["kick","kick cymbal"],"A99":["snare","snare cymbal"],"A100":["kick","kick cymbal"],"A101":["hato","ohat"],"A102":["kick","kick hat"],"A103":["snare","snare"],"A104":["snare","snare"],"A105":["vocal","vocal"],"A106":["kick","kick"],"A107":["kick","kick"],"A108":["snare","snare"],"A109":["snare","snare"],"A110":["snare","snare tom"],"A111":["snare","snare"],"A112":["kick","kick cymbal"],"A113":["snare","snare cymbal"],"A114":["hato","ohat"],"A115":["kick","kick hat"],"A116":["hato","ohat"],"A117":["snare","snare"],"A118":["hatc","hat"],"A119":["kick","kick"],"A120":["snare","snare"],"A121":["snare","snare"],"A122":["snare","snare"],"A123":["hato","ohat"],"A124":["snare","snare"],"A125":["snare","snare"],"A126":["snare","snare hat"],"A127":["snare","snare"],"B0":["snare","snare"],"B1":["snare","snare"],"B2":["kick","kick ohat"],"B3":["kick","kick ohat"],"B4":["snare","snare hat"],"B5":["kick","kick ohat"],"B6":["kick","kick cymbal"],"B7":["kick","kick ohat"],"B8":["kick","kick"],"B9":["snare","snare hat"],"B10":["kick","kick"],"B11":["kick","kick"],"B12":["kick","kick"],"B13":["snare","snare"],"B14":["kick","kick"],"B15":["kick","kick"],"B16":["kick","kick"],"B17":["snare",""],"B18":["perc",""],"B19":["perc","perc"],"B20":["fx",""],"B21":["hatc","hat"],"B22":["vocal","vocal"],"B23":["vocal","vocal"],"B24":["vocal","vocal"],"B25":["vocal","vocal"],"B26":["vocal",""],"B27":["vocal",""],"B28":["vocal",""],"B29":["vocal",""],"B30":["vocal","vocal"],"B31":["vocal","vocal"],"B32":["vocal","vocal"],"B33":["vocal","vocal"],"B34":["vocal","vocal"],"B35":["vocal","vocal"],"B36":["tonal","vocal"],"B37":["vocal","vocal"],"B38":["vocal","vocal"],"B39":["vocal","vocal"],"B40":["vocal","vocal"],"B41":["fx",""],"B42":["tonal",""],"B43":["tonal",""],"B44":["tonal",""],"B45":["fx",""],"B46":["fx",""],"B47":["fx",""],"B48":["fx",""],"B49":["fx",""],"B50":["vocal","vocal"],"B51":["vocal",""],"B52":["vocal",""],"B53":["vocal",""],"B54":["vocal",""],"B55":["vocal",""],"B56":["vocal",""],"B57":["vocal",""],"B58":["vocal",""],"B59":["vocal",""],"B60":["tonal",""],"B61":["tonal",""],"B62":["tonal",""],"B63":["tonal",""],"B64":["tonal",""],"B65":["tonal",""],"B66":["tonal","tom"],"B67":["tonal","tom"],"B68":["tonal","tom"],"B69":["tonal","tom"],"B70":["tonal",""],"B71":["tonal",""],"B72":["tonal",""],"B73":["tonal",""],"B74":["tonal",""],"B75":["fx",""],"B76":["fx",""],"B77":["fx",""],"B78":["fx",""],"B79":["fx",""],"B80":["fx",""],"B81":["vocal","vocal"],"B82":["vocal","vocal"],"B83":["vocal","vocal"],"B84":["vocal","vocal"],"B85":["vocal","vocal"],"B86":["vocal","vocal"],"B87":["vocal","vocal"],"B88":["vocal","vocal"],"B89":["vocal","vocal"],"B90":["vocal","vocal"],"B91":["vocal","vocal"],"B92":["vocal","vocal"],"B93":["vocal","vocal"],"B94":["vocal","vocal"],"B95":["fx",""],"B96":["fx",""],"B97":["fx",""],"B98":["fx",""],"B99":["fx",""],"B100":["fx",""],"B101":["fx",""],"B102":["fx",""],"B103":["fx",""],"B104":["fx",""],"B105":["fx",""],"B106":["fx",""],"B107":["fx",""],"B108":["fx",""],"B109":["fx",""],"B110":["fx",""],"B111":["fx",""],"B112":["fx",""],"B113":["fx",""],"B114":["fx",""],"B115":["fx",""],"B116":["fx",""],"B117":["fx",""],"B118":["fx",""],"B119":["fx",""],"B120":["fx",""],"B121":["fx",""],"B122":["fx",""],"B123":["fx",""],"B124":["fx",""],"B125":["fx",""],"B126":["fx",""],"B127":["fx",""]};   // Reeve's categories and "has" (Sample Lab, 2026-11-04), used where this browser has none
+const HZ = [4181.7, 4709.9, 5264.0, 5593.0, 6258.0, 7046.4, 7919.4, 8363.4, 9419.9, 11186.1, 12604.0, 13982.6, 16884.6, 21306.8, 24858.0, 33143.9];
+const FAMS = [["kick", "Kick"], ["snare", "Snare"], ["clap", "Clap"], ["hatc", "Hi-hat closed"], ["hato", "Hi-hat open"], ["cymbal", "Cymbal"], ["tom", "Tom"], ["perc", "Percussion"], ["bass", "Bass"], ["tonal", "Tonal / music"], ["vocal", "Vocal"], ["fx", "FX"]];
+const DRUM_FAMS = ["kick", "snare", "clap", "hatc", "hato", "cymbal", "tom", "perc"];
+const FAM_NAME = Object.fromEntries(FAMS);
+const CHANGE = [["none", "None"], ["mostly", "Mostly the same"], ["often", "Vary often"], ["always", "Switch all the time"]];
+const CHANGE_P = { none: 0, mostly: 0.15, often: 0.5, always: 1 };
+const SLOTS = [["bd", "Kick", 45, 0], ["sd", "Snare", 52, 1], ["hh", "Hi-hat", 57, 4], ["cy", "Cymbal", 62, 3], ["tom", "Tom", 48, 2]];   // id, name, SHS-10 note, sample priority (0 = highest)
+const NOISE = { closed: { period: 1, len: 45, mode: 0 }, open: { period: 2, len: 260, mode: 0 }, cymbal: { period: 3, len: 900, mode: 0 }, metal: { period: 2, len: 120, mode: 1 } };
+const NOISE_PERIOD = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068];   // CPU cycles, NTSC
+const CPU = 1789773;
+const SR = 48000;
+
+// ====================================================================== sample data
+let samples = [];        // {id, bank, note, bytes, native, fam, has, lenMs, pitchHz, vec, group}
+let fams = {};           // fam -> {list, lens (sorted log), pitches (sorted log), groups: [[...]]}
+function dbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("fatchip-samplelab", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("clips", { keyPath: "key" });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function loadFromDb() {
+  const db = await dbOpen();
+  const all = await new Promise((res, rej) => { const q = db.transaction("clips").objectStore("clips").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+  return all.filter(c => c.set === "dmc" && c.bytes).map(c => ({ bank: c.bank, note: c.note, bytes: new Uint8Array(c.bytes), native: c.native, cat: c.cat, has: c.has }));
+}
+async function loadFiles(files) {
+  const out = [];
+  for (const f of files) {
+    const m = f.name.match(/bank([AB])_n(\d{3})\.dmc$/i);
+    if (m) out.push({ bank: m[1].toUpperCase(), note: +m[2], bytes: new Uint8Array(await f.arrayBuffer()) });
+  }
+  return out;
+}
+
+// DMC renderer: bits from bit 0, 1 = up 2, 0 = down 2 (0..127); rate per step from rateAt(k)
+function renderDmc(bytes, pidx, opt = {}) {
+  const nbits = bytes.length * 8, drop = opt.drop || 0, dropFrom = opt.dropFrom ?? 0.6;
+  const rateAt = k => { if (!drop || k < nbits * dropFrom) return HZ[pidx]; const f = (k - nbits * dropFrom) / (nbits * (1 - dropFrom)); return HZ[Math.max(0, pidx - Math.round(f * drop))]; };
+  let total = 0; for (let k = 0; k < nbits; k += 8) total += 8 / rateAt(k);
+  const n = Math.ceil(total * SR) + 2, out = new Float32Array(n);
+  let v = opt.start ?? 64, t = 0;
+  for (let k = 0; k < nbits; k++) {
+    const bit = (bytes[k >> 3] >> (k & 7)) & 1;
+    if (bit) { if (v <= 125) v += 2; } else if (v >= 2) v -= 2;
+    const dt = SR / rateAt(k);
+    let a = t, t1 = t + dt;
+    while (a < t1) { const i = Math.floor(a), b = Math.min(t1, i + 1); out[i] += v * (b - a); a = b; }
+    t = t1;
+  }
+  return { out, end: v, n: Math.ceil(t) };
+}
+function centred(x) {   // remove the sample's own DC, 1 ms fades
+  let m = 0; for (const v of x) m += v; m /= x.length;
+  const f = Math.round(SR * 0.001), y = new Float32Array(x.length);
+  for (let i = 0; i < x.length; i++) y[i] = (x[i] - m) * Math.min(1, i / f, (x.length - 1 - i) / f);
+  return y;
+}
+// tiny FFT
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let k = 0; k < len / 2; k++) { const a = i + k, b = a + len / 2, tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr; re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti; const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } }
+  }
+}
+// "pitch" of a drum = the frequency below which half its energy lies (first 0.3 s, above 40 Hz);
+// sound fingerprint = 24 log-spaced bands (for grouping)
+function measure(s) {
+  const r = renderDmc(s.bytes, s.native), x = centred(r.out.subarray(0, r.n));
+  const N = 8192, re = new Float32Array(N), im = new Float32Array(N), L = Math.min(x.length, Math.round(SR * 0.3), N);
+  for (let i = 0; i < L; i++) re[i] = x[i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (L - 1)));
+  fft(re, im);
+  const P = new Float64Array(N / 2); let tot = 0;
+  for (let k = 1; k < N / 2; k++) { const f = k * SR / N; P[k] = f < 40 ? 0 : re[k] * re[k] + im[k] * im[k]; tot += P[k]; }
+  let acc = 0, med = 0; for (let k = 1; k < N / 2; k++) { acc += P[k]; if (acc >= tot / 2) { med = k * SR / N; break; } }
+  const vec = [];
+  for (let j = 0; j < 24; j++) { const f0 = 40 * Math.pow(2, j / 2.4), f1 = 40 * Math.pow(2, (j + 1) / 2.4); let e = 0; for (let k = 1; k < N / 2; k++) { const f = k * SR / N; if (f >= f0 && f < f1) e += P[k]; } vec.push(Math.log10(e / (tot || 1) + 1e-6) / 3); }
+  s.lenMs = s.bytes.length * 8 / HZ[s.native] * 1000;
+  s.pitchHz = med || 50;
+  vec.push(Math.log10(s.lenMs / 1000) * 1.5);
+  s.vec = vec;
+}
+const pctOf = (sorted, v) => {   // 0..100 position of v (log scale) within a family's sorted log values
+  const lv = Math.log(v);
+  if (sorted.length < 2) return 50;
+  if (lv <= sorted[0]) return 0;
+  if (lv >= sorted[sorted.length - 1]) return 100;
+  let i = 1; while (sorted[i] < lv) i++;
+  return ((i - 1) + (lv - sorted[i - 1]) / (sorted[i] - sorted[i - 1])) / (sorted.length - 1) * 100;
+};
+// Ward grouping inside a family (merges the pair that adds least spread; even-sized groups); deterministic
+function groupFamily(list) {
+  const k = Math.max(1, Math.min(6, Math.round(Math.sqrt(list.length / 2))));
+  const feat = s => s.vec.concat([s.L / 50, s.P / 50]);
+  let cl = list.map((s, i) => ({ idx: [i], c: feat(s) }));
+  const ward = (a, b) => { let d = 0; for (let i = 0; i < a.c.length; i++) d += (a.c[i] - b.c[i]) ** 2; return a.idx.length * b.idx.length / (a.idx.length + b.idx.length) * d; };
+  while (cl.length > k) {
+    let best = [0, 1, Infinity];
+    for (let i = 0; i < cl.length; i++) for (let j = i + 1; j < cl.length; j++) { const w = ward(cl[i], cl[j]); if (w < best[2]) best = [i, j, w]; }
+    const A = cl[best[0]], B = cl[best[1]], na = A.idx.length, nb = B.idx.length;
+    cl[best[0]] = { idx: A.idx.concat(B.idx), c: A.c.map((v, i) => (v * na + B.c[i] * nb) / (na + nb)) };
+    cl.splice(best[1], 1);
+  }
+  cl = cl.map(g => g.idx);
+  // order groups by median length so numbering is stable and meaningful
+  cl = cl.map(g => g.map(i => list[i]));
+  cl.sort((A, B) => med(A.map(s => s.lenMs)) - med(B.map(s => s.lenMs)) || med(A.map(s => s.pitchHz)) - med(B.map(s => s.pitchHz)));
+  return cl;
+}
+const med = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+function prepare(raw) {
+  samples = raw.map(r => {
+    const id = r.bank + r.note, m = MAP[id] || ["fx", ""];
+    return { id, bank: r.bank, note: r.note, bytes: r.bytes, native: r.native ?? (r.bank === "A" || r.note <= 21 ? 15 : 12), fam: r.cat || m[0], has: r.has || (m[1] ? m[1].split(" ") : []) };
+  }).sort((a, b) => a.bank.localeCompare(b.bank) || a.note - b.note);
+  for (const s of samples) measure(s);
+  fams = {};
+  for (const s of samples) (fams[s.fam] ||= { list: [] }).list.push(s);
+  for (const f of Object.values(fams)) {
+    f.lens = f.list.map(s => Math.log(s.lenMs)).sort((a, b) => a - b);
+    f.pitches = f.list.map(s => Math.log(s.pitchHz)).sort((a, b) => a - b);
+    for (const s of f.list) { s.L = pctOf(f.lens, s.lenMs); s.P = pctOf(f.pitches, s.pitchHz); }
+    f.groups = groupFamily(f.list);
+    f.groups.forEach((g, i) => g.forEach(s => s.group = i + 1));
+  }
+}
+
+// ====================================================================== audio
+let actx = null, master = null;
+async function ctx() {
+  if (!actx) { actx = new AudioContext({ sampleRate: SR, latencyHint: "interactive" }); master = actx.createGain(); master.gain.value = 1.6; master.connect(actx.destination); }
+  if (actx.state === "suspended") await actx.resume();
+}
+// NES mixer weights (linearised): pulse 0.00752 per step, noise 0.00494, DMC 0.00335
+const W_PULSE = 0.00752, W_NOISE = 0.00494, W_DMC = 0.00335;
+let dmcVoice = null, noiseVoice = null, dmcLevel = 64;
+function playBuf(data, when, weight) {
+  const b = actx.createBuffer(1, data.length, SR); b.copyToChannel(data, 0);
+  const s = actx.createBufferSource(); s.buffer = b;
+  const g = actx.createGain(); g.gain.value = weight;
+  s.connect(g).connect(master); s.start(when);
+  return s;
+}
+function hitDmc(s, pidx, when, drop) {
+  const r = renderDmc(s.bytes, pidx, { drop });
+  if (dmcVoice) { try { dmcVoice.stop(when); } catch { /* */ } }   // one sample at a time, like the NES
+  dmcVoice = playBuf(centred(r.out.subarray(0, r.n)), when, W_DMC);
+}
+function noiseBuf(p, vol) {
+  const per = NOISE_PERIOD[p.period], n = Math.round(SR * p.len / 1000), out = new Float32Array(n);
+  let reg = 1, acc = 0; const step = CPU / per / SR;
+  for (let i = 0; i < n; i++) {
+    acc += step;
+    while (acc >= 1) { const fb = (reg & 1) ^ ((reg >> (p.mode ? 6 : 1)) & 1); reg = (reg >> 1) | (fb << 14); acc -= 1; }
+    const env = 1 - i / n;
+    out[i] = (reg & 1 ? 0 : 1) * Math.max(0, Math.round(vol * env)) - vol * env * 0.5;
+  }
+  return out;
+}
+function hitNoise(preset, when, volScale = 1) {
+  const vol = Math.round(+$("noiseVol").value * volScale);
+  if (noiseVoice) { try { noiseVoice.stop(when); } catch { /* */ } }
+  noiseVoice = playBuf(noiseBuf(NOISE[preset], vol), when, W_NOISE);
+}
+let chordNodes = [];
+function chordUpdate() {
+  for (const n of chordNodes) { try { n.stop(); } catch { /* */ } }
+  chordNodes = [];
+  const c = +$("chord").value; if (!c || !actx) return;
+  const notes = c === 1 ? [60, 64] : [57, 64];
+  const vol = +$("pulseVol").value;
+  for (const m of notes) {
+    const o = actx.createOscillator(); o.type = "square"; o.frequency.value = 440 * Math.pow(2, (m - 69) / 12);
+    const g = actx.createGain(); g.gain.value = vol * W_PULSE / 2;
+    o.connect(g).connect(master); o.start(); chordNodes.push(o);
+  }
+}
+
+// ====================================================================== kit model
+const q5 = v => Math.max(0, Math.min(100, Math.round(v / 5) * 5));
+const defSlot = (fam, L, P) => ({ src: "sample", fam, group: 0, L: q5(L), P: q5(P), spread: 16, change: "mostly", smin: 13, smax: 15, drop: 0, noise: "closed" });
+let kit = store.get("kit", null) || starter();
+function starter() {
+  const at = (id, fam, fb) => { const s = samples.find(x => x.id === id && x.fam === fam); return s ? [Math.round(s.L), Math.round(s.P)] : fb; };
+  return {
+    bd: defSlot("kick", ...at("B11", "kick", [45, 30])),
+    sd: defSlot("snare", ...at("B13", "snare", [25, 50])),
+    hh: { ...defSlot("hatc", 30, 60), src: "noise", noise: "closed" },
+    cy: { ...defSlot("cymbal", ...at("A54", "cymbal", [100, 100])), noise: "cymbal" },
+    tom: defSlot("tom", ...at("A30", "tom", [60, 40])),
+  };
+}
+// candidates: every (sample, speed) in the family / group, scored by distance from the target
+function scored(slot, tL, tP) {
+  const f = fams[slot.fam]; if (!f) return [];
+  const out = [];
+  for (const s of f.list) {
+    if (slot.group && s.group !== slot.group) continue;
+    for (let p = slot.smin; p <= slot.smax; p++) {
+      const k = HZ[p] / HZ[s.native];
+      const L = pctOf(f.lens, s.lenMs / k), P = pctOf(f.pitches, s.pitchHz * k);
+      out.push({ s, p, L, P, d: Math.hypot(L - tL, P - tP) + Math.abs(p - s.native) * 2 });
+    }
+  }
+  return out.sort((a, b) => a.d - b.d);
+}
+// a seeded random number generator, and per-slot shuffle bags
+let rng = mulberry(1);
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const bags = {}, lastPick = {};
+function choose(id, vel, downbeat) {
+  const slot = kit[id];
+  let tL = slot.L, tP = slot.P;
+  const vary = slot.change !== "none";
+  if (vary) { if (vel >= 80) tL += 20; else if (vel <= 56) tL -= 25; if (downbeat) tL += 10; }
+  tL = Math.max(0, Math.min(100, tL));
+  const list = scored(slot, tL, tP);
+  if (!list.length) return null;
+  const home = list[0];
+  if (!vary || rng() >= CHANGE_P[slot.change]) { lastPick[id] = home; return home; }
+  const pool = list.filter(c => c.d <= home.d + slot.spread);
+  if (pool.length < 2) { lastPick[id] = home; return home; }
+  const key = id + "|" + tL;
+  let bag = bags[key];
+  if (!bag || !bag.length) { bag = bags[key] = pool.slice(); for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; } }
+  let pick = bag.pop();
+  if (lastPick[id] && pick.s === lastPick[id].s && pick.p === lastPick[id].p && bag.length) { bag.unshift(pick); pick = bag.pop(); }
+  lastPick[id] = pick;
+  return pick;
+}
+function layeredPick(vel) {   // kick + hat in one sample: nearest to the kick target among samples that have both
+  const want = kit.hh.noise === "open" ? "ohat" : "hat";
+  let f = samples.filter(s => s.has.includes("kick") && s.has.includes(want));
+  if (!f.length) f = samples.filter(s => s.has.includes("kick") && (s.has.includes("hat") || s.has.includes("ohat")));
+  if (!f.length) return null;
+  const slot = kit.bd, fam = fams.kick;
+  let best = null;
+  for (const s of f) for (let p = slot.smin; p <= slot.smax; p++) {
+    const k = HZ[p] / HZ[s.native], L = pctOf(fam.lens, s.lenMs / k), P = pctOf(fam.pitches, s.pitchHz * k);
+    const d = Math.hypot(L - slot.L, P - slot.P) + Math.abs(p - s.native) * 2;
+    if (!best || d < best.d) best = { s, p, d };
+  }
+  if (best && kit.bd.change !== "none" && rng() < CHANGE_P[kit.bd.change]) {
+    const opts = []; for (const s of f) opts.push({ s, p: s.native });
+    const o = opts[Math.floor(rng() * opts.length)]; if (o.s !== best.s) best = o;
+  }
+  return best;
+}
+
+// one step's hits: [{id, vel}] at time `when`
+let hitLog = [];
+function playHits(hits, when, downbeat) {
+  const ids = hits.map(h => h.id);
+  const flash = new Set();
+  // kick + hat together -> one layered sample?
+  let layered = null;
+  if ($("layer").value === "1" && ids.includes("bd") && ids.includes("hh") && kit.hh.src === "noise") {
+    layered = layeredPick(hits.find(h => h.id === "bd").vel);
+  }
+  // sample channel: the highest-priority sample hit wins
+  const sampleHits = hits.filter(h => kit[h.id].src === "sample").sort((a, b) => SLOTS.find(s => s[0] === a.id)[3] - SLOTS.find(s => s[0] === b.id)[3]);
+  let dmcUsed = false;
+  const lines = [];
+  if (layered) {
+    hitDmc(layered.s, layered.p, when, 0); dmcUsed = true;
+    lines.push(`BD+HH → ${layered.s.id} @${layered.p} (layered)`); flash.add("bd"); flash.add("hh");
+  }
+  for (const h of sampleHits) {
+    if (layered && (h.id === "bd" || h.id === "hh")) continue;
+    if (dmcUsed) {
+      if (h.id === "cy") { hitNoise(kit.cy.noise, when); lines.push(`CY → noise (${kit.cy.noise}), sample channel busy`); flash.add("cy"); }
+      else lines.push(`${h.id.toUpperCase()} dropped (sample channel busy)`);
+      continue;
+    }
+    const c = choose(h.id, h.vel, downbeat);
+    if (!c) { lines.push(`${h.id.toUpperCase()}: no samples in ${FAM_NAME[kit[h.id].fam]}`); continue; }
+    hitDmc(c.s, c.p, when, kit[h.id].drop); dmcUsed = true; flash.add(h.id);
+    lines.push(`${h.id.toUpperCase()}${h.vel >= 80 ? "!" : h.vel <= 56 ? "." : ""} → ${c.s.id} @${c.p}${kit[h.id].drop ? " drop " + kit[h.id].drop : ""}`);
+  }
+  for (const h of hits) {
+    if (kit[h.id].src !== "noise" || (layered && h.id === "hh")) continue;
+    hitNoise(kit[h.id].noise, when, h.vel >= 80 ? 1.2 : h.vel <= 56 ? 0.7 : 1);
+    lines.push(`${h.id.toUpperCase()} → noise (${kit[h.id].noise})`); flash.add(h.id);
+  }
+  const ms = Math.max(0, (when - actx.currentTime) * 1000);
+  setTimeout(() => {
+    for (const id of flash) { const el = document.querySelector(`.slot[data-id="${id}"]`); if (el) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 120); } }
+    if (lines.length) { hitLog.push(lines.join("   ")); if (hitLog.length > 200) hitLog.splice(0, 100); const el = $("hits"); el.textContent = hitLog.join("\n"); el.scrollTop = el.scrollHeight; }
+  }, ms);
+}
+
+// ====================================================================== grooves (SHS-10-like, 16 steps; 64 normal, 80 accent, 56 soft)
+const G = (s) => s.split(" ").map(c => c === "." ? 0 : c === "x" ? 64 : c === "X" ? 80 : 56);
+const GROOVES = {
+  "8-beat": { bd: G("X . . . . . . . x . x . . . . ."), sd: G(". . . . X . . . . . . . X . . ."), hh: G("x . x . x . x . x . x . x . x ."), cy: G("x . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . . . . . . . . .") },
+  "16-beat": { bd: G("X . . x . . x . . . x . . . . ."), sd: G(". . . . X . . o . . . . X . . o"), hh: G("x x x x x x x x x x x x x x x x"), cy: G(". . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . . . . . . . . .") },
+  "Boombap": { bd: G("X . . . . . . x . . X . . . . ."), sd: G(". . . . X . . . . o . . X . . ."), hh: G("x . x . x . x . x . x . x . X ."), cy: G(". . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . . . . . . . . .") },
+  "Fill": { bd: G("X . . . x . . . X . . . . . . ."), sd: G(". . x . . . x . . . o o X o X X"), hh: G("x . x . x . x . . . . . . . . ."), cy: G(". . . . . . . . . . . . . . . ."), tom: G(". . . . . . . . x x x x . . . .") },
+};
+let pattern = store.get("pattern", null) || JSON.parse(JSON.stringify(GROOVES["8-beat"]));
+for (const g of Object.keys(GROOVES)) $("groove").add(new Option(g, g));
+$("groove").add(new Option("My groove (edited)", "custom"));
+$("groove").value = store.get("groove", "8-beat");
+$("groove").onchange = () => { if ($("groove").value !== "custom") pattern = JSON.parse(JSON.stringify(GROOVES[$("groove").value])); store.set("groove", $("groove").value); store.set("pattern", pattern); drawSeq(); };
+function drawSeq() {
+  const box = $("seq"); box.innerHTML = "";
+  for (const [id, name] of SLOTS) {
+    const l = document.createElement("span"); l.className = "lbl"; l.textContent = name; box.append(l);
+    for (let i = 0; i < 16; i++) {
+      const b = document.createElement("button"), v = pattern[id][i];
+      b.className = "cell" + (v ? " v" + v : "") + (i % 4 === 0 ? " beat" : "");
+      b.dataset.i = i; b.setAttribute("aria-label", `${name} step ${i + 1}`);
+      b.onclick = () => { const order = [0, 64, 80, 56]; pattern[id][i] = order[(order.indexOf(pattern[id][i]) + 1) % 4]; $("groove").value = "custom"; store.set("groove", "custom"); store.set("pattern", pattern); drawSeq(); };
+      box.append(b);
+    }
+  }
+}
+
+// ====================================================================== transport
+let playing = false, nextTime = 0, stepNo = 0, timer = 0;
+function stepDur() { return 60 / +$("bpm").value / 4; }
+async function start() {
+  await ctx(); chordUpdate();
+  rng = mulberry(+$("seed").value); for (const k in bags) delete bags[k]; for (const k in lastPick) delete lastPick[k];
+  playing = true; stepNo = 0; nextTime = actx.currentTime + 0.08;
+  clearInterval(timer); timer = setInterval(tick, 20); tick();
+}
+function stop() { playing = false; clearInterval(timer); document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); }
+function tick() {
+  while (playing && nextTime < actx.currentTime + 0.12) {
+    const i = stepNo % 16, hits = [];
+    for (const [id] of SLOTS) if (pattern[id][i]) hits.push({ id, vel: pattern[id][i] });
+    if (hits.length) playHits(hits, nextTime, i === 0);
+    const at = (nextTime - actx.currentTime) * 1000, idx = i;
+    setTimeout(() => { document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); document.querySelectorAll(`.cell[data-i="${idx}"]`).forEach(e => e.classList.add("now")); }, Math.max(0, at));
+    nextTime += stepDur(); stepNo++;
+  }
+}
+$("playBtn").onclick = start;
+$("stopBtn").onclick = stop;
+$("bpm").oninput = () => { $("bpmOut").textContent = $("bpm").value; store.set("bpm", +$("bpm").value); };
+for (const id of ["noiseVol", "pulseVol"]) $(id).oninput = () => { $(id + "Out").textContent = $(id).value; store.set(id, +$(id).value); if (id === "pulseVol") chordUpdate(); };
+$("chord").onchange = async () => { await ctx(); chordUpdate(); };
+$("seed").onchange = () => { store.set("seed", +$("seed").value); showCode(); };
+$("layer").onchange = () => store.set("layer", $("layer").value);
+
+// ====================================================================== keytar (Web MIDI in)
+let midi = null, midiIn = null, clockCount = -1;
+const NOTE_SLOT = { 45: "bd", 52: "sd", 57: "hh", 62: "cy", 48: "tom" };
+let pend = [], pendTimer = 0;
+async function midiSetup() {
+  if (!navigator.requestMIDIAccess) return;
+  $("midiIn").onfocus = null;
+  try { midi = await navigator.requestMIDIAccess(); } catch { return; }
+  const fill = () => {
+    const sel = $("midiIn"), want = store.get("midiIn", ""); const v = sel.value;
+    sel.innerHTML = '<option value="">Off</option>';
+    for (const i of midi.inputs.values()) sel.add(new Option(i.name, i.id));
+    sel.value = [...sel.options].some(o => o.value === (v || want)) ? (v || want) : "";
+    listen();
+  };
+  midi.onstatechange = fill; fill();
+}
+function listen() {
+  if (midiIn) midiIn.onmidimessage = null;
+  midiIn = $("midiIn").value && midi ? midi.inputs.get($("midiIn").value) : null;
+  if (midiIn) midiIn.onmidimessage = onMidi;
+}
+$("midiIn").addEventListener("pointerdown", () => { if (!midi) midiSetup(); }, { once: true });
+$("midiIn").addEventListener("change", async () => { store.set("midiIn", $("midiIn").value); await ctx(); chordUpdate(); listen(); });
+function onMidi(e) {
+  const [st, a, b] = e.data;
+  if (st === 0xFA) { clockCount = 0; return; }
+  if (st === 0xFC) { clockCount = -1; return; }
+  if (st === 0xF8) { if (clockCount >= 0) clockCount++; return; }
+  if ((st & 0xF0) !== 0x90 || (st & 15) !== 15 || !b || !NOTE_SLOT[a]) return;
+  // gather notes that arrive together (the keytar sends a step's drums back to back)
+  pend.push({ id: NOTE_SLOT[a], vel: b });
+  clearTimeout(pendTimer);
+  pendTimer = setTimeout(() => {
+    const hits = pend; pend = [];
+    const downbeat = clockCount >= 0 && (clockCount % 96) < 3;
+    playHits(hits, actx.currentTime + 0.005, downbeat);
+  }, 4);
+}
+
+// ====================================================================== UI: families
+function groupNames() { return store.get("groupNames", {}); }
+function groupLabel(fam, g) { return groupNames()[fam + g] || `${FAM_NAME[fam]} ${String.fromCharCode(64 + g)}`; }
+function drawFams() {
+  const box = $("fams"); box.innerHTML = "";
+  for (const fam of DRUM_FAMS.concat(FAMS.map(f => f[0]).filter(f => !DRUM_FAMS.includes(f)))) {
+    const f = fams[fam]; if (!f) continue;
+    const el = document.createElement("div"); el.className = "fam";
+    el.innerHTML = `<h3>${FAM_NAME[fam]} <small>${f.list.length} samples · ${f.groups.length} group${f.groups.length > 1 ? "s" : ""}</small></h3>`;
+    f.groups.forEach((g, i) => {
+      const gi = i + 1, L = med(g.map(s => s.L)), P = med(g.map(s => s.P));
+      const word = (v, a, b, c) => v < 34 ? a : v < 67 ? b : c;
+      const d = document.createElement("div"); d.className = "grp";
+      d.innerHTML = `<input type="text" value="${groupLabel(fam, gi).replace(/"/g, "&quot;")}" aria-label="Name of ${FAM_NAME[fam]} group ${gi}">
+        <p class="desc">Group ${gi}: mostly ${word(L, "short", "medium", "long")}, ${word(P, "low", "mid", "high")} · ${g.length} sample${g.length > 1 ? "s" : ""}</p><div class="chips"></div>`;
+      d.querySelector("input").onchange = e => { const n = groupNames(); n[fam + gi] = e.target.value; store.set("groupNames", n); drawSlots(); };
+      const chips = d.querySelector(".chips");
+      for (const s of g) {
+        const c = document.createElement("button"); c.className = "chip"; c.textContent = s.id;
+        c.title = `length ${Math.round(s.L)}, pitch ${Math.round(s.P)} (${Math.round(s.lenMs)} ms, ${Math.round(s.pitchHz)} Hz) at speed ${s.native}`;
+        c.onclick = async () => { await ctx(); hitDmc(s, s.native, actx.currentTime + 0.01, 0); };
+        chips.append(c);
+      }
+      el.append(d);
+    });
+    box.append(el);
+  }
+  $("famStatus").textContent = `${samples.length} samples · ${Object.values(fams).reduce((a, f) => a + f.groups.length, 0)} groups`;
+}
+
+// ====================================================================== UI: kit slots
+const word3 = (v, a, b, c) => v < 34 ? a : v < 67 ? b : c;
+function drawSlots() {
+  const box = $("slots"); box.innerHTML = "";
+  for (const [id, name, note] of SLOTS) {
+    const s = kit[id], el = document.createElement("div");
+    el.className = "slot"; el.dataset.id = id;
+    const fam = fams[s.fam], ng = fam ? fam.groups.length : 0;
+    const famOpts = FAMS.filter(([k]) => fams[k]).map(([k, l]) => `<option value="${k}"${k === s.fam ? " selected" : ""}>${l}</option>`).join("");
+    const grpOpts = `<option value="0">Any group</option>` + Array.from({ length: ng }, (_, i) => `<option value="${i + 1}"${s.group === i + 1 ? " selected" : ""}>${groupLabel(s.fam, i + 1)}</option>`).join("");
+    const sp = i => Array.from({ length: 16 }, (_, k) => 15 - k).map(k => `<option value="${k}"${k === i ? " selected" : ""}>${k}</option>`).join("");
+    el.innerHTML = `<h3>${name} <small>SHS-10 note ${note}</small></h3>
+      <div class="g2">
+        <label class="field"><span>Sound from</span><select data-k="src"><option value="sample"${s.src === "sample" ? " selected" : ""}>Samples</option><option value="noise"${s.src === "noise" ? " selected" : ""}>NES noise</option></select></label>
+        <label class="field"><span>Noise sound</span><select data-k="noise">${Object.keys(NOISE).map(k => `<option${k === s.noise ? " selected" : ""}>${k}</option>`).join("")}</select></label>
+      </div>
+      <div class="g2 sm">
+        <label class="field"><span>Family</span><select data-k="fam">${famOpts}</select></label>
+        <label class="field"><span>Group</span><select data-k="group">${grpOpts}</select></label>
+      </div>
+      <div class="g2 sm">
+        <label class="field"><span>Length <output>${s.L} · ${word3(s.L, "short", "medium", "long")}</output></span><input type="range" min="0" max="100" step="5" value="${s.L}" data-k="L"></label>
+        <label class="field"><span>Pitch <output>${s.P} · ${word3(s.P, "low", "mid", "high")}</output></span><input type="range" min="0" max="100" step="5" value="${s.P}" data-k="P"></label>
+        <label class="field"><span>Spread <output>${s.spread}</output></span><input type="range" min="0" max="60" step="4" value="${s.spread}" data-k="spread"></label>
+        <label class="field"><span>Change</span><select data-k="change">${CHANGE.map(([k, l]) => `<option value="${k}"${k === s.change ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="field"><span>Speeds from</span><select data-k="smin">${sp(s.smin)}</select></label>
+        <label class="field"><span>to</span><select data-k="smax">${sp(s.smax)}</select></label>
+        <label class="field"><span>Pitch drop at the end</span><select data-k="drop"><option value="0">None</option><option value="2"${s.drop === 2 ? " selected" : ""}>Small (2 speeds)</option><option value="5"${s.drop === 5 ? " selected" : ""}>Big (5 speeds)</option><option value="10"${s.drop === 10 ? " selected" : ""}>Huge (10 speeds)</option></select></label>
+        <div class="field"><span>&nbsp;</span><div class="row"><button class="btn small" data-a="test">Home</button><button class="btn small" data-a="var">Variation</button></div></div>
+      </div>
+      <p class="home"></p>`;
+    el.querySelectorAll(".sm").forEach(x => x.hidden = s.src === "noise");
+    el.querySelectorAll("[data-k]").forEach(inp => {
+      const k = inp.dataset.k, ev = inp.type === "range" ? "input" : "change";
+      inp.addEventListener(ev, () => {
+        let v = inp.value; if (["L", "P", "spread", "group", "smin", "smax", "drop"].includes(k)) v = +v;
+        s[k] = v;
+        if (k === "fam") s.group = 0;
+        if (k === "smin" && s.smax < v) s.smax = v;
+        if (k === "smax" && s.smin > v) s.smin = v;
+        saveKit();
+        if (inp.type === "range") { const o = inp.parentElement.querySelector("output"); o.textContent = k === "spread" ? v : `${v} · ${k === "L" ? word3(v, "short", "medium", "long") : word3(v, "low", "mid", "high")}`; showHome(id, el); }
+        else drawSlots();
+      });
+    });
+    el.querySelector('[data-a="test"]').onclick = async () => { await ctx(); playHits([{ id, vel: 64 }], actx.currentTime + 0.01, false); };
+    el.querySelector('[data-a="var"]').onclick = async () => {
+      await ctx(); const keep = s.change; if (s.change === "none") s.change = "always";
+      const save = rng; rng = Math.random; playHits([{ id, vel: 64 }], actx.currentTime + 0.01, false); rng = save; s.change = keep;
+    };
+    box.append(el);
+    showHome(id, el);
+  }
+  showCode();
+}
+function showHome(id, el) {
+  const s = kit[id], p = el.querySelector(".home");
+  if (s.src === "noise") { p.innerHTML = `NES noise “${s.noise}”, volume from the Play card.`; return; }
+  const list = scored(s, s.L, s.P);
+  if (!list.length) { p.textContent = "No samples in this family / group."; return; }
+  const home = list[0], pool = list.filter(c => c.d <= home.d + s.spread);
+  const ids = [...new Set(pool.map(c => c.s.id))];
+  p.innerHTML = `Home: <b>${home.s.id} @${home.p}</b> · ${s.change === "none" ? "always this one" : `${pool.length} choice${pool.length > 1 ? "s" : ""} (${ids.length} sample${ids.length > 1 ? "s" : ""}): ${ids.slice(0, 8).join(" ")}${ids.length > 8 ? " …" : ""}`}`;
+}
+function saveKit() { store.set("kit", kit); showCode(); }
+$("starterBtn").onclick = () => { kit = starter(); saveKit(); drawSlots(); };
+
+// ====================================================================== kit codes
+// sample slot: src 1, fam 4, group 3, L 5 (steps of 5), P 5, spread 4 (steps of 4), change 2, smin 4, smax 4, drop 2, noise 2 = 36 bits;
+// noise slot: src 1 + noise 2. Then seed 16, noise volume 4, layer 1. Base 32 plus a check character.
+const B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";   // Crockford base 32 (no I L O U)
+const DROPS = [0, 2, 5, 10], NOISES = Object.keys(NOISE), FAMKEYS = FAMS.map(f => f[0]);
+function encode() {
+  const bits = [];
+  const put = (v, n) => { for (let i = n - 1; i >= 0; i--) bits.push((v >> i) & 1); };
+  put(2, 3);   // version
+  for (const [id] of SLOTS) {
+    const s = kit[id];
+    put(s.src === "noise" ? 1 : 0, 1);
+    if (s.src === "noise") { put(NOISES.indexOf(s.noise), 2); continue; }
+    put(FAMKEYS.indexOf(s.fam), 4); put(s.group, 3); put(Math.round(s.L / 5), 5); put(Math.round(s.P / 5), 5);
+    put(Math.min(15, Math.round(s.spread / 4)), 4); put(CHANGE.findIndex(c => c[0] === s.change), 2); put(s.smin, 4); put(s.smax, 4); put(DROPS.indexOf(s.drop), 2); put(NOISES.indexOf(s.noise), 2);
+  }
+  put(+$("seed").value & 0xFFFF, 16); put(+$("noiseVol").value, 4); put(+$("layer").value, 1);
+  while (bits.length % 5) bits.push(0);
+  let out = "", sum = 0;
+  for (let i = 0; i < bits.length; i += 5) { const v = bits.slice(i, i + 5).reduce((a, b) => a * 2 + b, 0); out += B32[v]; sum = (sum * 7 + v + 1) % 32; }
+  out += B32[sum];
+  return "KIT-" + out.match(/.{1,4}/g).join("-");
+}
+function decode(code) {
+  const s = code.toUpperCase().replace(/^KIT-?/, "").replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+  if (s.length < 10) throw new Error("too short");
+  const vals = [...s].map(c => B32.indexOf(c)); if (vals.some(v => v < 0)) throw new Error("unknown character");
+  const chk = vals.pop(); let sum = 0; for (const v of vals) sum = (sum * 7 + v + 1) % 32;
+  if (sum !== chk) throw new Error("check character doesn't match (a typo?)");
+  const bits = []; for (const v of vals) for (let i = 4; i >= 0; i--) bits.push((v >> i) & 1);
+  let pos = 0; const get = n => { let v = 0; for (let i = 0; i < n; i++) v = v * 2 + (bits[pos++] || 0); return v; };
+  if (get(3) !== 2) throw new Error("unknown code version");
+  const k = {};
+  for (const [id] of SLOTS) {
+    if (get(1)) { k[id] = { ...defSlot(kit[id].fam, kit[id].L, kit[id].P), src: "noise", noise: NOISES[get(2)] }; continue; }
+    k[id] = { src: "sample", fam: FAMKEYS[get(4)], group: get(3), L: get(5) * 5, P: get(5) * 5, spread: get(4) * 4, change: CHANGE[get(2)][0], smin: get(4), smax: get(4), drop: DROPS[get(2)], noise: NOISES[get(2)] };
+    if (!k[id].fam) throw new Error("unknown family");
+  }
+  return { kit: k, seed: get(16), noiseVol: get(4), layer: get(1) };
+}
+function showCode() { $("code").textContent = encode(); }
+$("copyCode").onclick = async () => { try { await navigator.clipboard.writeText(encode()); $("codeStatus").textContent = "Copied."; } catch { $("codeStatus").textContent = "Select the code above and copy it."; } };
+$("loadCode").onclick = () => {
+  try {
+    const d = decode($("codeIn").value);
+    kit = d.kit; $("seed").value = d.seed; $("noiseVol").value = d.noiseVol; $("noiseVolOut").textContent = d.noiseVol; $("layer").value = String(d.layer);
+    saveKit(); drawSlots(); $("codeStatus").textContent = "Loaded.";
+  } catch (e) { $("codeStatus").textContent = "That code didn't load: " + e.message + "."; }
+};
+
+// ====================================================================== start
+(async () => {
+  $("bpm").value = store.get("bpm", 100); $("bpmOut").textContent = $("bpm").value;
+  for (const id of ["noiseVol", "pulseVol"]) { $(id).value = store.get(id, +$(id).value); $(id + "Out").textContent = $(id).value; }
+  $("seed").value = store.get("seed", 1); $("layer").value = store.get("layer", "1");
+  drawSeq();
+  let raw = [];
+  try { raw = await loadFromDb(); } catch { /* */ }
+  const go = r => { prepare(r); if (!store.get("kit", null)) kit = starter(); drawFams(); drawSlots(); };
+  if (raw.length) go(raw);
+  else {
+    $("noData").hidden = false;
+    $("dmcFolder").onchange = async e => { const r = await loadFiles([...e.target.files]); if (r.length) { $("noData").hidden = true; go(r); } };
+  }
+  showCode();
+})();
+</script>
+</body>
+</html>
