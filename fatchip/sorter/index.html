@@ -143,6 +143,7 @@ code { font-family: var(--mono); font-size: 13px; }
     <div class="row" style="margin-top:12px">
       <button id="doneBtn" class="btn primary">Done, next round</button>
       <button id="skipBtn" class="btn">New samples</button>
+      <button id="clearTab" class="btn small" style="margin-left:auto"></button>
       <span class="status-line" id="doneStatus"></span>
     </div>
     <p class="stats" id="stats"></p>
@@ -425,13 +426,15 @@ function drawSort() {
     box.innerHTML = "";
     perc.names.forEach((n, i) => box.append(zone(i, n, M.filter(id => perc.of[id] === n), { input: true })));
     box.append(zone(perc.names.length, "New category", []));
-    $("doneBtn").hidden = $("skipBtn").hidden = true;
+    $("doneBtn").hidden = $("skipBtn").hidden = $("clearTab").hidden = true;
   } else {
     for (const id of cur.items) if (cur.where[id] < 0) tray.querySelector(".items").append(chip(id));
     box.innerHTML = "";
     const nb = Math.max(-1, ...Object.values(cur.where)) + 1;
     for (let i = 0; i <= nb; i++) box.append(zone(i, i === nb ? "New bucket" : `${kind === "kit" ? "Kit" : "Bucket"} ${i + 1}`, cur.items.filter(id => cur.where[id] === i)));
     $("doneBtn").hidden = $("skipBtn").hidden = false;
+    const nr = rounds.filter(r => r.mode === mode).length;
+    $("clearTab").hidden = !nr; if (Date.now() - clearArmed > 4000) $("clearTab").textContent = `Clear ${m.name}: ${nr} round${nr === 1 ? "" : "s"}`;
     $("doneBtn").disabled = cur.items.filter(id => cur.where[id] >= 0).length < 2;
   }
   tray.querySelector(".play").hidden = !tray.querySelector(".snd");
@@ -472,6 +475,13 @@ $("doneBtn").onclick = () => {
   newRound(mode); drawAll();
 };
 $("skipBtn").onclick = () => { newRound(mode); drawSort(); };
+let clearArmed = 0;
+$("clearTab").onclick = () => {   // two clicks: forget every round of this tab (the other tabs, percussion names and tags stay)
+  if (Date.now() - clearArmed > 4000) { clearArmed = Date.now(); $("clearTab").textContent = "Click again to clear them"; setTimeout(() => { clearArmed = 0; drawSort(); }, 4000); return; }
+  clearArmed = 0; const n = rounds.filter(r => r.mode === mode).length;
+  rounds = rounds.filter(r => r.mode !== mode); saveAll(); computeStats(); newRound(mode); drawAll();
+  $("doneStatus").textContent = `Cleared ${n} round${n === 1 ? "" : "s"}.`; setTimeout(() => $("doneStatus").textContent = "", 3000);
+};
 
 // drag and drop (pointer events: mouse, pen and touch), click to play
 let drag = null;
