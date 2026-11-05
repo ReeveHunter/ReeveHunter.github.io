@@ -257,10 +257,13 @@ const MODES = [
   { id: "fx", name: "FX", fams: ["fx"] },
   { id: "perc", name: "Percussion", fams: ["perc"], kind: "cat" },
   { id: "types", name: "Types", fams: [], kind: "cat" },
-  { id: "kit", name: "Kits", fams: ["kick", "snare", "hatc"], kind: "kit" },
+  { id: "hats", name: "Hat pairs", fams: ["hatc", "hato"], kind: "kit", roles: { hatc: "closed", hato: "open" }, pick: 3, bucket: "Pair",
+    hint: "Three closed hats and three open hats. Put a closed hat in a bucket with the open hat(s) it pairs with, like the two sides of one hi-hat; <b>Play</b> hears them as a hat pattern (the next closed hit cuts the open one off). Only closed ↔ open links count, so two closed hats sharing a bucket doesn't say they're alike." },
+  { id: "kit", name: "Kits", fams: ["kick", "snare", "hatc"], kind: "kit", roles: { kick: "kick", snare: "snare", hatc: "hat" }, pick: 2, bucket: "Kit",
+    hint: "Two kicks, two snares, two hats. Put the ones that make <b>one kit</b> together in a bucket; <b>Play beat</b> hears it as a groove. Only kick ↔ snare ↔ hat links count here." },
 ];
 const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
-const KIT_ROLE = { kick: "kick", snare: "snare", clap: "snare", hatc: "hat" };
+const roleOf = (m, id) => byId[id] ? MODE[m]?.roles?.[byId[id].sf] || null : null;   // cross-family rounds: which side a sound is on
 const STYLES = ["Boombap", "DnB", "808", "909", "Electro", "Acoustic", "Lo-fi"];
 const CHARS = ["Clean", "Punchy", "Grimey", "Soft", "Big"];
 const PERC_CATS = ["Clap", "Cowbell", "Clave / wood block", "Rim shot", "Conga / bongo", "Tambourine / shaker", "Other"];
@@ -304,8 +307,8 @@ function computeStats() {
   stats = new Map();
   const add = (a, b, k) => { const key = pk(a, b); let o = stats.get(key); if (!o) stats.set(key, o = { t: 0, a: 0 }); o[k]++; };
   for (const r of rounds) {
-    const kit = r.mode === "kit";
-    const role = id => byId[id] ? KIT_ROLE[byId[id].sf] : null;
+    const kit = MODE[r.mode]?.kind === "kit";
+    const role = id => roleOf(r.mode, id);
     r.b.forEach((B, i) => {
       for (let x = 0; x < B.length; x++) for (let y = x + 1; y < B.length; y++) if (!kit || role(B[x]) !== role(B[y])) add(B[x], B[y], "t");
       r.b.forEach((C, j) => { if (j <= i) return; for (const a of B) for (const b of C) if (!kit || role(a) !== role(b)) add(a, b, "a"); });
@@ -338,9 +341,25 @@ async function playList(ids, gap = 0.4) {   // one after another
   await ctx(); stopAll(); const t0 = actx.currentTime + 0.03;
   ids.forEach((id, i) => { hit(id, t0 + i * gap); light(id, (i * gap + 0.03) * 1000); });
 }
+async function playHats(ids) {   // closed eighths with the open hat on the "and" of 2 and of 4, choked by the next closed hit; a bar per closed / open hat
+  await ctx(); stopAll();
+  const cl = ids.filter(id => roleOf("hats", id) === "closed"), op = ids.filter(id => roleOf("hats", id) === "open");
+  if (!cl.length || !op.length) return playList(ids);
+  const bars = Math.max(2, cl.length, op.length), e = 60 / 92 / 2, t0 = actx.currentTime + 0.03;
+  let openSrc = null;
+  for (let bar = 0; bar < bars; bar++) {
+    const c = cl[bar % cl.length], o = op[bar % op.length];
+    for (let st = 0; st < 8; st++) {
+      const t = t0 + (bar * 8 + st) * e, at = (t - t0 + 0.03) * 1000;
+      if (openSrc) { try { openSrc.stop(t); } catch { /* */ } openSrc = null; }
+      if (st === 3 || st === 7) { hit(o, t); openSrc = playing[playing.length - 1]; light(o, at, 260); }
+      else { hit(c, t); light(c, at, 110); }
+    }
+  }
+}
 async function playKit(ids) {   // a two-bar beat: kick, hat eighths, snare on 2 and 4 (one bar per kick / snare / hat if there are two)
   await ctx(); stopAll();
-  const by = { kick: [], snare: [], hat: [] }; for (const id of ids) { const r = KIT_ROLE[byId[id].sf]; if (r) by[r].push(id); }
+  const by = { kick: [], snare: [], hat: [] }; for (const id of ids) { const r = roleOf("kit", id); if (r) by[r].push(id); }
   const bars = Math.max(2, by.kick.length, by.snare.length, by.hat.length), e = 60 / 92 / 2, t0 = actx.currentTime + 0.03;
   for (let bar = 0; bar < bars; bar++) {
     const k = by.kick[bar % by.kick.length], s = by.snare[bar % by.snare.length], h = by.hat[bar % by.hat.length];
@@ -362,10 +381,11 @@ function newRound(m) {
   let items = [], old = [];
   if (MODE[m].kind === "cat") items = [];
   else if (MODE[m].kind === "kit") {
-    const cross = {}; for (const [k, o] of stats) { const [a, b] = k.split("|"); if (byId[a] && byId[b] && KIT_ROLE[byId[a].sf] && KIT_ROLE[byId[b].sf] && KIT_ROLE[byId[a].sf] !== KIT_ROLE[byId[b].sf]) { cross[a] = (cross[a] || 0) + o.t + o.a; cross[b] = (cross[b] || 0) + o.t + o.a; } }
-    for (const role of ["kick", "snare", "hat"]) {
-      const pool = M.filter(id => KIT_ROLE[byId[id].sf] === role).map(id => [id, (cross[id] || 0) + Math.random() * 3]).sort((a, b) => a[1] - b[1]);
-      items.push(...pool.slice(0, 2).map(p => p[0]));
+    const rl = id => roleOf(m, id), cross = {};
+    for (const [k, o] of stats) { const [a, b] = k.split("|"); if (rl(a) && rl(b) && rl(a) !== rl(b)) { cross[a] = (cross[a] || 0) + o.t + o.a; cross[b] = (cross[b] || 0) + o.t + o.a; } }
+    for (const role of [...new Set(Object.values(MODE[m].roles))]) {   // the least-paired sounds on each side, with a little chance
+      const pool = M.filter(id => rl(id) === role).map(id => [id, (cross[id] || 0) + Math.random() * 3]).sort((a, b) => a[1] - b[1]);
+      items.push(...pool.slice(0, MODE[m].pick).map(p => p[0]));
     }
     old = items.filter(id => cross[id]);
   } else {
@@ -420,7 +440,7 @@ function chip(id) {
 }
 function zone(b, title, ids, opts = {}) {
   const z = document.createElement("div"); z.className = "zone"; z.dataset.b = b;
-  z.innerHTML = `<div class="zh">${opts.input ? `<input type="text" value="${title.replace(/"/g, "&quot;")}" aria-label="Category name">` : `<span>${title}</span>`}<span>${ids.length ? `<button class="play" data-play="${b}">${MODE[mode].kind === "kit" ? "Play beat" : "Play"}</button>` : ""}${opts.input ? `<button class="play" data-del="${b}" title="Delete this ${naming().word}; its sounds go back to the tray" aria-label="Delete ${title.replace(/"/g, "&quot;")}">✕</button>` : ""}</span></div><div class="items"></div>`;
+  z.innerHTML = `<div class="zh">${opts.input ? `<input type="text" value="${title.replace(/"/g, "&quot;")}" aria-label="Category name">` : `<span>${title}</span>`}<span>${ids.length ? `<button class="play" data-play="${b}">${mode === "kit" ? "Play beat" : "Play"}</button>` : ""}${opts.input ? `<button class="play" data-del="${b}" title="Delete this ${naming().word}; its sounds go back to the tray" aria-label="Delete ${title.replace(/"/g, "&quot;")}">✕</button>` : ""}</span></div><div class="items"></div>`;
   for (const id of ids) z.querySelector(".items").append(chip(id));
   if (opts.input) z.querySelector("[data-del]").onclick = () => { const st = naming().st, name = st.names[b]; st.names.splice(b, 1); for (const id in st.of) if (st.of[id] === name) delete st.of[id]; saveAll(); drawAll(); };
   if (opts.input) z.querySelector("input").onchange = e => { const st = naming().st, old = st.names[b], nv = e.target.value.trim() || old; st.names[b] = nv; for (const id in st.of) if (st.of[id] === old) st.of[id] = nv; saveAll(); drawAll(); };
@@ -443,7 +463,7 @@ function drawSort() {
   }
   $("modeHint").innerHTML = mode === "types" ? "What kind of each sound is it? Drag it into a type (rename them, or drop on <b>New type</b>). This saves as you go, separately from the go-together rounds." :
     kind === "cat" ? "Name what each percussion sound is: drag it into a category (rename them, or drop on <b>New category</b>). This saves as you go." :
-    kind === "kit" ? "Two kicks, two snares, two hats. Put the ones that make <b>one kit</b> together in a bucket; <b>Play beat</b> hears it as a groove. Only kick ↔ snare ↔ hat links count here." :
+    kind === "kit" ? m.hint :
     "Put sounds that <b>go together</b> (could be the same kit) in one bucket, and ones that don't in different buckets. Leave a sound in the tray if you're not sure. <span style='color:var(--warn)'>▎</span>Marked ones you've sorted before.";
   $("trayLabel").textContent = kind === "cat" ? "Not named yet" : "To sort";
   tray.querySelector(".items").innerHTML = "";
@@ -458,7 +478,7 @@ function drawSort() {
     for (const id of cur.items) if (cur.where[id] < 0) tray.querySelector(".items").append(chip(id));
     box.innerHTML = "";
     const nb = Math.max(-1, ...Object.values(cur.where)) + 1;
-    for (let i = 0; i <= nb; i++) box.append(zone(i, i === nb ? "New bucket" : `${kind === "kit" ? "Kit" : "Bucket"} ${i + 1}`, cur.items.filter(id => cur.where[id] === i)));
+    for (let i = 0; i <= nb; i++) box.append(zone(i, i === nb ? "New bucket" : `${m.bucket || "Bucket"} ${i + 1}`, cur.items.filter(id => cur.where[id] === i)));
     $("doneBtn").hidden = $("skipBtn").hidden = false;
     const nr = rounds.filter(r => r.mode === mode).length;
     $("clearTab").hidden = !nr; if (Date.now() - clearArmed > 4000) $("clearTab").textContent = `Clear ${m.name}: ${nr} round${nr === 1 ? "" : "s"}`;
@@ -483,7 +503,7 @@ function drawStats() {
   const M = members(mode), R = rounds.filter(r => r.mode === mode).length;
   let heard = 0, total = 0;
   const parent = Object.fromEntries(M.map(id => [id, id])), find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
-  const role = id => KIT_ROLE[byId[id].sf];
+  const role = id => roleOf(mode, id);
   for (let i = 0; i < M.length; i++) for (let j = i + 1; j < M.length; j++) {
     if (m.kind === "kit" && role(M[i]) === role(M[j])) continue;
     total++; if (pair(M[i], M[j])) { heard++; parent[find(M[i])] = find(M[j]); }
@@ -544,7 +564,7 @@ document.addEventListener("pointercancel", () => { if (drag?.g) { drag.g.remove(
 document.addEventListener("click", e => {
   const p = e.target.closest("[data-play]"); if (!p) return;
   const z = p.closest(".zone"), ids = [...z.querySelectorAll(".snd")].map(c => c.dataset.id);
-  if (MODE[mode].kind === "kit" && z.dataset.b !== "-1") playKit(ids); else playList(ids);
+  if (mode === "kit" && z.dataset.b !== "-1") playKit(ids); else if (mode === "hats" && z.dataset.b !== "-1") playHats(ids); else playList(ids);
 });
 document.addEventListener("keydown", e => {
   const c = e.target.closest?.(".snd"); if (!c || c.classList.contains("ghost")) return;
@@ -555,7 +575,7 @@ document.addEventListener("keydown", e => {
 
 // ====================================================================== map
 let nodes = [], nodeOf = {}, alpha = 1, sel = new Set(), litNodes = new Set(), groupsOf = {}, groupList = [], raf = 0;
-const VIEWS = [["all", "All sorted sounds"], ...MODES.filter(m => m.kind !== "kit" && m.id !== "types").map(m => [m.id, m.name]), ["kit", "Kits: kick, snare, hat"]];
+const VIEWS = [["all", "All sorted sounds"], ...MODES.filter(m => m.kind !== "kit" && m.id !== "types").map(m => [m.id, m.name]), ["hats", "Hat pairs: closed and open"], ["kit", "Kits: kick, snare, hat"]];
 for (const [v, l] of VIEWS) $("view").add(new Option(l, v));
 $("view").value = store.get("view", "all"); $("colorBy").value = store.get("colorBy", "fam");
 function viewIds() {
