@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fat Chip Keytar Monitor</title>
+<meta name="description" content="Log everything a Yamaha SHS-10 keytar sends over MIDI, step by step, and copy a report for Fat Chip: keys, buttons, bend, accompaniment, drums, clock.">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f3fb;
+  --surface: #ffffff;
+  --surface-2: #efeaf7;
+  --border: #ddd5ec;
+  --text: #1d1730;
+  --muted: #675d84;
+  --accent: #c4302a;
+  --accent-strong: #a8231e;
+  --accent-ink: #ffffff;
+  --ok: #2e9b3a;
+  --warn: #b77900;
+  --danger: #cf3a3a;
+  --hit: #c4302a;
+  --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Chakra Petch", "Inter", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+    --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a; --hit: #ff6a5f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+  --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a; --hit: #ff6a5f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Inter", system-ui, sans-serif; padding-bottom: 64px; }
+a { color: var(--accent-strong); }
+.top { padding: 28px 16px 8px; max-width: 1100px; margin: 0 auto; }
+.crumb { margin: 0 0 2px; color: var(--muted); font-size: 14px; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4vw, 34px); letter-spacing: 0.02em; margin: 0; }
+.top h1::before { content: ""; display: inline-block; width: 0.55em; height: 0.85em; background: var(--accent); margin-right: 0.35em; vertical-align: -0.08em; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .top h1::before { animation: none; } }
+.sub { margin: 4px 0 0; color: var(--muted); }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 20px; margin: 14px 0; min-width: 0; }
+.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+.columns .card { margin: 0; }
+@media (max-width: 860px) { .columns { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field > span { font-size: 13px; font-weight: 500; color: var(--muted); }
+select, input[type=text], textarea { font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0; }
+select:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hint { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.status-line { margin: 10px 0 0; color: var(--muted); }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--border); background: var(--surface-2); }
+.banner.danger { border-color: var(--danger); }
+.banner.warn { border-color: var(--warn); }
+kbd, code { font-family: var(--mono); font-size: 13px; }
+/* steps */
+.steps { display: flex; flex-direction: column; gap: 8px; }
+.step { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.step.now { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.step.done { border-color: color-mix(in srgb, var(--ok) 60%, var(--border)); }
+.step .n { font: 600 14px/1.6 var(--mono); color: var(--muted); }
+.step h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.step p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.step .got { font: 12.5px/1.5 var(--mono); color: var(--ok); margin-top: 4px; min-height: 1.2em; overflow-wrap: anywhere; }
+.step input { grid-column: 2 / -1; padding: 6px 9px; font-size: 13.5px; }
+/* channel grid */
+.chans { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 640px) { .chans { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ch { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: var(--surface-2); font: 12px/1.35 var(--mono); min-width: 0; }
+.ch b { display: block; font: 600 13px var(--mono); }
+.ch.lit { border-color: var(--hit); }
+.ch .role { color: var(--muted); font-family: "Inter", system-ui, sans-serif; font-size: 11px; }
+.ch .c { color: var(--muted); }
+.flash { animation: flash 300ms ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--hit) 35%, var(--surface-2)); } }
+/* drums */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tbl th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.tbl td { padding: 5px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.tbl td.mono { font-family: var(--mono); font-size: 12.5px; }
+.scroll { overflow-x: auto; }
+.big { font: 600 28px/1.1 var(--mono); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .stats { grid-template-columns: 1fr 1fr; } }
+.stat span { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+#log { font: 12px/1.45 var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; height: 260px; overflow: auto; white-space: pre; color: var(--muted); margin-top: 10px; }
+.empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="crumb"><a href="../../tools/">Tools</a> / Fat Chip /</p>
+  <h1>Keytar Monitor</h1>
+  <p class="sub">See everything the Yamaha SHS-10 sends over MIDI, one step at a time, then copy the report for Fat Chip.</p>
+</header>
+<main>
+  <div id="unsupported" class="banner danger" hidden><strong>This browser has no Web MIDI.</strong> Open this page in Chrome, Edge or Opera on a computer.</div>
+  <div id="simBanner" class="banner warn" hidden><strong>Simulation.</strong> A fake keytar plays made-up MIDI so the page can be tried without one. Remove <code>?sim</code> from the address for the real thing.</div>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="dot" id="dot"></span>MIDI in</h2>
+      <div class="row">
+        <button id="connectBtn" class="btn primary">Connect</button>
+        <button id="clearBtn" class="btn">Clear everything</button>
+      </div>
+    </div>
+    <label class="field"><span>Input <em>(the USB-MIDI dongle the keytar's MIDI OUT is plugged into)</em></span>
+      <select id="input" disabled><option>Connect first</option></select>
+    </label>
+    <p id="status" class="status-line">Not connected.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Steps</h2>
+      <div class="row">
+        <button id="copyBtn" class="btn small primary">Copy report</button>
+        <button id="jsonBtn" class="btn small">Download full log</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:0">Click <b>Start</b> on a step, do it on the keytar, then start the next one. Everything that arrives is filed under the step that's running. Add a note if anything was odd or to say which buttons you pressed. Results stay in this browser until you clear them.</p>
+    <div class="steps" id="steps" style="margin-top:12px"></div>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-bottom:12px">Channels</h2>
+    <div class="chans" id="chans"></div>
+    <p class="hint">Messages per channel since you cleared, and what they were. The manual says: your keys on the channel you set, chord parts on 12–14, bass on 15, rhythm on 16.</p>
+  </section>
+
+  <div class="columns">
+    <section class="card">
+      <h2 style="margin-bottom:12px">Drums <span class="readout" id="drumCh" style="font-family:var(--mono);font-size:13px;color:var(--muted)">channel 16</span></h2>
+      <div class="scroll"><table class="tbl" id="drums"><thead><tr><th>Note</th><th>Name</th><th>Hits</th><th>Velocities</th><th>Manual's guess</th></tr></thead><tbody></tbody></table></div>
+      <p class="hint">Every drum note heard on channel 16, with each velocity it came at (the manual mentions accents at 56, 64 and 127). Note names: Logic's (middle C = C3 = 60).</p>
+    </section>
+    <section class="card">
+      <h2 style="margin-bottom:12px">Clock</h2>
+      <div class="stats">
+        <div class="stat"><span>Tempo</span><b class="big" id="bpm">—</b></div>
+        <div class="stat"><span>Clocks</span><b class="big" id="clocks">0</b></div>
+        <div class="stat"><span>Start / Stop</span><b class="big" id="ss">0 / 0</b></div>
+        <div class="stat"><span>Active sensing</span><b class="big" id="as">0</b></div>
+      </div>
+      <p class="hint">Tempo from the clock (24 per beat), averaged over the last beat, with the spread between clocks: <span id="jitter">—</span>. Clock while stopped: <span id="idleClock">—</span>.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Log</h2>
+      <label class="row" style="font-size:13.5px;color:var(--muted)"><input type="checkbox" id="showClock"> show clock and active sensing</label>
+    </div>
+    <div id="log" role="log" aria-live="off"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const SIM = new URLSearchParams(location.search).has("sim");
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("keytar." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("keytar." + k, JSON.stringify(v)); } catch { /* private window */ } },
+};
+const NN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteName = n => NN[n % 12] + (Math.floor(n / 12) - 2);   // Logic: 60 = C3
+const ROLE = { 12: "chord 1", 13: "chord 2", 14: "chord 3", 15: "bass", 16: "rhythm" };
+// the manual scan's drum notes (Logic names): BD ~A1, tom ~C2, SD ~E2, HH ~A2, cymbal ~D3 (to be confirmed here)
+const MANUAL = { 45: "bass drum?", 48: "tom?", 52: "snare?", 57: "hi-hat?", 62: "cymbal?" };
+
+const STEPS = [
+  ["keys", "Keys", "Play a few notes, then the lowest and the highest key (with the octave shift too, if there is one)."],
+  ["bend", "Pitch bend wheel", "Slowly all the way down, back to the middle, all the way up, back."],
+  ["vib", "Vibrato button", "On, then off."],
+  ["sus", "Sustain button", "On, play a note, then off."],
+  ["port", "Portamento button", "On, play two notes, then off."],
+  ["voice", "Voice buttons", "Press several voices (the note box: which ones)."],
+  ["chan", "MIDI channel", "Change the keys' MIDI channel with its buttons, play a note, change it back."],
+  ["rhythm", "Rhythm only", "Pick a style, start the rhythm, let it run about 8 bars, stop it."],
+  ["tempo", "Tempo", "With the rhythm running, change the tempo up and down."],
+  ["styles", "Rhythm styles", "Switch between a few styles while it runs (and once while stopped)."],
+  ["accomp", "Accompaniment", "Turn the auto accompaniment on, start, play a few one-finger chords (C, F, G, A minor), stop."],
+  ["fingered", "Fingered chords", "If it has a fingered-chord mode: play a few full chords with the accompaniment."],
+  ["other", "Other buttons", "Press every button not covered yet (fill-in, intro/ending, synchro start, demo, volume...). Say which in the note."],
+  ["idle", "Doing nothing", "Leave it alone for 10 seconds (shows what it sends on its own)."],
+];
+
+let access = null, input = null;
+let cur = store.get("cur", null);
+let data = store.get("data", null) || freshData();
+function freshData() {
+  return { steps: {}, notes: {}, chan: {}, drums: {}, clocks: 0, starts: 0, stops: 0, conts: 0, asense: 0, idleClocks: 0, log: [], other: {} };
+}
+function stepRec(id) { return data.steps[id] ||= { n: 0, chans: {}, noteMin: {}, noteMax: {}, cc: {}, pc: {}, bendMin: null, bendMax: null, vel: {}, clocks: 0, starts: 0, stops: 0, sys: 0, at: Date.now() }; }
+let saveTimer = 0;
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { store.set("data", data); store.set("cur", cur); }, 300); }
+
+// ------------------------------------------------------------------ steps UI
+function renderSteps() {
+  const box = $("steps"); box.innerHTML = "";
+  STEPS.forEach(([id, title, what], i) => {
+    const el = document.createElement("div");
+    el.className = "step" + (cur === id ? " now" : data.steps[id] ? " done" : "");
+    el.innerHTML = `<span class="n">${i + 1}</span><div><h3>${title}</h3><p>${what}</p><div class="got">${summaryLine(id)}</div></div>
+      <button class="btn small ${cur === id ? "primary" : ""}">${cur === id ? "Running…" : data.steps[id] ? "Again" : "Start"}</button>
+      <input type="text" placeholder="Note (optional)" value="${(data.notes[id] || "").replace(/"/g, "&quot;")}" aria-label="Note for ${title}">`;
+    el.querySelector("button").onclick = () => { if (data.steps[id] && cur !== id) delete data.steps[id]; cur = id; stepRec(id); save(); renderSteps(); };
+    el.querySelector("input").onchange = e => { data.notes[id] = e.target.value; save(); };
+    box.append(el);
+  });
+}
+function summaryLine(id) {
+  const s = data.steps[id];
+  if (!s) return "";
+  if (!s.n && !s.clocks) return cur === id ? "Waiting for MIDI…" : "Nothing arrived.";
+  const parts = [];
+  const chs = Object.keys(s.chans).map(Number).sort((a, b) => a - b);
+  if (chs.length) parts.push("ch " + chs.map(c => `${c}${ROLE[c] ? " (" + ROLE[c] + ")" : ""}: ${s.chans[c]}`).join(", "));
+  for (const c of chs) if (s.noteMin[c] != null) parts.push(`ch${c} notes ${s.noteMin[c]}–${s.noteMax[c]} (${noteName(s.noteMin[c])}–${noteName(s.noteMax[c])})${s.vel[c] ? " vel " + Object.keys(s.vel[c]).join("/") : ""}`);
+  const ccs = Object.entries(s.cc); if (ccs.length) parts.push("CC " + ccs.map(([k, v]) => `${k}=${v.join("/")}`).join(", "));
+  const pcs = Object.entries(s.pc); if (pcs.length) parts.push("PC " + pcs.map(([k, v]) => `${k}:${v.join(",")}`).join(" "));
+  if (s.bendMin != null) parts.push(`bend ${s.bendMin}…${s.bendMax} (centre 8192)`);
+  if (s.clocks) parts.push(`${s.clocks} clocks`);
+  if (s.starts || s.stops) parts.push(`start ${s.starts}, stop ${s.stops}`);
+  if (s.sys) parts.push(`${s.sys} other system msgs`);
+  return parts.join(" · ");
+}
+
+// ------------------------------------------------------------------ channels, drums, clock
+const chanEls = {};
+function buildChans() {
+  const box = $("chans"); box.innerHTML = "";
+  for (let c = 1; c <= 16; c++) {
+    const el = document.createElement("div");
+    el.className = "ch";
+    box.append(el); chanEls[c] = el;
+    drawChan(c);
+  }
+}
+function drawChan(c) {
+  const d = data.chan[c], el = chanEls[c];
+  el.className = "ch" + (d ? " lit" : "");
+  el.innerHTML = `<b>${c}</b><span class="role">${ROLE[c] || "&nbsp;"}</span><br>${d ? `${d.n} msg<br><span class="c">${Object.keys(d.types).join(" ")}</span>` : '<span class="c">—</span>'}`;
+}
+function drawDrums() {
+  const tb = $("drums").querySelector("tbody"), rows = Object.entries(data.drums).sort((a, b) => a[0] - b[0]);
+  tb.innerHTML = rows.length ? rows.map(([n, d]) => `<tr><td class="mono">${n}</td><td class="mono">${noteName(+n)}</td><td>${d.hits}</td><td class="mono">${Object.entries(d.vel).sort((a, b) => a[0] - b[0]).map(([v, k]) => `${v}×${k}`).join(" ")}</td><td>${MANUAL[n] || ""}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">No drum notes yet. Start a rhythm (step 8).</td></tr>`;
+}
+let clockTimes = [], running = false, lastStop = 0;
+function drawClock() {
+  $("clocks").textContent = data.clocks;
+  $("ss").textContent = `${data.starts} / ${data.stops}`;
+  $("as").textContent = data.asense;
+  $("idleClock").textContent = data.stops ? (data.idleClocks ? `yes (${data.idleClocks} clocks after a stop)` : "none so far") : "—";
+  if (clockTimes.length > 24) {
+    const t = clockTimes.slice(-25), gaps = t.slice(1).map((x, i) => x - t[i]);
+    const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    $("bpm").textContent = (60000 / (avg * 24)).toFixed(1);
+    const sd = Math.sqrt(gaps.reduce((a, g) => a + (g - avg) ** 2, 0) / gaps.length);
+    $("jitter").textContent = `±${sd.toFixed(2)} ms around ${avg.toFixed(2)} ms`;
+  }
+}
+
+// ------------------------------------------------------------------ MIDI in
+const TYPE = { 0x80: "off", 0x90: "on", 0xA0: "poly-AT", 0xB0: "CC", 0xC0: "PC", 0xD0: "AT", 0xE0: "bend" };
+let logLines = [];
+function addLog(line, quiet) {
+  if (quiet && !$("showClock").checked) return;
+  logLines.push(line);
+  if (logLines.length > 400) logLines.splice(0, logLines.length - 400);
+  scheduleDraw();
+}
+let drawPending = false;
+function scheduleDraw() {
+  if (drawPending) return;
+  drawPending = true;
+  requestAnimationFrame(() => {
+    drawPending = false;
+    const el = $("log"), atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+    el.textContent = logLines.join("\n");
+    if (atEnd) el.scrollTop = el.scrollHeight;
+    drawClock(); drawDrums();
+    for (let c = 1; c <= 16; c++) if (dirtyCh.has(c)) drawChan(c);
+    dirtyCh.clear();
+    if (cur) { const g = document.querySelector(".step.now .got"); if (g) g.textContent = summaryLine(cur); }
+  });
+}
+const dirtyCh = new Set();
+const t0 = performance.now();
+function handle(bytes, ts) {
+  const st = bytes[0], t = ((ts ?? performance.now()) - t0) / 1000;
+  const s = cur ? stepRec(cur) : null;
+  const stamp = t.toFixed(3).padStart(9);
+  if (st === 0xF8) {
+    data.clocks++; if (s) s.clocks++;
+    if (!running) data.idleClocks++;
+    clockTimes.push(ts ?? performance.now()); if (clockTimes.length > 200) clockTimes.splice(0, 100);
+    addLog(`${stamp}  clock`, true); save(); return;
+  }
+  if (st === 0xFE) { data.asense++; addLog(`${stamp}  active sensing`, true); save(); return; }
+  if (st >= 0xF0) {
+    const name = { 0xFA: "START", 0xFB: "CONTINUE", 0xFC: "STOP", 0xF0: "SysEx", 0xF2: "song position", 0xF3: "song select", 0xFF: "reset" }[st] || "system " + st.toString(16);
+    if (st === 0xFA || st === 0xFB) { running = true; if (st === 0xFA) { data.starts++; if (s) s.starts++; } else data.conts++; }
+    else if (st === 0xFC) { running = false; data.stops++; if (s) s.stops++; }
+    else if (s) s.sys++;
+    data.other[name] = (data.other[name] || 0) + 1;
+    addLog(`${stamp}  ${name}${st === 0xF0 ? " (" + bytes.length + " bytes) " + [...bytes].slice(0, 12).map(b => b.toString(16).padStart(2, "0")).join(" ") : ""}`);
+    data.log.push([+t.toFixed(4), cur, [...bytes]]);
+    save(); return;
+  }
+  const ty = st & 0xF0, ch = (st & 15) + 1, a = bytes[1], b = bytes[2];
+  let kind = TYPE[ty];
+  if (ty === 0x90 && b === 0) kind = "off";
+  const d = data.chan[ch] ||= { n: 0, types: {} };
+  d.n++; d.types[kind] = (d.types[kind] || 0) + 1; dirtyCh.add(ch);
+  if (s) {
+    s.n++; s.chans[ch] = (s.chans[ch] || 0) + 1;
+    if (kind === "on") {
+      s.noteMin[ch] = Math.min(s.noteMin[ch] ?? 127, a); s.noteMax[ch] = Math.max(s.noteMax[ch] ?? 0, a);
+      (s.vel[ch] ||= {})[b] = 1;
+    }
+    if (kind === "CC") { const v = s.cc[`ch${ch}:${a}`] ||= []; if (!v.includes(b) && v.length < 12) v.push(b); }
+    if (kind === "PC") { const v = s.pc[`ch${ch}`] ||= []; if (v.length < 30) v.push(a); }
+    if (kind === "bend") { const v = (b << 7) | a; s.bendMin = Math.min(s.bendMin ?? 16383, v); s.bendMax = Math.max(s.bendMax ?? 0, v); }
+  }
+  if (ch === 16 && kind === "on") { const r = data.drums[a] ||= { hits: 0, vel: {} }; r.hits++; r.vel[b] = (r.vel[b] || 0) + 1; }
+  let txt = `${stamp}  ch${String(ch).padStart(2)}  ${kind.padEnd(7)}`;
+  if (kind === "on" || kind === "off") txt += ` ${String(a).padStart(3)} ${noteName(a).padEnd(4)} vel ${b}`;
+  else if (kind === "CC") txt += ` CC${a} = ${b}`;
+  else if (kind === "PC") txt += ` program ${a}`;
+  else if (kind === "bend") txt += ` ${(b << 7) | a} (${((b << 7) | a) - 8192 >= 0 ? "+" : ""}${((b << 7) | a) - 8192})`;
+  else txt += ` ${a} ${b ?? ""}`;
+  addLog(txt + (ROLE[ch] ? `   (${ROLE[ch]})` : ""));
+  data.log.push([+t.toFixed(4), cur, [...bytes]]);
+  if (data.log.length > 20000) data.log.splice(0, 5000);
+  save();
+}
+
+function fillInputs() {
+  const sel = $("input"), want = store.get("input", "");
+  sel.innerHTML = "";
+  const ins = SIM ? [{ id: "sim", name: "Simulated SHS-10" }] : [...access.inputs.values()];
+  if (!ins.length) { sel.add(new Option("No MIDI inputs found", "")); sel.disabled = true; }
+  else { for (const i of ins) sel.add(new Option(i.name, i.id)); sel.disabled = false; if (ins.some(i => i.id === want)) sel.value = want; }
+  listen();
+}
+function listen() {
+  if (input && input.onmidimessage) input.onmidimessage = null;
+  input = null;
+  const id = $("input").value;
+  if (SIM) { input = { name: "Simulated SHS-10" }; }
+  else if (id) { input = access.inputs.get(id) || null; if (input) input.onmidimessage = e => handle(e.data, e.timeStamp); }
+  $("dot").className = "dot " + (input ? "ok" : "warn");
+  $("status").textContent = input ? `Listening to ${input.name}.` : "Connected, but there's no input yet. Plug in the MIDI dongle.";
+}
+$("input").addEventListener("change", () => { store.set("input", $("input").value); listen(); });
+$("connectBtn").addEventListener("click", async () => {
+  if (!SIM) {
+    try { access = await navigator.requestMIDIAccess(); }
+    catch { $("status").textContent = "MIDI access was refused. Allow it in the site settings and try again."; return; }
+    access.onstatechange = fillInputs;
+  }
+  $("connectBtn").textContent = "Connected"; $("connectBtn").disabled = true;
+  fillInputs();
+  if (SIM) simStart();
+});
+let clearArmed = false;
+$("clearBtn").addEventListener("click", () => {
+  if (!clearArmed) { clearArmed = true; $("clearBtn").textContent = "Click again to clear"; setTimeout(() => { clearArmed = false; $("clearBtn").textContent = "Clear everything"; }, 3000); return; }
+  clearArmed = false; $("clearBtn").textContent = "Clear everything";
+  data = freshData(); cur = null; logLines = []; clockTimes = []; save(); renderSteps(); buildChans(); scheduleDraw();
+});
+
+// ------------------------------------------------------------------ report
+function report() {
+  const L = ["Keytar Monitor report (Yamaha SHS-10)", `Input: ${input?.name || "?"} · ${new Date().toLocaleString()}`, ""];
+  STEPS.forEach(([id, title], i) => {
+    L.push(`${i + 1}. ${title}: ${data.steps[id] ? summaryLine(id) || "nothing" : "not done"}${data.notes[id] ? "  — " + data.notes[id] : ""}`);
+  });
+  L.push("", "Channels: " + Object.entries(data.chan).map(([c, d]) => `${c}${ROLE[c] ? "(" + ROLE[c] + ")" : ""}=${d.n} [${Object.entries(d.types).map(([k, v]) => k + " " + v).join(", ")}]`).join("; "));
+  L.push("Drum notes (ch16): " + (Object.entries(data.drums).map(([n, d]) => `${n} ${noteName(+n)} ×${d.hits} vel ${Object.keys(d.vel).join("/")}`).join("; ") || "none"));
+  L.push(`Clock: ${data.clocks} clocks, tempo ${$("bpm").textContent}, spread ${$("jitter").textContent}; start ${data.starts}, stop ${data.stops}, continue ${data.conts}; clock while stopped: ${$("idleClock").textContent}; active sensing ${data.asense}`);
+  const oth = Object.entries(data.other).filter(([k]) => !["START", "STOP", "CONTINUE"].includes(k));
+  if (oth.length) L.push("Other system messages: " + oth.map(([k, v]) => `${k} ×${v}`).join(", "));
+  return L.join("\n");
+}
+$("copyBtn").addEventListener("click", async () => {
+  const txt = report();
+  try { await navigator.clipboard.writeText(txt); $("copyBtn").textContent = "Copied"; }
+  catch { const w = $("log"); w.textContent = txt; $("copyBtn").textContent = "Report shown in the log: select and copy"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy report", 2500);
+});
+$("jsonBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify({ report: report(), steps: data.steps, notes: data.notes, chan: data.chan, drums: data.drums, events: data.log }, null, 1)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "shs10-midi-log.json"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+
+// ------------------------------------------------------------------ simulation (?sim): a made-up keytar
+function simStart() {
+  const send = b => handle(Uint8Array.from(b), performance.now());
+  let tick = 0;
+  setInterval(() => send([0xFE]), 300);
+  const bpm = 120, per = 60000 / bpm / 24;
+  setTimeout(() => send([0xCF, 3]), 200);
+  setTimeout(() => {
+    send([0xFA]);
+    const iv = setInterval(() => {
+      send([0xF8]);
+      if (tick % 12 === 0) { const step = (tick / 12) % 8; send([0x9F, 57, step % 2 ? 56 : 64]); if (step % 4 === 0) send([0x9F, 45, step === 0 ? 127 : 64]); if (step % 4 === 2) send([0x9F, 52, 64]); }
+      if (tick % 96 === 0) { for (const [c, n] of [[11, 60], [12, 64], [13, 67], [14, 36]]) send([0x90 | c, n, 64]); }
+      if (tick % 96 === 90) { for (const [c, n] of [[11, 60], [12, 64], [13, 67], [14, 36]]) send([0x80 | c, n, 0]); }
+      tick++;
+      if (tick > 24 * 16) { clearInterval(iv); send([0xFC]); }
+    }, per);
+  }, 800);
+  setTimeout(() => { send([0x90, 65, 64]); send([0xE0, 0, 0x40]); send([0xE0, 0, 0x60]); send([0xB0, 1, 127]); send([0x80, 65, 0]); }, 400);
+}
+
+if (SIM) $("simBanner").hidden = false;
+else if (!navigator.requestMIDIAccess) { $("unsupported").hidden = false; $("connectBtn").disabled = true; }
+renderSteps(); buildChans(); scheduleDraw();
+</script>
+</body>
+</html>
