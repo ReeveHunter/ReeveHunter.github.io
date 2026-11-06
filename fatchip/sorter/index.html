@@ -111,6 +111,18 @@ code { font-family: var(--mono); font-size: 13px; }
 .grpc b { font-family: "Inter", system-ui, sans-serif; }
 .sel { font: 12.5px/1.45 var(--mono); color: var(--muted); margin: 8px 0; min-height: 1.45em; }
 .sel b { color: var(--text); }
+.aud { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.audrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.audrow .lab { width: 84px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.audname { font: 700 20px var(--mono); min-width: 64px; text-align: center; padding: 2px 6px; border-radius: 6px; }
+.audname.lit { background: var(--accent); color: var(--accent-ink); }
+.audinfo { font: 12.5px var(--mono); color: var(--muted); }
+.cands { display: flex; flex-wrap: wrap; gap: 6px; }
+.cand { font: 600 12.5px/1 var(--mono); padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.cand small { font-weight: 500; color: var(--muted); margin-left: 5px; }
+.cand.cur { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.cand.yes { background: color-mix(in srgb, var(--ok) 18%, var(--surface)); }
+.cand.no { opacity: 0.55; }
 .split { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
 </style>
@@ -141,6 +153,25 @@ code { font-family: var(--mono); font-size: 13px; }
       <div class="items"></div>
     </div>
     <div class="buckets" id="buckets"></div>
+    <div id="audition" hidden>
+      <div class="aud">
+        <div class="audrow"><span class="lab">Closed hat</span><button id="cPrev" class="btn small" aria-label="Previous closed hat">↑</button><b id="cName" class="audname"></b><button id="cNext" class="btn small" aria-label="Next closed hat">↓</button><span id="cInfo" class="audinfo"></span></div>
+        <div class="audrow"><span class="lab">Open hat</span><button id="oPrev" class="btn small" aria-label="Previous open hat">←</button><b id="oName" class="audname"></b><button id="oNext" class="btn small" aria-label="Next open hat">→</button><span id="oInfo" class="audinfo"></span></div>
+        <div class="cands" id="cands" aria-label="Open hats, most alike in tone first"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="audPlay" class="btn primary">▶ Play loop (Enter)</button>
+        <button id="audYes" class="btn">✓ Pair (Space)</button>
+        <button id="audNo" class="btn">✗ Not a pair (X)</button>
+        <button id="audUndo" class="btn small">Undo (U)</button>
+      </div>
+      <div class="row" style="margin-top:12px;align-items:flex-end">
+        <div><span class="lab" style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:4px">Pattern (P)</span><div class="tabs" id="patTabs"></div></div>
+        <label class="field" style="width:160px"><span>Tempo <output id="audTempoOut"></output></span><input id="audTempo" type="range" min="60" max="160" value="92"></label>
+        <label class="check" style="padding-bottom:6px;display:flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" id="audKit"> Kick and snare under it</label>
+      </div>
+      <p class="stats" id="audStats"></p>
+    </div>
     <div class="row" style="margin-top:12px">
       <button id="doneBtn" class="btn primary">Done, next round</button>
       <button id="skipBtn" class="btn">New samples</button>
@@ -257,8 +288,8 @@ const MODES = [
   { id: "fx", name: "FX", fams: ["fx"] },
   { id: "perc", name: "Percussion", fams: ["perc"], kind: "cat" },
   { id: "types", name: "Types", fams: [], kind: "cat" },
-  { id: "hats", name: "Hat pairs", fams: ["hatc", "hato"], kind: "kit", roles: { hatc: "closed", hato: "open" }, pick: 3, bucket: "Pair",
-    hint: "Three closed hats and three open hats. Put a closed hat in a bucket with the open hat(s) it pairs with, like the two sides of one hi-hat; <b>Play</b> hears them as a hat pattern (the next closed hit cuts the open one off). Only closed ↔ open links count, so two closed hats sharing a bucket doesn't say they're alike." },
+  { id: "hats", name: "Hat pairs", fams: ["hatc", "hato"], kind: "kit", ui: "audition", roles: { hatc: "closed", hato: "open" }, pick: 3, bucket: "Pair",
+    hint: "A hat pattern loops with one closed and one open hat. <b>← →</b> try other open hats (most alike in tone first), <b>↑ ↓</b> other closed hats, <b>Space</b> = they pair, <b>X</b> = they don't, <b>P</b> = next pattern, <b>Enter</b> = play / stop, <b>U</b> = undo. The next closed hit cuts the open hat off, like a real hi-hat." },
   { id: "kit", name: "Kits", fams: ["kick", "snare", "hatc"], kind: "kit", roles: { kick: "kick", snare: "snare", hatc: "hat" }, pick: 2, bucket: "Kit",
     hint: "Two kicks, two snares, two hats. Put the ones that make <b>one kit</b> together in a bucket; <b>Play beat</b> hears it as a groove. Only kick ↔ snare ↔ hat links count here." },
 ];
@@ -465,6 +496,16 @@ function drawSort() {
     kind === "cat" ? "Name what each percussion sound is: drag it into a category (rename them, or drop on <b>New category</b>). This saves as you go." :
     kind === "kit" ? m.hint :
     "Put sounds that <b>go together</b> (could be the same kit) in one bucket, and ones that don't in different buckets. Leave a sound in the tray if you're not sure. <span style='color:var(--warn)'>▎</span>Marked ones you've sorted before.";
+  const audition = m.ui === "audition";
+  tray.hidden = box.hidden = audition; $("audition").hidden = !audition;
+  if (audition) {
+    $("doneBtn").hidden = $("skipBtn").hidden = true;
+    const nr = rounds.filter(r => r.mode === mode).length;
+    $("clearTab").hidden = !nr; if (Date.now() - clearArmed > 4000) $("clearTab").textContent = `Clear ${m.name}: ${nr} answer${nr === 1 ? "" : "s"}`;
+    $("stats").hidden = true; $("roundStatus").textContent = ""; drawAudition(); return;
+  }
+  $("stats").hidden = false;
+  audStop();
   $("trayLabel").textContent = kind === "cat" ? "Not named yet" : "To sort";
   tray.querySelector(".items").innerHTML = "";
   if (kind === "cat") {
@@ -523,7 +564,7 @@ $("doneBtn").onclick = () => {
   newRound(mode); drawAll();
 };
 $("skipBtn").onclick = () => { newRound(mode); drawSort(); };
-let clearArmed = 0;
+var clearArmed = 0;
 $("clearTab").onclick = () => {   // two clicks: forget every round of this tab (the other tabs, percussion names and tags stay)
   if (Date.now() - clearArmed > 4000) { clearArmed = Date.now(); $("clearTab").textContent = "Click again to clear them"; setTimeout(() => { clearArmed = 0; drawSort(); }, 4000); return; }
   clearArmed = 0; const n = rounds.filter(r => r.mode === mode).length;
@@ -571,6 +612,141 @@ document.addEventListener("keydown", e => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playOne(c.dataset.id); return; }
   if (/^[0-9]$/.test(e.key)) { moveTo(c.dataset.id, +e.key - 1); e.preventDefault(); }
   else if (e.key === "n" || e.key === "N") { moveTo(c.dataset.id, document.querySelectorAll("#buckets .zone").length - 1); e.preventDefault(); }
+});
+
+// ====================================================================== hat pairs: the audition loop
+// A hat pattern loops; ←/→ swap the open hat, ↑/↓ the closed hat, Space = they pair, X = they don't.
+// Open hats are offered in order of how alike their tone is to the closed hat (same cymbal → similar colour).
+const PATS = [
+  { name: "Regular", bars: ["c.c.c.c.c.c.c.o."] },                                   // eighths, open on the "and" of 4
+  { name: "Fast", bars: ["ccccccocccccccoc"] },                                       // sixteenths, open on the "and" of 2 and 4
+  { name: "Regular ↔ fast", bars: ["c.c.c.c.c.c.c.o.", "c.c.c.c.c.c.c.c.c.c.c.ccccccco.."] },   // a bar of eighths, then sixteenths with a roll into the open hat
+];
+const aud = { on: false, ci: 0, oi: 0, pat: store.get("audPat", 0), next: 0, bar: 0, step: 0, timer: 0, openSrc: null, closed: [], opens: [], undo: [] };
+// tone colour: 16 log-spaced bands, 400 Hz – 16 kHz, 3–50 ms in, as a shape (the level doesn't count)
+const toneCache = {};
+function tone(id) {
+  if (toneCache[id]) return toneCache[id];
+  const s = byId[id], r = renderDmc(s.bytes, s.native), x = centred(r.out.subarray(0, r.n));
+  const N = 4096, re = new Float32Array(N), im = new Float32Array(N), a = Math.round(SR * 0.003), L = Math.min(x.length - a, Math.round(SR * 0.047));
+  for (let i = 0; i < L; i++) re[i] = x[a + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / Math.max(1, L - 1)));
+  fft(re, im);
+  const B = 16, v = new Float64Array(B);
+  for (let k = 1; k < N / 2; k++) { const f = k * SR / N; if (f < 400 || f >= 16000) continue; const b = Math.floor(B * Math.log(f / 400) / Math.log(40)); v[b] += re[k] * re[k] + im[k] * im[k]; }
+  const lv = [...v].map(e => 10 * Math.log10(e + 1e-9)), mean = lv.reduce((p, q) => p + q, 0) / B;
+  return toneCache[id] = lv.map(e => e - mean);
+}
+const toneDist = (a, b) => { const x = tone(a), y = tone(b); let d = 0; for (let i = 0; i < x.length; i++) d += (x[i] - y[i]) ** 2; return Math.sqrt(d / x.length); };
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let k = 0; k < len / 2; k++) { const a = i + k, b = a + len / 2, tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr; re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti; const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } }
+  }
+}
+function judged(c, o) { const p = pair(c, o); return p ? (p.t >= p.a ? (p.t ? "yes" : null) : "no") : null; }
+function audSetup(keepClosed) {
+  const C = famIds("hatc"), O = famIds("hato");
+  const done = id => O.filter(o => judged(id, o)).length;
+  if (!aud.closed.length || aud.closed.length !== C.length) aud.closed = C.slice();   // in bank order; start on the least-judged one
+  if (!keepClosed) { let best = 0; aud.closed.forEach((id, i) => { if (done(id) < done(aud.closed[best])) best = i; }); aud.ci = best; }
+  audOpens();
+}
+function audOpens(keepOpen) {
+  const c = aud.closed[aud.ci], O = famIds("hato");
+  if (!c || !O.length) { aud.opens = []; return; }
+  const was = aud.opens[aud.oi];
+  aud.opens = O.map(o => ({ id: o, d: toneDist(c, o) })).sort((a, b) => a.d - b.d);
+  // "% alike" ranks against every closed ↔ open pair, so 100% = the most alike pair of all, 50% = an average pair
+  if (!aud.allD || aud.allD.n !== famIds("hatc").length * O.length) { const all = []; for (const x of famIds("hatc")) for (const y of O) all.push(toneDist(x, y)); all.sort((a, b) => a - b); aud.allD = all; aud.allD.n = all.length; }
+  const A = aud.allD, rank = d => { let lo = 0, hi = A.length; while (lo < hi) { const m = (lo + hi) >> 1; if (A[m] < d) lo = m + 1; else hi = m; } return lo; };
+  for (const o of aud.opens) o.sim = Math.round(100 * (1 - rank(o.d) / Math.max(1, A.length - 1)));
+  aud.oi = keepOpen ? Math.max(0, aud.opens.findIndex(o => o.id === was?.id)) : Math.max(0, aud.opens.findIndex(o => !judged(c, o.id)));
+}
+function drawAudition() {
+  if (!aud.closed.length || aud.closed.some(id => !byId[id])) audSetup();
+  const c = aud.closed[aud.ci], o = aud.opens[aud.oi];
+  $("cName").textContent = c || "–"; $("oName").textContent = o ? o.id : "–";
+  const nC = famIds("hato").filter(x => judged(c, x)).length;
+  $("cInfo").textContent = c ? `${aud.ci + 1} of ${aud.closed.length} · ${nC} of ${aud.opens.length} open hats judged` : "";
+  $("oInfo").textContent = o ? `${aud.oi + 1} of ${aud.opens.length} by tone · ${o.sim}% alike` : "";
+  const box = $("cands"); box.innerHTML = "";
+  aud.opens.forEach((x, i) => {
+    const j = judged(c, x.id), b = document.createElement("button");
+    b.type = "button"; b.className = "cand" + (i === aud.oi ? " cur" : "") + (j ? " " + j : "");
+    b.innerHTML = `${x.id}<small>${j === "yes" ? "✓" : j === "no" ? "✗" : x.sim + "%"}</small>`;
+    b.title = j === "yes" ? "Pairs with this closed hat" : j === "no" ? "Doesn't pair" : `Tone ${x.sim}% alike`;
+    b.onclick = () => { aud.oi = i; drawAudition(); };
+    box.append(b);
+  });
+  $("patTabs").innerHTML = "";
+  PATS.forEach((p, i) => { const b = document.createElement("button"); b.className = "tab"; b.setAttribute("aria-pressed", i === aud.pat); b.textContent = p.name; b.onclick = () => { aud.pat = i; store.set("audPat", i); drawAudition(); }; $("patTabs").append(b); });
+  $("audPlay").textContent = aud.on ? "■ Stop (Enter)" : "▶ Play loop (Enter)";
+  $("audUndo").disabled = !aud.undo.length;
+  const all = rounds.filter(r => r.mode === "hats"), yes = new Set(), no = new Set();
+  for (const [k, p] of stats) { const [a, b] = k.split("|"); if (roleOf("hats", a) && roleOf("hats", b) && roleOf("hats", a) !== roleOf("hats", b)) (p.t >= p.a && p.t ? yes : no).add(k); }
+  $("audStats").textContent = `${yes.size} pair${yes.size === 1 ? "" : "s"} and ${no.size} non-pair${no.size === 1 ? "" : "s"} of ${famIds("hatc").length * famIds("hato").length} possible`;
+}
+function audTick() {
+  const now = actx.currentTime, bpm = +$("audTempo").value, barDur = 4 * 60 / bpm;
+  while (aud.next < now + 0.1) {
+    const P = PATS[aud.pat], bar = P.bars[aud.bar % P.bars.length], L = bar.length, dt = barDur / L, t = aud.next, ch = bar[aud.step];
+    const c = aud.closed[aud.ci], o = aud.opens[aud.oi]?.id;
+    if (ch === "c" || ch === "o") {
+      if (aud.openSrc) { try { aud.openSrc.stop(t); } catch { /* */ } aud.openSrc = null; }   // a closed (or new open) hit chokes the open hat
+      const id = ch === "c" ? c : o;
+      if (id) { hit(id, t); if (ch === "o") aud.openSrc = playing[playing.length - 1]; flashName(ch === "c" ? "cName" : "oName", t - now); }
+    }
+    if ($("audKit").checked && (aud.step * 16) % L === 0) {   // a plain kick and snare under it: kick on 1 and the "and" of 3, snare on 2 and 4
+      const s16 = aud.step * 16 / L, K = audKitIds();
+      if (K.k && (s16 === 0 || s16 === 10)) hit(K.k, t);
+      if (K.s && (s16 === 4 || s16 === 12)) hit(K.s, t);
+    }
+    aud.next += dt;
+    if (++aud.step >= L) { aud.step = 0; aud.bar++; }
+  }
+  if (playing.length > 400) playing.splice(0, 200);
+}
+function audKitIds() { const k = byId.B11 ? "B11" : famIds("kick")[0], s = byId.B13 && byId.B13.sf === "snare" ? "B13" : famIds("snare")[0]; return { k, s }; }
+function flashName(id, delay) { setTimeout(() => { const e = $(id); e.classList.add("lit"); setTimeout(() => e.classList.remove("lit"), 70); }, Math.max(0, delay * 1000)); }
+async function audStart() { await ctx(); stopAll(); aud.on = true; aud.next = actx.currentTime + 0.05; aud.bar = 0; aud.step = 0; clearInterval(aud.timer); aud.timer = setInterval(audTick, 25); audTick(); drawAudition(); }
+function audStop() { if (!aud.on) return; aud.on = false; clearInterval(aud.timer); stopAll(); aud.openSrc = null; if (!$("audition").hidden) drawAudition(); }
+function audAnswer(yes) {
+  const c = aud.closed[aud.ci], o = aud.opens[aud.oi]?.id; if (!c || !o) return;
+  const r = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), mode: "hats", t: Date.now(), b: yes ? [[c, o]] : [[c], [o]] };
+  rounds.push(r); aud.undo.push(r.id); saveAll(); computeStats();
+  const nextOpen = aud.opens.findIndex((x, i) => i > aud.oi && !judged(c, x.id));   // on to the next open hat not judged yet
+  if (nextOpen >= 0) aud.oi = nextOpen;
+  drawSort(); buildGraph(); drawGroups();
+}
+function audUndo() {
+  const id = aud.undo.pop(); if (!id) return;
+  const r = rounds.find(x => x.id === id); rounds = rounds.filter(x => x.id !== id); saveAll(); computeStats();
+  if (r) { const [c, o] = r.b.flat(); const ci = aud.closed.indexOf(c); if (ci >= 0 && ci !== aud.ci) { aud.ci = ci; audOpens(); } aud.oi = Math.max(0, aud.opens.findIndex(x => x.id === o)); }
+  drawSort(); buildGraph(); drawGroups();
+}
+const audMove = (dc, dov) => {
+  if (dc) { aud.ci = (aud.ci + dc + aud.closed.length) % aud.closed.length; audOpens(); }
+  if (dov) aud.oi = (aud.oi + dov + aud.opens.length) % aud.opens.length;
+  drawAudition();
+};
+$("cPrev").onclick = () => audMove(-1, 0); $("cNext").onclick = () => audMove(1, 0);
+$("oPrev").onclick = () => audMove(0, -1); $("oNext").onclick = () => audMove(0, 1);
+$("audPlay").onclick = () => aud.on ? audStop() : audStart();
+$("audYes").onclick = () => audAnswer(true); $("audNo").onclick = () => audAnswer(false); $("audUndo").onclick = audUndo;
+$("audTempo").value = store.get("audTempo", 92); $("audTempoOut").textContent = $("audTempo").value;
+$("audTempo").oninput = () => { $("audTempoOut").textContent = $("audTempo").value; store.set("audTempo", +$("audTempo").value); };
+$("audTempo").onchange = () => $("audTempo").blur();   // hand the arrow keys back to the hats
+$("audKit").checked = store.get("audKit", false); $("audKit").onchange = () => { store.set("audKit", $("audKit").checked); $("audKit").blur(); };
+document.addEventListener("keydown", e => {
+  if ($("audition").hidden || e.target.closest?.("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key, act = {
+    ArrowLeft: () => audMove(0, -1), ArrowRight: () => audMove(0, 1), ArrowUp: () => audMove(-1, 0), ArrowDown: () => audMove(1, 0),
+    " ": () => audAnswer(true), x: () => audAnswer(false), X: () => audAnswer(false), Enter: () => aud.on ? audStop() : audStart(),
+    p: () => { aud.pat = (aud.pat + 1) % PATS.length; store.set("audPat", aud.pat); drawAudition(); }, u: audUndo, U: audUndo,
+  }[k === "P" ? "p" : k];
+  if (act) { e.preventDefault(); act(); }
 });
 
 // ====================================================================== map
