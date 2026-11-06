@@ -294,10 +294,10 @@ const MODES = [
     hint: "Two kicks, two snares, two hats. Put the ones that make <b>one kit</b> together in a bucket; <b>Play beat</b> hears it as a groove. Only kick ↔ snare ↔ hat links count here." },
 ];
 const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
-// cross-family rounds: which side a sound is on. Open hats typed "Half open" drive a beat as the hat in Kits, and stay out of Hat pairs.
+// cross-family rounds: which side a sound is on. Open hats typed "Half open" or "Open → closed" drive a beat as the hat in Kits, and stay out of Hat pairs.
 const roleOf = (m, id) => {
   const s = byId[id]; if (!s) return null;
-  if (s.sf === "hato" && typeOf(id) === "Half open") return m === "kit" ? "hat" : null;
+  if (s.sf === "hato" && (typeOf(id) === "Half open" || typeOf(id) === "Open → closed")) return m === "kit" ? "hat" : null;
   return MODE[m]?.roles?.[s.sf] || null;
 };
 const STYLES = ["Boombap", "DnB", "808", "909", "Electro", "Acoustic", "Lo-fi"];
@@ -354,7 +354,11 @@ const pk = (a, b) => a < b ? a + "|" + b : b + "|" + a;
 function computeStats() {
   stats = new Map();
   const add = (a, b, k) => { const key = pk(a, b); let o = stats.get(key); if (!o) stats.set(key, o = { t: 0, a: 0 }); o[k]++; };
+  // hat-pair answers: one pair, one answer; the latest one counts
+  const latest = new Map();
+  for (const r of rounds) if (r.mode === "hats" && r.b.flat().length === 2) { const k = pk(...r.b.flat()); if (!latest.has(k) || latest.get(k).t <= r.t) latest.set(k, r); }
   for (const r of rounds) {
+    if (r.mode === "hats" && r.b.flat().length === 2 && latest.get(pk(...r.b.flat())) !== r) continue;
     const kit = MODE[r.mode]?.kind === "kit";
     const role = id => roleOf(r.mode, id);
     r.b.forEach((B, i) => {
@@ -708,7 +712,7 @@ function drawAudition() {
   $("audUndo").disabled = !aud.undo.length;
   const all = rounds.filter(r => r.mode === "hats"), yes = new Set(), no = new Set();
   for (const [k, p] of stats) { const [a, b] = k.split("|"); if (roleOf("hats", a) && roleOf("hats", b) && roleOf("hats", a) !== roleOf("hats", b)) (p.t >= p.a && p.t ? yes : no).add(k); }
-  $("audStats").textContent = `${yes.size} pair${yes.size === 1 ? "" : "s"} and ${no.size} non-pair${no.size === 1 ? "" : "s"} of ${hatSide("closed").length * hatSide("open").length} possible`;
+  $("audStats").textContent = `${yes.size} pair${yes.size === 1 ? "" : "s"} and ${no.size} non-pair${no.size === 1 ? "" : "s"} of ${hatSide("closed").length * hatSide("open").length} possible${yes.size + no.size >= hatSide("closed").length * hatSide("open").length ? " · all judged: ← → ↑ ↓ to revisit any pair (a new answer replaces the old one)" : ""}`;
 }
 function audTick() {
   const now = actx.currentTime, bpm = +$("audTempo").value, barDur = 4 * 60 / bpm;
@@ -737,14 +741,22 @@ function audStop() { if (!aud.on) return; aud.on = false; clearInterval(aud.time
 function audAnswer(yes) {
   const c = aud.closed[aud.ci], o = aud.opens[aud.oi]?.id; if (!c || !o) return;
   const r = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), mode: "hats", t: Date.now(), b: yes ? [[c, o]] : [[c], [o]] };
-  rounds.push(r); aud.undo.push(r.id); saveAll(); computeStats();
-  const nextOpen = aud.opens.findIndex((x, i) => i > aud.oi && !judged(c, x.id));   // on to the next open hat not judged yet
+  const same = x => x.mode === "hats" && x.b.flat().length === 2 && pk(...x.b.flat()) === pk(c, o);
+  const replaced = rounds.filter(same);   // answering a pair again replaces the earlier answer
+  rounds = rounds.filter(x => !same(x)); rounds.push(r); aud.undo.push({ id: r.id, replaced }); saveAll(); computeStats();
+  // on to the next open hat not judged yet; when this closed hat is done, on to the next closed hat with some left
+  let nextOpen = aud.opens.findIndex((x, i) => i > aud.oi && !judged(c, x.id));
+  if (nextOpen < 0) nextOpen = aud.opens.findIndex(x => !judged(c, x.id));
   if (nextOpen >= 0) aud.oi = nextOpen;
+  else {
+    const O = hatSide("open"), n = aud.closed.length;
+    for (let k = 1; k < n; k++) { const ci = (aud.ci + k) % n; if (O.some(x => !judged(aud.closed[ci], x))) { aud.ci = ci; audOpens(); break; } }
+  }
   drawSort(); buildGraph(); drawGroups();
 }
 function audUndo() {
-  const id = aud.undo.pop(); if (!id) return;
-  const r = rounds.find(x => x.id === id); rounds = rounds.filter(x => x.id !== id); saveAll(); computeStats();
+  const u = aud.undo.pop(); if (!u) return;
+  const r = rounds.find(x => x.id === u.id); rounds = rounds.filter(x => x.id !== u.id); rounds.push(...(u.replaced || [])); saveAll(); computeStats();
   if (r) { const [c, o] = r.b.flat(); const ci = aud.closed.indexOf(c); if (ci >= 0 && ci !== aud.ci) { aud.ci = ci; audOpens(); } aud.oi = Math.max(0, aud.opens.findIndex(x => x.id === o)); }
   drawSort(); buildGraph(); drawGroups();
 }
