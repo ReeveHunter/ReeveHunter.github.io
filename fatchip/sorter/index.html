@@ -294,7 +294,12 @@ const MODES = [
     hint: "Two kicks, two snares, two hats. Put the ones that make <b>one kit</b> together in a bucket; <b>Play beat</b> hears it as a groove. Only kick ↔ snare ↔ hat links count here." },
 ];
 const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
-const roleOf = (m, id) => byId[id] ? MODE[m]?.roles?.[byId[id].sf] || null : null;   // cross-family rounds: which side a sound is on
+// cross-family rounds: which side a sound is on. Open hats typed "Half open" drive a beat as the hat in Kits, and stay out of Hat pairs.
+const roleOf = (m, id) => {
+  const s = byId[id]; if (!s) return null;
+  if (s.sf === "hato" && typeOf(id) === "Half open") return m === "kit" ? "hat" : null;
+  return MODE[m]?.roles?.[s.sf] || null;
+};
 const STYLES = ["Boombap", "DnB", "808", "909", "Electro", "Acoustic", "Lo-fi"];
 const CHARS = ["Clean", "Punchy", "Grimey", "Soft", "Big"];
 const PERC_CATS = ["Clap", "Cowbell", "Clave / wood block", "Rim shot", "Conga / bongo", "Tambourine / shaker", "Other"];
@@ -308,7 +313,19 @@ function prepare(raw) {
   }).filter(s => FAM_NAME[s.sf] && !isSweep(s)).sort((a, b) => a.bank.localeCompare(b.bank) || a.note - b.note);
   byId = Object.fromEntries(samples.map(s => [s.id, s]));
 }
-const members = mode => samples.filter(s => MODE[mode].fams.includes(s.sf)).map(s => s.id);
+const members = mode => MODE[mode].roles ? samples.filter(s => roleOf(mode, s.id)).map(s => s.id) : samples.filter(s => MODE[mode].fams.includes(s.sf)).map(s => s.id);
+// how long a hat rings: the last moment it's within 30 dB of its peak (5 ms RMS), in ms at its own speed
+const ringCache = {};
+function ringMs(id) {
+  if (ringCache[id] != null) return ringCache[id];
+  const s = byId[id], r = renderDmc(s.bytes, s.native), x = centred(r.out.subarray(0, r.n)), w = Math.round(SR * 0.005);
+  let acc = 0; const env = new Float32Array(x.length);
+  for (let i = 0; i < x.length; i++) { acc += x[i] * x[i]; if (i >= w) acc -= x[i - w] * x[i - w]; env[i] = Math.sqrt(Math.max(0, acc) / w); }
+  let pk = 0; for (const v of env) pk = Math.max(pk, v);
+  let last = 0; for (let i = env.length - 1; i >= 0; i--) if (env[i] > pk * 0.0316) { last = i; break; }
+  return ringCache[id] = Math.round(last / SR * 1000);
+}
+const hatTypes = () => mode === "types" && (typeFam === "hatc" || typeFam === "hato");
 
 // ====================================================================== saved state
 let rounds = store.get("rounds", []);          // [{id, mode, t, b: [[ids], ...]}]
@@ -464,7 +481,7 @@ function drawTabs() {
 function chip(id) {
   const s = byId[id], b = document.createElement("button");
   b.className = "snd" + (cur.old.includes(id) ? " old" : ""); b.dataset.id = id; b.type = "button";
-  b.innerHTML = `${id}<span class="f">${MODE[mode].kind === "kit" || MODE[mode].fams.length > 1 ? FAM_NAME[s.sf] : ""}</span>`;
+  b.innerHTML = `${id}<span class="f">${hatTypes() ? ringMs(id) + " ms" : MODE[mode].kind === "kit" || MODE[mode].fams.length > 1 ? FAM_NAME[s.sf] + (s.sf === "hato" && mode === "kit" ? " (half)" : "") : ""}</span>`;
   b.title = cur.old.includes(id) ? "You've sorted this one before; it links this round to the earlier ones" : "Click to hear it, drag it into a bucket (or press 1–9, 0 for the tray, N for a new bucket)";
   b.setAttribute("aria-label", `${id}, ${FAM_NAME[s.sf]}. Click to play; keys 1 to 9 move it to a bucket, 0 back to the tray, N to a new bucket.`);
   return b;
@@ -509,7 +526,7 @@ function drawSort() {
   $("trayLabel").textContent = kind === "cat" ? "Not named yet" : "To sort";
   tray.querySelector(".items").innerHTML = "";
   if (kind === "cat") {
-    const { st, M, word } = naming();
+    const { st, M: M0, word } = naming(), M = hatTypes() ? M0.slice().sort((a, b) => ringMs(a) - ringMs(b)) : M0;   // hats: shortest ring first
     for (const id of M) if (!st.of[id]) tray.querySelector(".items").append(chip(id));
     box.innerHTML = "";
     st.names.forEach((n, i) => box.append(zone(i, n, M.filter(id => st.of[id] === n), { input: true })));
@@ -647,28 +664,33 @@ function fft(re, im) {
 }
 function judged(c, o) { const p = pair(c, o); return p ? (p.t >= p.a ? (p.t ? "yes" : null) : "no") : null; }
 function audSetup(keepClosed) {
-  const C = famIds("hatc"), O = famIds("hato");
+  const C = hatSide("closed"), O = hatSide("open");
   const done = id => O.filter(o => judged(id, o)).length;
-  if (!aud.closed.length || aud.closed.length !== C.length) aud.closed = C.slice();   // in bank order; start on the least-judged one
+  if (!aud.closed.length || aud.closed.length !== C.length) aud.closed = C.slice();
+  aud.ci = Math.min(aud.ci, aud.closed.length - 1);   // in bank order; start on the least-judged one
   if (!keepClosed) { let best = 0; aud.closed.forEach((id, i) => { if (done(id) < done(aud.closed[best])) best = i; }); aud.ci = best; }
   audOpens();
 }
 function audOpens(keepOpen) {
-  const c = aud.closed[aud.ci], O = famIds("hato");
+  const c = aud.closed[aud.ci], O = hatSide("open");
   if (!c || !O.length) { aud.opens = []; return; }
   const was = aud.opens[aud.oi];
   aud.opens = O.map(o => ({ id: o, d: toneDist(c, o) })).sort((a, b) => a.d - b.d);
   // "% alike" ranks against every closed ↔ open pair, so 100% = the most alike pair of all, 50% = an average pair
-  if (!aud.allD || aud.allD.n !== famIds("hatc").length * O.length) { const all = []; for (const x of famIds("hatc")) for (const y of O) all.push(toneDist(x, y)); all.sort((a, b) => a - b); aud.allD = all; aud.allD.n = all.length; }
+  if (!aud.allD || aud.allD.key !== hatKey()) { const all = []; for (const x of hatSide("closed")) for (const y of O) all.push(toneDist(x, y)); all.sort((a, b) => a - b); aud.allD = all; aud.allD.key = hatKey(); }
   const A = aud.allD, rank = d => { let lo = 0, hi = A.length; while (lo < hi) { const m = (lo + hi) >> 1; if (A[m] < d) lo = m + 1; else hi = m; } return lo; };
   for (const o of aud.opens) o.sim = Math.round(100 * (1 - rank(o.d) / Math.max(1, A.length - 1)));
   aud.oi = keepOpen ? Math.max(0, aud.opens.findIndex(o => o.id === was?.id)) : Math.max(0, aud.opens.findIndex(o => !judged(c, o.id)));
 }
+const hatSide = side => members("hats").filter(id => roleOf("hats", id) === side);
+const hatKey = () => hatSide("closed").join() + "|" + hatSide("open").join();
 function drawAudition() {
   if (!aud.closed.length || aud.closed.some(id => !byId[id])) audSetup();
+  else if (aud.key !== hatKey()) { aud.closed = []; audSetup(true); }   // types changed (a half-open hat came or went)
+  aud.key = hatKey();
   const c = aud.closed[aud.ci], o = aud.opens[aud.oi];
   $("cName").textContent = c || "–"; $("oName").textContent = o ? o.id : "–";
-  const nC = famIds("hato").filter(x => judged(c, x)).length;
+  const nC = hatSide("open").filter(x => judged(c, x)).length;
   $("cInfo").textContent = c ? `${aud.ci + 1} of ${aud.closed.length} · ${nC} of ${aud.opens.length} open hats judged` : "";
   $("oInfo").textContent = o ? `${aud.oi + 1} of ${aud.opens.length} by tone · ${o.sim}% alike` : "";
   const box = $("cands"); box.innerHTML = "";
@@ -686,7 +708,7 @@ function drawAudition() {
   $("audUndo").disabled = !aud.undo.length;
   const all = rounds.filter(r => r.mode === "hats"), yes = new Set(), no = new Set();
   for (const [k, p] of stats) { const [a, b] = k.split("|"); if (roleOf("hats", a) && roleOf("hats", b) && roleOf("hats", a) !== roleOf("hats", b)) (p.t >= p.a && p.t ? yes : no).add(k); }
-  $("audStats").textContent = `${yes.size} pair${yes.size === 1 ? "" : "s"} and ${no.size} non-pair${no.size === 1 ? "" : "s"} of ${famIds("hatc").length * famIds("hato").length} possible`;
+  $("audStats").textContent = `${yes.size} pair${yes.size === 1 ? "" : "s"} and ${no.size} non-pair${no.size === 1 ? "" : "s"} of ${hatSide("closed").length * hatSide("open").length} possible`;
 }
 function audTick() {
   const now = actx.currentTime, bpm = +$("audTempo").value, barDur = 4 * 60 / bpm;
