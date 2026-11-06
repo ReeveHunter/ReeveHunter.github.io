@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fat Chip Beat Lab</title>
-<meta name="description" content="Build MidiNES drum kits by ear: beats in many styles, swap sounds while they loop, vary them from your Sound Sorter pairings, with triangle bass and pulse chords, all by NES rules.">
+<meta name="description" content="Build MidiNES drum kits by ear: beats in ten styles with accents and ghost notes, buckets of sounds per drum for main hits, accents and ghosts, vary and speed wobble, triangle bass and pulse chords, all by NES rules.">
 <link rel="icon" type="image/png" href="../../assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,6 +88,33 @@ code { font-family: var(--mono); font-size: 13px; }
 .cell.soft { background: var(--step-soft); }
 .cell.beat { box-shadow: inset 0 0 0 1px var(--border); }
 .cell.now { outline: 2px solid var(--ok); outline-offset: 0; }
+.seq .lbl { display: flex; align-items: center; gap: 4px; border-radius: 6px; padding: 1px 2px; }
+.seq .lbl.focus { background: var(--accent); }
+.seq .lbl.focus .rname { color: var(--accent-ink); }
+.seq .lbl.hit .rname { text-decoration: underline; }
+.seq .lbl.muted .rname { text-decoration: line-through; opacity: 0.6; }
+.rname { border: 0; background: none; font: 600 12px var(--mono); color: var(--text); cursor: pointer; padding: 2px 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mute { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 5px; width: 22px; height: 20px; padding: 0; cursor: pointer; font-size: 11px; flex: none; }
+.mute[aria-pressed="true"] { background: var(--danger); color: #fff; border-color: var(--danger); }
+.cell.muted { opacity: 0.35; }
+.edhead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 12px 0 10px; }
+.edhead h3 { margin: 0; font-size: 18px; }
+.edhead h3 small { font-size: 13px; color: var(--muted); font-weight: 500; }
+#editor h4 { font-size: 14px; margin: 14px 0 6px; }
+#editor h4 small { font-weight: 500; color: var(--muted); }
+.bucks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .bucks { grid-template-columns: 1fr; } }
+.zone { border: 1.5px dashed var(--border); border-radius: 10px; padding: 8px; min-height: 70px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.zone.over { border-color: var(--accent); border-style: solid; }
+.zone .zh { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.zone .items { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
+.zone.lib { border-style: solid; }
+.empty { font-size: 12px; color: var(--muted); }
+.play { border: 0; background: none; color: var(--accent-strong); cursor: pointer; font: 600 12.5px "Inter", system-ui, sans-serif; padding: 0 2px; }
+.cand { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.cand.inuse { opacity: 0.45; }
+.cand.noise { border-style: dashed; }
+.cand.ghost { position: fixed; z-index: 10; pointer-events: none; opacity: 0.9; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
 .voices { display: flex; flex-direction: column; gap: 8px; }
 .voice { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); cursor: pointer; }
 .voice.focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
@@ -152,21 +179,21 @@ code { font-family: var(--mono); font-size: 13px; }
       <button id="resetPat" class="btn small" style="margin-left:auto">Reset this beat</button>
     </div>
     <div class="seqwrap"><div class="seq" id="seq"></div></div>
-    <p class="hint">Click the grid to change the beat (off → hit → accent → ghost); your changes stay with this beat until you reset it. The triangle has no volume control on the NES, so the bass is as loud here as it really is; pulses at 7 are a lead, 5 still on top, 4 a mix.</p>
+    <p class="hint">Click a name to edit that drum's sounds, ♪ to mute or unmute the row. Click the grid to change the beat (off → hit → accent → ghost; toms 1 → 2 → 3); your changes stay with this beat until you reset it. The triangle has no volume control on the NES, so the bass is as loud here as it really is; pulses at 7 are a lead, 5 still on top, 4 a mix.</p>
   </section>
 
   <section class="card">
     <div class="card-head">
       <h2><span class="step-n">2</span>Kit</h2>
       <div class="row">
-        <select id="kitSel" aria-label="Saved kits" style="width:auto"></select>
+        <select id="kitSel" aria-label="Load a kit" style="width:auto"></select>
         <button id="kitSave" class="btn small">Save as…</button>
-        <button id="kitDefault" class="btn small">Suggested kit</button>
+        <button id="kitDefault" class="btn small">Pick a whole new kit</button>
         <button id="kitExport" class="btn small">Export kits</button>
       </div>
     </div>
-    <p class="hint" style="margin-top:0">Click a drum to focus it, then <b>← →</b> try the next sound while the beat plays, <b>↑ ↓</b> move between drums, <b>L</b> locks it, <b>M</b> mutes it. Sounds are listed by your types first, then the ones you put in the same bucket as the current one, then the rest. <b>Vary</b> swaps hits for sounds you bucketed together with it (shown green); on noise it nudges pitch and volume. Hats and cymbals can be samples or NES noise.</p>
-    <div class="voices" id="voices"></div>
+    <p class="hint" style="margin-top:0">Click a drum's name in the grid (or <b>↑ ↓</b>) to open its buckets: <b>Main</b> for normal hits, <b>Accent</b> for accented hits, <b>Ghost</b> for ghost notes (toms: Hi, Mid, Lo). The NES can't play a sample softer or louder, so dynamics come from different sounds. Drag sounds in from the list below, between buckets, or out to remove them; click one to hear it. <b>Vary</b> 0 always plays a bucket's first sound; higher shuffles through the bucket. <b>Speed wobble</b> plays hits a speed or more higher or lower (a little, or a lot when cranked). Hats and cymbal can use NES noise too.</p>
+    <div id="editor"></div>
     <div id="hits" role="log" aria-live="off"></div>
     <p class="hint">NES rules: one sample at a time (kick, then snare, tom, percussion, cymbal, open hat, closed hat); a hat or cymbal that loses the sample channel moves to noise, anything else is dropped. One noise sound at a time too, so a closed hat cuts an open hat off.</p>
   </section>
@@ -191,51 +218,51 @@ code { font-family: var(--mono); font-size: 13px; }
 <script>
 "use strict";
 // ====================================================================== beats
-// One string per drum: . rest, x hit, X accent, o ghost; toms 1 / 2 / 3 = hi / mid / lo. Spaces split bars.
+// One string per drum: . rest, o ghost, x hit, X accent; toms 1 / 2 / 3 = hi / mid / lo. Spaces split bars.
 // bass: one token per step (note name = new note, . = hold, _ = stop). chords: one per bar (or per half bar).
 // stab: chord rhythm per bar (x = hit), otherwise the chord is held. spb = steps per beat (4 = sixteenths).
 const PATTERNS = [
   { id: "electro", name: "Electro", bpm: 124, spb: 4, bar: 16, swing: 0,
     tracks: {
-      bd: "X.....x...x..... X.....x...x..x..",
-      sd: "....X.......X... ....X.......X...",
-      ch: "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x...",
+      bd: "X.....x...x..... X.....x...x..xo.",
+      sd: "....X.......X... ....X.......X..o",
+      ch: "XoxoXoxoXoxoXoxo XoxoXoxoXoxoXo..",
       oh: "................ ..............x.",
-      p1: "..x.....x.....x. ..x.....x..x....",
+      p1: "..x.....X.....x. ..x.....X..x....",
     },
     bass: "A1 . . . _ . A1 . . _ C2 . . . _ . | A1 . . . _ . A1 . . _ G1 . . E1 . _",
     chords: ["Am", "F"], stab: "x.....x...x....." },
   { id: "jungle", name: "Jungle", bpm: 168, spb: 4, bar: 16, swing: 0,
     tracks: {
-      bd: "X.x.......xx.... X.x.......x.....",
-      sd: "....X..o.o..X..o ....X..o.o....X.",
-      ch: "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      bd: "X.x.......Xx.... X.x.......x...o.",
+      sd: "....X..o.o.oX..o ....X..o.o.o..Xo",
+      ch: "x.X.x.X.x.X.x.X. x.X.x.X.x.X.xoXo",
       cy: "X............... ................",
     },
     bass: "D1 . . . . . . . . . . . . . . . | F1 . . . . . . . C1 . . . . . . _",
     chords: ["Dm", "A#"] },
   { id: "dnb", name: "Drum & bass", bpm: 174, spb: 4, bar: 16, swing: 0,
     tracks: {
-      bd: "X.........x..... X.........x...x.",
-      sd: "....X.......X... ....X.......X..o",
-      ch: "..x...x...x...x. ..x...x...x.....",
-      oh: "................ ..............x.",
+      bd: "X.........x..... X.........x.o.x.",
+      sd: "....X..o....X..o ....X..o.o..X..o",
+      ch: "o.x.o.x.o.x.o.x. o.x.o.x.o.x.o...",
+      oh: "................ ..............X.",
     },
     bass: "E1 . . . . . . . . . E1 . . . _ . | G1 . . . . . . . . . A1 . . . _ .",
     chords: ["Em", "C"] },
   { id: "boombap", name: "Boombap", bpm: 90, spb: 4, bar: 16, swing: 55,
     tracks: {
-      bd: "X......x..x..... X.x....x..x..x..",
-      sd: "....X.......X... ....X.......X...",
-      ch: "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.o.",
+      bd: "X......x..x....o X.x....x..x..x..",
+      sd: "....X..o....X... ....X..o.o..X..o",
+      ch: "X.x.x.x.X.x.x.x. X.x.x.x.X.x.x.o.",
     },
     bass: "F1 . . . . . . F1 . . G#1 . . . _ . | C2 . . . . . . C2 . . A#1 . . . _ .",
     chords: ["Fm7", "Cm7"] },
   { id: "rock", name: "Rock", bpm: 118, spb: 4, bar: 16, swing: 0,
     tracks: {
       bd: "X.......X.x..... X.......X.x.....",
-      sd: "....X.......X... ....X...........",
-      ch: "x.x.x.x.x.x.x.x. x.x.x.x.........",
+      sd: "....X......oX... ....X...........",
+      ch: "X.x.X.x.X.x.X.x. X.x.X.x.........",
       cy: "X............... ................",
       tom: "................ ........1.1.2.33",
     },
@@ -243,66 +270,66 @@ const PATTERNS = [
     chords: ["E5", "A5", "D5", "E5"] },
   { id: "sixeight", name: "6/8", bpm: 60, spb: 6, bar: 12, swing: 0,
     tracks: {
-      bd: "X.....x..... X.....x...x.",
-      sd: "......X..... ......X..o..",
-      ch: "x.x.x.x.x.x. x.x.x.x.x.x.",
+      bd: "X.....x..... X.....x...o.",
+      sd: "...o..X..... ...o..X..oo.",
+      ch: "X.x.x.X.x.x. X.x.x.X.x.x.",
+      cy: "X........... ............",
     },
     bass: "G1 . . . . . D2 . . . . . | C2 . . . . . D2 . . . . _",
     chords: ["G", "C"] },
   { id: "lofi", name: "Lo-fi", bpm: 76, spb: 4, bar: 16, swing: 60,
     tracks: {
-      bd: "X.......x.x..... X......x..x.....",
-      sd: "....X.......X... ....X.......X...",
-      ch: "x.x.x.xox.x.x.xo x.x.x.xox.x.x.x.",
+      bd: "X.......x.o..... X......x..x...o.",
+      sd: "....X..o....X..o ....X..o.o..X...",
+      ch: "x.o.x.oox.o.x.oo x.o.x.oox.o.x.o.",
       p1: "..............x. ......x.........",
     },
     bass: "D2 . . . . . . . A1 . . . . . _ . | G1 . . . . . . . A1 . . . . . _ .",
     chords: ["Dm7", "G7"] },
   { id: "minimal", name: "Minimal", bpm: 118, spb: 4, bar: 16, swing: 0,
     tracks: {
-      bd: "X...X...X...X... X...X...X...X...",
+      bd: "X...x...X...x... X...x...X...x..o",
       sd: "................ ............X...",
-      ch: "..x...x...x...x. ..x...x...x...x.",
-      p1: "......x.......x. ...x..x.......x.",
-      p2: "..........x..... ...........x....",
+      ch: "..x...x...X...x. ..x...x...X...xo",
+      p1: "......x.......o. ...o..x.......x.",
+      p2: "..........x..... ...........X....",
     },
     bass: "A1 . _ . . . . . . . A1 _ . . . . | A1 . _ . . . . . . . C2 _ . . . .",
     chords: ["Am"], stab: "......x........." },
   { id: "seven", name: "Weird 7/8", bpm: 132, spb: 4, bar: 14, swing: 0,
     tracks: {
-      bd: "X.....x...X... X.....x.x.X...",
-      sd: "....X.......X. ....X.....X.X.",
-      ch: "x.x.x.x.x.x.x. x.x.x.x.x.x.x.",
+      bd: "X.....x...X... X.....x.o.X...",
+      sd: "....X..o....X. ....X..o..X.Xo",
+      ch: "X.x.x.X.x.X.x. X.x.x.X.x.X.x.",
       tom: ".............. ........1..2.3",
     },
     bass: "B1 . . . . . B1 . . . D2 . . _ | B1 . . . . . A1 . . . F#1 . . _",
     chords: ["Bm", "G"] },
   { id: "broken", name: "Weird broken", bpm: 96, spb: 4, bar: 16, swing: 0,
     tracks: {
-      bd: "X..x......x..x.. X.........x.....",
-      sd: ".......X..o..... .......X...o..X.",
+      bd: "X..x......X..o.. X...o.....x.....",
+      sd: ".......X..o..o.. .......X...o..Xo",
       tom: "....1.......3... ..2.........3...",
-      p1: "..x.....x......x ..x.......x.....",
-      p2: "...........x.... ......x.........",
+      p1: "..x.....X......o ..x.......x.....",
+      p2: "...........x.... ......X.........",
     },
     bass: "C2 . . _ . . C#2 . . _ . . . . . . | C2 . . _ . . G1 . . _ . . F#1 . . _",
     chords: [] },
 ];
-// what each beat reaches for first when it suggests a kit (your types, tags and percussion names)
-const SUGGEST = {
-  electro: { bd: { type: "Long", tag: "Electro" }, sd: { perc: "Clap" }, ch: { noise: "closed" }, oh: { noise: "open" }, cy: { type: "Crash" }, p1: { perc: "Cowbell" }, p2: { perc: "Clave / wood block" }, tom: { tag: "Electro" } },
-  jungle: { bd: { tag: "DnB", type: "Layered" }, sd: { type: "Jungle" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: { type: "Crash" }, tom: {}, p1: {}, p2: {} },
-  dnb: { bd: { tag: "DnB", type: "Punchy" }, sd: { type: "Jungle" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: { type: "Crash" }, tom: {}, p1: {}, p2: {} },
-  boombap: { bd: { tag: "Boombap", type: "Punchy" }, sd: { tag: "Boombap", type: "Fat" }, ch: { type: "Loose" }, oh: { type: "Open" }, cy: { type: "Crash" }, tom: {}, p1: { perc: "Rim shot" }, p2: {} },
-  rock: { bd: { type: "Punchy" }, sd: { type: "Fat" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: { type: "Crash" }, tom: {}, p1: {}, p2: {} },
-  sixeight: { bd: { type: "Punchy" }, sd: { type: "Brushy" }, ch: { type: "Loose" }, oh: { type: "Open" }, cy: { type: "Ride" }, tom: {}, p1: {}, p2: {} },
-  lofi: { bd: { tag: "Lo-fi", type: "Short/Clicky" }, sd: { type: "Brushy" }, ch: { tag: "Lo-fi" }, oh: { type: "Open" }, cy: { type: "Ride" }, tom: {}, p1: { perc: "Rim shot" }, p2: {} },
-  minimal: { bd: { type: "Punchy" }, sd: { perc: "Clap" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: {}, tom: {}, p1: { perc: "Clave / wood block" }, p2: { perc: "Cowbell" } },
-  seven: { bd: { type: "Short/Clicky" }, sd: { type: "Electronic" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: {}, tom: {}, p1: {}, p2: {} },
-  broken: { bd: { type: "Short/Clicky" }, sd: { type: "Electronic" }, ch: { type: "Tight" }, oh: {}, cy: {}, tom: {}, p1: { perc: "Timbale" }, p2: { perc: "Perc FX" } },
+// what each beat's kit is built from: preferred types / style tags / percussion names, and noise for electro hats
+const STYLE = {
+  electro: { bd: { type: "Long", tag: "Electro" }, sd: { perc: "Clap", type: "Electronic" }, ch: { noise: "closed" }, oh: { noise: "open" }, cy: { type: "Crash" }, p1: { perc: "Cowbell" }, p2: { perc: "Clave / wood block" }, tom: { tag: "Electro" } },
+  jungle: { bd: { tag: "DnB", type: "Layered" }, sd: { type: "Jungle" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: { type: "Crash" } },
+  dnb: { bd: { tag: "DnB", type: "Punchy" }, sd: { type: "Jungle" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: { type: "Crash" } },
+  boombap: { bd: { tag: "Boombap", type: "Punchy" }, sd: { tag: "Boombap", type: "Fat" }, ch: { type: "Loose" }, oh: { type: "Open" }, cy: { type: "Crash" }, p1: { perc: "Rim shot" } },
+  rock: { bd: { type: "Punchy" }, sd: { type: "Fat" }, ch: { type: "Tight" }, oh: { type: "Open" }, cy: { type: "Crash" } },
+  sixeight: { bd: { type: "Punchy" }, sd: { type: "Brushy" }, ch: { type: "Loose" }, oh: { type: "Open" }, cy: { type: "Ride" } },
+  lofi: { bd: { tag: "Lo-fi", type: "Short/Clicky" }, sd: { type: "Brushy" }, ch: { tag: "Lo-fi" }, oh: { type: "Open" }, cy: { type: "Ride" }, p1: { perc: "Rim shot" } },
+  minimal: { bd: { type: "Punchy" }, sd: { perc: "Clap" }, ch: { type: "Tight" }, oh: { type: "Open" }, p1: { perc: "Clave / wood block" }, p2: { perc: "Cowbell" } },
+  seven: { bd: { type: "Short/Clicky" }, sd: { type: "Electronic" }, ch: { type: "Tight" }, oh: { type: "Open" } },
+  broken: { bd: { type: "Short/Clicky" }, sd: { type: "Electronic" }, ch: { type: "Tight" }, p1: { perc: "Timbale" }, p2: { perc: "Perc FX" } },
 };
 
-"use strict";
 const $ = id => document.getElementById(id);
 const store = {
   get(k, d) { try { const v = localStorage.getItem("beatlab." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -421,30 +448,88 @@ function candidates(vid) {
 }
 const label = id => typeOf(id) || percOf[id] || "";
 
-// ====================================================================== kits
+// ====================================================================== measuring: how big a hit is (for accent vs ghost picks) and how high (toms)
+const meas = {};
+function measure(id) {
+  if (meas[id]) return meas[id];
+  const s = byId[id], r = renderDmc(s.bytes, s.native), x = centred(r.out.subarray(0, r.n));
+  const w = Math.min(x.length, Math.round(SR * 0.06)); let e = 0, zc = 0;
+  for (let i = 0; i < w; i++) e += x[i] * x[i];
+  const z = Math.min(x.length, Math.round(SR * 0.1)); for (let i = 1; i < z; i++) if ((x[i - 1] < 0) !== (x[i] < 0)) zc++;
+  const lenMs = x.length / SR * 1000, rms = Math.sqrt(e / Math.max(1, w));
+  return meas[id] = { lenMs, rms, size: rms * Math.sqrt(lenMs), zcr: zc / (z / SR), f0: s.fam === "tom" ? toneHz(x) : 0 };
+}
+// a drum's tone: the strongest peak between 50 and 600 Hz, 10–260 ms in (after the stick)
+function toneHz(x) {
+  const N = 16384, a = Math.round(SR * 0.01), L = Math.min(x.length - a, Math.round(SR * 0.25), N);
+  if (L < 512) return 0;
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let i = 0; i < L; i++) re[i] = x[a + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (L - 1)));
+  for (let i = 1, j = 0; i < N; i++) { let bit = N >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= N; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < N; i += len) { let cr = 1, ci = 0; for (let k = 0; k < len / 2; k++) { const p = i + k, q = p + len / 2, tr = re[q] * cr - im[q] * ci, ti = re[q] * ci + im[q] * cr; re[q] = re[p] - tr; im[q] = im[p] - ti; re[p] += tr; im[p] += ti; const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } }
+  }
+  let bk = 0, bm = 0;
+  for (let k = Math.ceil(50 * N / SR); k < 600 * N / SR; k++) { const m = Math.hypot(re[k], im[k]); if (m > bm) { bm = m; bk = k; } }
+  return bk * SR / N;
+}
+
+// ====================================================================== kits: per drum, buckets of sounds for main hits, accents and ghosts
+// bucket item: {id} = a sample at its own speed, or {noise, vol} = NES noise (hats and cymbal)
 let pat = PATTERNS.find(p => p.id === store.get("pat", "boombap")) || PATTERNS[0];
-let kits = store.get("kits", {}), saved = store.get("saved", {}), edits = store.get("edits", {});
+let kits = store.get("kits2", {}), saved = store.get("saved2", {}), edits = store.get("edits2", {});
 const kit = () => kits[pat.id];
-const defVoice = vid => ({ src: "sample", id: null, speed: -1, vary: 0, noise: V[vid].noise || "closed", nvol: vid === "ch" ? 6 : 5, lock: false, mute: false });
-function suggest(pid) {   // a kit for this beat from your types, tags and percussion names
-  const prefs = SUGGEST[pid] || {}, k = {};
+const BUCKETS = vid => vid === "tom" ? [["hi", "Hi tom (1)"], ["mid", "Mid tom (2)"], ["lo", "Lo tom (3)"]] : vid === "p1" || vid === "p2" ? [["main", "Hits"], ["acc", "Accent"], ["ghost", "Ghost"]] : [["main", "Main"], ["acc", "Accent"], ["ghost", "Ghost"]];
+const NOISE_LIB = { ch: [["closed", 4], ["closed", 6], ["closed", 8], ["pedal", 5], ["metal", 5]], oh: [["open", 5], ["open", 7], ["metal", 6]], cy: [["crash", 5], ["crash", 7], ["ride", 5], ["ride", 7]] };
+const itemKey = it => it.id ? it.id : `noise:${it.noise}:${it.vol}`;
+const itemName = it => it.id ? it.id : `${it.noise} ${it.vol}`;
+// build a kit for a beat: the style's preferred sounds for main hits, plus sounds you bucketed with them;
+// accents = the biggest of those (length × level), ghosts = the smallest; toms by pitch
+function buildKit(pid) {
+  const st = STYLE[pid] || {}, k = {}, used = new Set();
   for (const v of VOICES) {
-    const p = prefs[v.id] || {}, c = candidates(v.id), d = defVoice(v.id);
-    if (p.noise) { d.src = "noise"; d.noise = p.noise; }
+    const p = st[v.id] || {}, c = candidates(v.id), out = { buckets: {}, vary: 40, pitch: 0, mute: false };
+    for (const [b] of BUCKETS(v.id)) out.buckets[b] = [];
+    k[v.id] = out;
+    if (p.noise && NOISE_LIB[v.id]) {   // a noise kit: middle volume for hits, louder accents, quieter (or pedal) ghosts
+      const lib = NOISE_LIB[v.id].filter(([n]) => n === p.noise);
+      const mk = ([noise, vol]) => ({ noise, vol });
+      out.buckets.main = [mk(lib[Math.floor(lib.length / 2)] || NOISE_LIB[v.id][0])];
+      out.buckets.acc = [mk(lib[lib.length - 1] || NOISE_LIB[v.id][0])];
+      out.buckets.ghost = [mk(lib[0] || NOISE_LIB[v.id][0])];
+      continue;
+    }
+    if (!c.length) continue;
     const score = id => (p.type && typeOf(id) === p.type ? 2 : 0) + (p.tag && tagList(id, "style:").includes(p.tag) ? 1.5 : 0) + (p.perc && percOf[id] === p.perc ? 3 : 0);
-    const taken = Object.values(k).map(x => x.id);   // two percussion slots: two different sounds
-    let best = c.find(id => !taken.includes(id)) || c[0] || null, bs = 0;
-    for (const id of c) { const sc = score(id); if (sc > bs && !taken.includes(id)) { bs = sc; best = id; } }
-    d.id = best;
-    k[v.id] = d;
+    const ranked = c.filter(id => !used.has(id)).sort((a, b) => score(b) - score(a));
+    const lead = ranked[0] || c[0];
+    // the family around it: sounds you put in its bucket, then same-type sounds. Cymbal, open hat and percussion
+    // stay within the lead's own type / percussion name (a ride doesn't stand in for a crash, a clave for a cowbell)
+    const same = id => !["cy", "oh", "p1", "p2"].includes(v.id) || (label(id) || "") === (label(lead) || "");
+    c.splice(0, c.length, ...c.filter(same));
+    let fam = [lead, ...partners(lead).filter(id => c.includes(id) && !used.has(id))];
+    if (fam.length < 5) fam = fam.concat(ranked.filter(id => !fam.includes(id) && c.includes(id) && score(id) >= score(lead) - 0.5)).slice(0, 7);
+    if (fam.length < 3) fam = fam.concat(ranked.filter(id => !fam.includes(id) && c.includes(id))).slice(0, 3);
+    if (v.id === "tom") {   // hi / mid / lo by how high they ring
+      const byPitch = c.slice().sort((a, b) => measure(b).f0 - measure(a).f0), n = byPitch.length;
+      out.buckets.hi = byPitch.slice(0, Math.max(1, Math.round(n / 3))).map(id => ({ id }));
+      out.buckets.mid = byPitch.slice(Math.round(n / 3), Math.max(Math.round(n / 3) + 1, Math.round(2 * n / 3))).map(id => ({ id }));
+      out.buckets.lo = byPitch.slice(Math.round(2 * n / 3)).map(id => ({ id }));
+      continue;
+    }
+    const bySize = fam.slice().sort((a, b) => measure(b).size - measure(a).size);
+    out.buckets.main = [lead, ...fam.filter(id => id !== lead)].slice(0, 2).map(id => ({ id }));
+    out.buckets.acc = bySize.slice(0, 2).map(id => ({ id }));
+    out.buckets.ghost = bySize.slice(-2).reverse().map(id => ({ id }));
+    if (v.id === "ch" && NOISE_LIB.ch) out.buckets.ghost.push({ noise: "closed", vol: 4 });   // a quiet noise tick among the ghost hats
+    if (v.id === "p2") for (const b of Object.values(out.buckets)) b.forEach(it => used.add(it.id));
+    if (v.id === "p1") for (const b of Object.values(out.buckets)) b.forEach(it => used.add(it.id));
   }
   return k;
 }
-function ensureKit() {
-  if (!kits[pat.id]) kits[pat.id] = suggest(pat.id);
-  for (const v of VOICES) { const k = kits[pat.id]; k[v.id] = { ...defVoice(v.id), ...(k[v.id] || {}) }; if (k[v.id].id && !byId[k[v.id].id]) k[v.id].id = candidates(v.id)[0] || null; }
-}
-const saveKits = () => store.set("kits", kits);
+function ensureKit() { if (!kits[pat.id]) { kits[pat.id] = buildKit(pat.id); saveKits(); } }
+const saveKits = () => store.set("kits2", kits);
 function tracks() { return edits[pat.id] || Object.fromEntries(Object.entries(pat.tracks).map(([k, s]) => [k, s.replace(/\s/g, "")])); }
 const totalSteps = () => pat.bar * pat.bars;
 function cellAt(vid, i) { const t = tracks()[vid]; return t ? t[i % t.length] : "."; }
@@ -518,51 +603,52 @@ function stopTones() { for (const o of tones) { try { o.stop(); } catch { /* */ 
 
 // ====================================================================== playing one step by NES rules
 let rng = Math.random, hitLog = [];
-function pickFor(vid, vel) {
-  const k = kit()[vid];
-  if (k.src === "noise") return null;
-  let id = k.id; if (!id) return null;
-  if (k.vary && rng() * 100 < k.vary) {
-    let pool = partners(id).filter(x => candidates(vid).includes(x));
-    if (vid === "oh" && +$("bpm").value >= 150) pool = pool.concat(candidates("ch").filter(x => byId[x].fam === "hato"));   // fast: half-open can stand in for open
-    if (pool.length) id = pool[Math.floor(rng() * pool.length)];
-  }
-  return id;
+const lastPick = {};
+// which bucket a hit uses: accent / ghost / main (falling back to main when empty); toms by level
+function bucketFor(vid, c) {
+  const B = kit()[vid].buckets;
+  const want = vid === "tom" ? ["hi", "mid", "lo"][(+c || 1) - 1] : c === "X" ? "acc" : c === "o" ? "ghost" : "main";
+  return { name: want, list: B[want]?.length ? B[want] : B.main?.length ? B.main : Object.values(B).find(b => b.length) || [] };
 }
-function noiseFor(vid, vel) {
-  const k = kit()[vid];
-  let vol = k.nvol + (vel >= 80 ? 1 : vel <= 48 ? -2 : 0), dp = 0;
-  if (k.vary && rng() * 100 < k.vary) { dp = rng() < 0.5 ? -1 : 1; vol += rng() < 0.5 ? -1 : 1; }
-  const h = +$("human").value / 100; if (h && rng() < h) vol += rng() < 0.5 ? -1 : 1;
-  return { preset: k.noise, vol: Math.max(0, Math.min(15, vol)), dp };
+// vary 0: always the first sound in the bucket; higher: more often another one (never the same twice running)
+function pickItem(vid, bucket) {
+  const k = kit()[vid], L = bucket.list; if (!L.length) return null;
+  let it = L[0];
+  if (L.length > 1 && rng() * 100 < k.vary) { const key = vid + bucket.name, others = L.filter(x => itemKey(x) !== lastPick[key]); it = others[Math.floor(rng() * others.length)] || L[0]; }
+  lastPick[vid + bucket.name] = itemKey(it);
+  return it;
 }
-// hits: [{vid, vel, lvl}] at `when`; offs: per drum timing in seconds
+// pitch: a speed offset per hit, up to ±1 (low), ±2, ±3 (cranked)
+function pitchOffset(vid) { const p = kit()[vid].pitch; if (!p || rng() * 100 >= p) return 0; const r = Math.ceil(p / 34); return Math.round((rng() * 2 - 1) * r) || (rng() < 0.5 ? -1 : 1); }
+// hits: [{vid, c}] at `when`; offs: per drum timing in seconds
 function playStep(hits, when, offs = {}) {
   const at = vid => Math.max(actx.currentTime + 0.002, when + (offs[vid] || 0));
   const lines = [], flash = [];
-  hits = hits.filter(h => !kit()[h.vid].mute);
-  const sampleHits = hits.filter(h => kit()[h.vid].src === "sample" && kit()[h.vid].id).sort((a, b) => V[a.vid].prio - V[b.vid].prio);
-  const noiseHits = [];
-  sampleHits.forEach((h, i) => {
+  const picks = [];
+  for (const h of hits) {
+    if (kit()[h.vid].mute) continue;
+    const b = bucketFor(h.vid, h.c), it = pickItem(h.vid, b); if (!it) continue;
+    picks.push({ ...h, it, b: b.name });
+  }
+  const dmc = picks.filter(p => p.it.id).sort((a, b) => V[a.vid].prio - V[b.vid].prio), noise = picks.filter(p => p.it.noise);
+  dmc.forEach((p, i) => {
     if (i === 0) {
-      const k = kit()[h.vid], id = pickFor(h.vid, h.vel), sp0 = k.speed < 0 ? byId[id].native : k.speed;
-      const sp = h.vid === "tom" ? Math.max(0, sp0 - ((h.lvl || 1) - 1)) : sp0;   // toms: hi / mid / lo = one speed lower each
-      hitDmc(id, sp, at(h.vid)); flash.push(h.vid);
-      lines.push(`${V[h.vid].name} ${id}${id !== k.id ? " (vary)" : ""} @${sp}`);
-    } else if (V[h.vid].noise) noiseHits.push({ ...h, fallback: true });
-    else lines.push(`${V[h.vid].name} dropped (sample channel busy)`);
+      const s = byId[p.it.id], sp = Math.max(0, Math.min(15, s.native + pitchOffset(p.vid)));
+      hitDmc(p.it.id, sp, at(p.vid)); flash.push(p.vid);
+      lines.push(`${V[p.vid].name} ${p.b} ${p.it.id}${sp !== s.native ? " @" + sp : ""}`);
+    } else if (V[p.vid].noise) noise.push({ ...p, it: { noise: V[p.vid].noise, vol: p.c === "X" ? 7 : p.c === "o" ? 4 : 5 }, fallback: true });
+    else lines.push(`${V[p.vid].name} dropped (sample channel busy)`);
   });
-  for (const h of hits) if (kit()[h.vid].src === "noise") noiseHits.push(h);
-  noiseHits.sort((a, b) => NOISE_ORDER.indexOf(a.vid) - NOISE_ORDER.indexOf(b.vid));
-  noiseHits.forEach((h, i) => {
-    if (i > 0) { lines.push(`${V[h.vid].name} dropped (noise busy)`); return; }
-    const n = noiseFor(h.vid, h.vel);
-    hitNoise(n.preset, at(h.vid), n.vol, n.dp); flash.push(h.vid);
-    lines.push(`${V[h.vid].name} noise ${n.preset} ${n.vol}${h.fallback ? " (sample channel busy)" : ""}`);
+  noise.sort((a, b) => NOISE_ORDER.indexOf(a.vid) - NOISE_ORDER.indexOf(b.vid));
+  noise.forEach((p, i) => {
+    if (i > 0) { lines.push(`${V[p.vid].name} dropped (noise busy)`); return; }
+    const off = pitchOffset(p.vid), h = +$("human").value / 100, vol = p.it.vol + (h && rng() < h ? (rng() < 0.5 ? -1 : 1) : 0);
+    hitNoise(p.it.noise, at(p.vid), vol, off); flash.push(p.vid);
+    lines.push(`${V[p.vid].name} ${p.b} noise ${p.it.noise} ${vol}${p.fallback ? " (sample channel busy)" : ""}`);
   });
   const wait = Math.max(0, (when - actx.currentTime) * 1000);
   setTimeout(() => {
-    for (const vid of flash) { const el = document.querySelector(`.voice[data-v="${vid}"]`); if (el) { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 110); } }
+    for (const vid of flash) document.querySelectorAll(`[data-row="${vid}"]`).forEach(el => { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 110); });
     if (lines.length) { hitLog.push(lines.join("  ·  ")); if (hitLog.length > 120) hitLog.splice(0, 60); const el = $("hits"); el.textContent = hitLog.join("\n"); el.scrollTop = el.scrollHeight; }
   }, wait);
 }
@@ -604,7 +690,7 @@ function tick() {
     const hits = [];
     for (const v of VOICES) {
       const c = cellAt(v.id, i); if (c === ".") continue;
-      hits.push({ vid: v.id, vel: c === "X" ? 80 : c === "o" ? 48 : 64, lvl: /[123]/.test(c) ? +c : 1 });
+      hits.push({ vid: v.id, c });
     }
     if (hits.length) playStep(hits, t, feel(hits, i, false));
     // triangle bass: a note name starts a note that lasts until the next token that isn't "."
@@ -629,6 +715,7 @@ function tick() {
 }
 
 // ====================================================================== UI: beats and grid
+let focusV = store.get("focusV", "bd");
 function drawPats() {
   const box = $("pats"); box.innerHTML = "";
   for (const p of PATTERNS) {
@@ -644,134 +731,170 @@ function setPattern(id) {
   $("bpm").value = store.get("bpm." + id, pat.bpm); $("bpmOut").textContent = $("bpm").value;
   $("swing").value = store.get("swing." + id, pat.swing); $("swingOut").textContent = $("swing").value;
   ensureKit(); stepIdx = 0;
-  drawPats(); drawSeq(); drawVoices(); drawKitSel();
+  drawPats(); drawSeq(); drawEditor(); drawKitSel();
 }
 function drawSeq() {
   const box = $("seq"), N = totalSteps(), T = tracks();
-  box.style.gridTemplateColumns = `90px repeat(${N}, minmax(10px, 1fr))`;
+  box.style.gridTemplateColumns = `118px repeat(${N}, minmax(10px, 1fr))`;
   box.innerHTML = "";
   for (const v of VOICES) {
-    if (!T[v.id] && !pat.tracks[v.id]) continue;
-    const l = document.createElement("span"); l.className = "lbl"; l.textContent = v.name; box.append(l);
+    const inBeat = !!T[v.id], k = kit()[v.id];
+    const l = document.createElement("div"); l.className = "lbl" + (v.id === focusV ? " focus" : "") + (k.mute ? " muted" : ""); l.dataset.row = v.id;
+    l.innerHTML = `<button class="mute" aria-pressed="${k.mute}" title="Mute ${v.name}" aria-label="Mute ${v.name}">${k.mute ? "✕" : "♪"}</button><button class="rname" aria-label="Edit ${v.name} sounds"${inBeat ? "" : ' style="opacity:.5"'}>${inBeat ? "" : "+ "}${v.name}</button>`;
+    l.querySelector(".mute").onclick = () => { k.mute = !k.mute; saveKits(); drawSeq(); };
+    l.querySelector(".rname").onclick = () => setFocus(v.id);
+    box.append(l);
     for (let i = 0; i < N; i++) {
       const c = cellAt(v.id, i), b = document.createElement("button");
-      b.className = "cell" + (c === "X" ? " acc" : c === "o" ? " soft" : c !== "." ? " on" : "") + (i % pat.spb === 0 ? " beat" : "");
+      b.className = "cell" + (c === "X" ? " acc" : c === "o" ? " soft" : c !== "." ? " on" : "") + (i % pat.spb === 0 ? " beat" : "") + (k.mute ? " muted" : "");
+      if (!inBeat) b.style.opacity = 0.45;
       b.dataset.i = i; b.textContent = /[123]/.test(c) ? c : "";
-      b.setAttribute("aria-label", `${v.name} step ${i + 1}: ${c === "." ? "off" : c}`);
+      b.setAttribute("aria-label", `${v.name} step ${i + 1}: ${c === "." ? "off" : c === "X" ? "accent" : c === "o" ? "ghost" : c}`);
       b.onclick = () => {
         const T2 = { ...tracks() }; let s = (T2[v.id] || ".".repeat(N)).padEnd(N, ".");
         const cyc = v.id === "tom" ? { ".": "1", "1": "2", "2": "3", "3": "." } : { ".": "x", x: "X", X: "o", o: "." };
         s = s.slice(0, i) + (cyc[s[i]] || ".") + s.slice(i + 1); T2[v.id] = s;
-        edits[pat.id] = T2; store.set("edits", edits); drawSeq(); drawVoices();
+        edits[pat.id] = T2; store.set("edits2", edits); drawSeq();
       };
       box.append(b);
     }
   }
-  // the drums this beat doesn't use yet can be added from the grid: one empty row each
-  for (const v of VOICES) {
-    if (T[v.id] || pat.tracks[v.id]) continue;
-    const l = document.createElement("span"); l.className = "lbl"; l.style.opacity = 0.5; l.textContent = "+ " + v.name; box.append(l);
-    for (let i = 0; i < N; i++) {
-      const b = document.createElement("button"); b.className = "cell" + (i % pat.spb === 0 ? " beat" : ""); b.dataset.i = i; b.style.opacity = 0.5;
-      b.setAttribute("aria-label", `${v.name} step ${i + 1}: off`);
-      b.onclick = () => { const T2 = { ...tracks() }; const s = ".".repeat(N); T2[v.id] = s.slice(0, i) + (v.id === "tom" ? "1" : "x") + s.slice(i + 1); edits[pat.id] = T2; store.set("edits", edits); drawSeq(); drawVoices(); };
-      box.append(b);
-    }
-  }
 }
+function setFocus(vid) { focusV = vid; store.set("focusV", vid); drawSeq(); drawEditor(); }
 
-// ====================================================================== UI: the kit
-let focusV = store.get("focusV", "bd");
-function desc(id) {
-  const s = byId[id]; if (!s) return "";
-  const bits = [label(id), ...tagList(id, "style:"), ...tagList(id, "char:")].filter(Boolean);
-  return bits.join(" · ");
+// ====================================================================== UI: the focused drum's buckets and library
+function desc(id) { return [label(id), ...tagList(id, "style:"), ...tagList(id, "char:")].filter(Boolean).join(" · "); }
+function chipEl(it, where) {
+  const b = document.createElement("button"); b.type = "button";
+  b.className = "cand" + (it.noise ? " noise" : ""); b.dataset.key = itemKey(it); b.dataset.where = where;
+  b.innerHTML = it.id ? `${it.id}<small>${label(it.id)}</small>` : `noise<small>${it.noise} ${it.vol}</small>`;
+  b.title = it.id ? desc(it.id) || it.id : `NES noise, ${it.noise}, volume ${it.vol}`;
+  b.setAttribute("aria-label", `${itemName(it)}${where === "lib" ? ", in the library: press 1, 2 or 3 to add it to a bucket" : ", in a bucket: Delete removes it"}`);
+  return b;
 }
-function drawVoices() {
-  const box = $("voices"); box.innerHTML = "";
-  const T = tracks();
-  for (const v of VOICES) {
-    const k = kit()[v.id], used = !!(T[v.id] && /[^.]/.test(T[v.id])), cands = candidates(v.id), part = k.id ? new Set(partners(k.id)) : new Set();
-    const el = document.createElement("div"); el.className = "voice" + (v.id === focusV ? " focus" : "") + (used ? "" : " unused"); el.dataset.v = v.id;
-    const sp = `<select data-k="speed" aria-label="${v.name} speed"><option value="-1">own speed</option>${Array.from({ length: 16 }, (_, i) => 15 - i).map(i => `<option value="${i}"${k.speed === i ? " selected" : ""}>speed ${i}</option>`).join("")}</select>`;
-    const noiseCtl = `<select data-k="noise" aria-label="${v.name} noise sound">${Object.keys(NOISE).map(n => `<option${n === k.noise ? " selected" : ""}>${n}</option>`).join("")}</select>
-      <label class="mini">vol <input type="range" min="1" max="15" value="${k.nvol}" data-k="nvol" aria-label="${v.name} noise volume"><output>${k.nvol}</output></label>`;
-    el.innerHTML = `<div class="vname">${v.name}<small>${used ? "" : "not in this beat"}${v.key ? (used ? "" : " · ") + "keytar " + v.key : ""}</small></div>
-      <div class="vbody">
-        <div class="vrow">
-          ${v.noise ? `<select data-k="src" aria-label="${v.name} source"><option value="sample"${k.src === "sample" ? " selected" : ""}>Sample</option><option value="noise"${k.src === "noise" ? " selected" : ""}>NES noise</option></select>` : ""}
-          ${k.src === "sample" ? `<button class="icon" data-a="prev" aria-label="Previous sound">◀</button><b class="cur">${k.id || "–"}</b><button class="icon" data-a="next" aria-label="Next sound">▶</button>${sp}` : noiseCtl}
-          <label class="mini">Vary <input type="range" min="0" max="100" step="10" value="${k.vary}" data-k="vary" aria-label="${v.name} vary"><output>${k.vary}%</output></label>
-          <button class="icon" data-a="lock" aria-pressed="${k.lock}" title="Lock (L): arrows won't change it">🔒</button>
-          <button class="icon" data-a="mute" aria-pressed="${k.mute}" title="Mute (M)">M</button>
-          ${k.src === "sample" ? `<span class="desc">${desc(k.id)}${part.size ? ` · ${part.size} to vary with` : k.vary ? " · nothing bucketed with it to vary with" : ""}</span>` : `<span class="desc">${k.vary ? "vary nudges pitch and volume" : ""}${V[v.id].noise && k.src === "sample" ? "" : ""}</span>`}
-        </div>
-        ${k.src === "sample" && v.id === focusV ? `<div class="cands">${cands.map(id => `<button class="cand${id === k.id ? " sel" : ""}${part.has(id) ? " vary" : ""}" data-c="${id}" title="${desc(id)}">${id}<small>${label(id)}</small></button>`).join("")}</div>` : ""}
-      </div>`;
-    el.addEventListener("click", e => { if (e.target.closest("select, input, button")) return; setFocus(v.id); });
-    el.querySelectorAll("[data-k]").forEach(inp => {
-      const key = inp.dataset.k, ev = inp.type === "range" ? "input" : "change";
-      inp.addEventListener(ev, () => {
-        k[key] = ["speed", "vary", "nvol"].includes(key) ? +inp.value : inp.value;
-        if (key === "src" && inp.value === "sample" && !k.id) k.id = cands[0] || null;
-        saveKits();
-        if (inp.type === "range") { inp.nextElementSibling.textContent = key === "vary" ? inp.value + "%" : inp.value; if (key === "vary") drawVoices(); }
-        else { drawVoices(); audition(v.id); }
-        if (inp.type === "range" || inp.tagName === "SELECT") inp.blur();
-      });
-    });
-    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
-      const a = b.dataset.a; setFocus(v.id, false);
-      if (a === "prev" || a === "next") step(v.id, a === "next" ? 1 : -1);
-      if (a === "lock") { k.lock = !k.lock; saveKits(); drawVoices(); }
-      if (a === "mute") { k.mute = !k.mute; saveKits(); drawVoices(); }
-    });
-    el.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { k.id = b.dataset.c; saveKits(); drawVoices(); audition(v.id); });
-    box.append(el);
+function libItems(vid) {
+  const items = candidates(vid).map(id => ({ id }));
+  for (const [noise, vol] of NOISE_LIB[vid] || []) items.push({ noise, vol });
+  return items;
+}
+function drawEditor() {
+  const v = V[focusV], k = kit()[v.id], box = $("editor"), used = new Set(Object.values(k.buckets).flat().map(itemKey));
+  const part = new Set(Object.values(k.buckets).flat().filter(it => it.id).flatMap(it => partners(it.id)));
+  box.innerHTML = `
+    <div class="edhead">
+      <h3>${v.name}${tracks()[v.id] ? "" : ' <small>(not in this beat: add hits in the grid)</small>'}</h3>
+      <label class="mini">Vary <input type="range" min="0" max="100" step="10" value="${k.vary}" data-k="vary" aria-label="${v.name} vary"><output>${k.vary}%</output></label>
+      <label class="mini">Speed wobble <input type="range" min="0" max="100" step="10" value="${k.pitch}" data-k="pitch" aria-label="${v.name} speed wobble"><output>${k.pitch}%</output></label>
+      <button class="btn small" data-a="rebuild">Pick again</button>
+    </div>
+    <div class="bucks"></div>
+    <h4>All ${v.name.toLowerCase()} sounds <small>· drag into a bucket (or focus one and press 1, 2, 3) · green = bucketed with something in yours in Sound Sorter</small></h4>
+    <div class="zone lib" data-b="lib"><div class="items"></div></div>`;
+  const bucks = box.querySelector(".bucks");
+  BUCKETS(v.id).forEach(([b, name], bi) => {
+    const z = document.createElement("div"); z.className = "zone"; z.dataset.b = b;
+    z.innerHTML = `<div class="zh"><span>${bi + 1} · ${name}</span>${k.buckets[b].length ? `<button class="play" data-play="${b}">Play</button>` : ""}</div><div class="items"></div>`;
+    for (const it of k.buckets[b]) z.querySelector(".items").append(chipEl(it, b));
+    if (!k.buckets[b].length) z.querySelector(".items").innerHTML = `<span class="empty">${b === "main" || b === "hi" ? "empty" : "empty: uses " + (v.id === "tom" ? "the first full bucket" : "Main")}</span>`;
+    bucks.append(z);
+  });
+  const lib = box.querySelector(".lib .items");
+  for (const it of libItems(v.id)) { const c = chipEl(it, "lib"); if (used.has(itemKey(it))) c.classList.add("inuse"); if (it.id && part.has(it.id)) c.classList.add("vary"); lib.append(c); }
+  box.querySelectorAll("[data-k]").forEach(inp => inp.addEventListener("input", () => { k[inp.dataset.k] = +inp.value; inp.nextElementSibling.textContent = inp.value + "%"; saveKits(); }));
+  box.querySelectorAll("[data-k]").forEach(inp => inp.addEventListener("change", () => inp.blur()));
+  box.querySelector('[data-a="rebuild"]').onclick = () => { const fresh = buildKit(pat.id)[v.id]; k.buckets = fresh.buckets; saveKits(); drawEditor(); };
+}
+// moving sounds: library → bucket adds a copy; bucket → bucket moves; bucket → library (or anywhere off the buckets) removes
+function itemFromKey(key) { if (key.startsWith("noise:")) { const [, noise, vol] = key.split(":"); return { noise, vol: +vol }; } return { id: key }; }
+function moveItem(key, from, to) {
+  const k = kit()[focusV], it = itemFromKey(key);
+  if (from !== "lib") k.buckets[from] = k.buckets[from].filter(x => itemKey(x) !== key);
+  if (to && to !== "lib" && !k.buckets[to].some(x => itemKey(x) === key)) k.buckets[to].push(it);
+  saveKits(); drawEditor();
+}
+async function auditionItem(it) {
+  await ctx();
+  if (it.noise) hitNoise(it.noise, actx.currentTime + 0.01, it.vol);
+  else if (byId[it.id]) hitDmc(it.id, byId[it.id].native, actx.currentTime + 0.01);
+}
+let drag = null;
+document.addEventListener("pointerdown", e => {
+  const c = e.target.closest("#editor .cand"); if (!c) return;
+  drag = { key: c.dataset.key, from: c.dataset.where, el: c, x: e.clientX, y: e.clientY, on: false };
+});
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (!drag.on && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) {
+    drag.on = true; const r = drag.el.getBoundingClientRect();
+    drag.g = drag.el.cloneNode(true); drag.g.classList.add("ghost"); drag.g.style.width = r.width + "px"; document.body.append(drag.g);
+    drag.dx = e.clientX - r.left; drag.dy = e.clientY - r.top;
   }
-}
-function setFocus(vid, redraw = true) { focusV = vid; store.set("focusV", vid); if (redraw) drawVoices(); else document.querySelectorAll(".voice").forEach(e => e.classList.toggle("focus", e.dataset.v === vid)); }
-function step(vid, d) {
-  const k = kit()[vid]; if (k.lock || k.src !== "sample") return;
-  const c = candidates(vid); if (!c.length) return;
-  const i = c.indexOf(k.id); k.id = c[(i + d + c.length) % c.length]; saveKits(); drawVoices(); audition(vid);
-}
-async function audition(vid) {   // while stopped, let the new sound be heard
-  if (playing) return;
-  await ctx(); const k = kit()[vid];
-  if (k.src === "noise") { const n = noiseFor(vid, 64); hitNoise(n.preset, actx.currentTime + 0.01, n.vol); }
-  else if (k.id) hitDmc(k.id, k.speed < 0 ? byId[k.id].native : k.speed, actx.currentTime + 0.01);
-}
+  if (drag.on) {
+    e.preventDefault();
+    drag.g.style.left = (e.clientX - drag.dx) + "px"; drag.g.style.top = (e.clientY - drag.dy) + "px";
+    document.querySelectorAll(".zone.over").forEach(z => z.classList.remove("over"));
+    const z = document.elementFromPoint(e.clientX, e.clientY)?.closest("#editor .zone"); if (z) z.classList.add("over");
+  }
+}, { passive: false });
+document.addEventListener("pointerup", e => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (!d.on) { auditionItem(itemFromKey(d.key)); return; }
+  d.g.remove(); document.querySelectorAll(".zone.over").forEach(z => z.classList.remove("over"));
+  const z = document.elementFromPoint(e.clientX, e.clientY)?.closest("#editor .zone");
+  const to = z ? z.dataset.b : "lib";
+  if (to !== d.from) moveItem(d.key, d.from, to);
+});
+document.addEventListener("pointercancel", () => { if (drag?.g) drag.g.remove(); drag = null; });
+document.addEventListener("click", e => {
+  const p = e.target.closest("#editor [data-play]"); if (!p) return;
+  const list = kit()[focusV].buckets[p.dataset.play]; playListItems(list);
+});
+async function playListItems(list) { await ctx(); list.forEach((it, i) => setTimeout(() => auditionItem(it), i * 380)); }
 document.addEventListener("keydown", e => {
   if (e.target.closest?.("input[type=text], input[type=number], select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const c = e.target.closest?.("#editor .cand");
+  if (c) {
+    const n = BUCKETS(focusV).length;
+    if (/^[1-9]$/.test(e.key) && +e.key <= n) { e.preventDefault(); moveItem(c.dataset.key, c.dataset.where, BUCKETS(focusV)[+e.key - 1][0]); return; }
+    if ((e.key === "Delete" || e.key === "Backspace") && c.dataset.where !== "lib") { e.preventDefault(); moveItem(c.dataset.key, c.dataset.where, null); return; }
+    if (e.key === "Enter") return;
+  }
   const order = VOICES.map(v => v.id), i = order.indexOf(focusV);
   const act = {
     " ": () => playing ? stop() : start(),
-    ArrowRight: () => step(focusV, 1), ArrowLeft: () => step(focusV, -1),
     ArrowDown: () => setFocus(order[(i + 1) % order.length]), ArrowUp: () => setFocus(order[(i - 1 + order.length) % order.length]),
-    l: () => { kit()[focusV].lock = !kit()[focusV].lock; saveKits(); drawVoices(); },
-    m: () => { kit()[focusV].mute = !kit()[focusV].mute; saveKits(); drawVoices(); },
+    m: () => { kit()[focusV].mute = !kit()[focusV].mute; saveKits(); drawSeq(); },
   }[e.key.length === 1 ? e.key.toLowerCase() : e.key];
   if (act) { e.preventDefault(); act(); }
 });
 
-// saved kits
+// kits: rebuild, copy from another beat, save / load by name, export
 function drawKitSel() {
-  const sel = $("kitSel"); sel.innerHTML = `<option value="">Load a saved kit…</option>`;
-  for (const n of Object.keys(saved).sort()) sel.add(new Option(n, n));
+  const sel = $("kitSel"); sel.innerHTML = `<option value="">Load…</option>`;
+  const g1 = document.createElement("optgroup"); g1.label = "Another beat's kit";
+  for (const p of PATTERNS) if (p.id !== pat.id && kits[p.id]) g1.append(new Option(p.name, "beat:" + p.id));
+  const g2 = document.createElement("optgroup"); g2.label = "Saved kits";
+  for (const n of Object.keys(saved).sort()) g2.append(new Option(n, "saved:" + n));
+  if (g1.children.length) sel.append(g1); if (g2.children.length) sel.append(g2);
 }
-$("kitSel").onchange = () => { const n = $("kitSel").value; if (n && saved[n]) { kits[pat.id] = JSON.parse(JSON.stringify(saved[n])); ensureKit(); saveKits(); drawVoices(); } $("kitSel").value = ""; $("kitSel").blur(); };
-$("kitSave").onclick = () => {
-  const n = (prompt("Name this kit:", `${pat.name} kit`) || "").trim(); if (!n) return;
-  saved[n] = JSON.parse(JSON.stringify(kit())); store.set("saved", saved); drawKitSel();
+$("kitSel").onchange = () => {
+  const v = $("kitSel").value, src = v.startsWith("beat:") ? kits[v.slice(5)] : v.startsWith("saved:") ? saved[v.slice(6)] : null;
+  if (src) { kits[pat.id] = JSON.parse(JSON.stringify(src)); saveKits(); drawSeq(); drawEditor(); }
+  $("kitSel").value = ""; $("kitSel").blur();
 };
-$("kitDefault").onclick = () => { const old = kit(), s = suggest(pat.id); for (const v of VOICES) if (old[v.id]?.lock) s[v.id] = old[v.id]; kits[pat.id] = s; ensureKit(); saveKits(); drawVoices(); };
+$("kitSave").onclick = () => { const n = (prompt("Name this kit:", `${pat.name} kit`) || "").trim(); if (!n) return; saved[n] = JSON.parse(JSON.stringify(kit())); store.set("saved2", saved); drawKitSel(); };
+let rebuildArmed = 0;
+$("kitDefault").onclick = () => {
+  if (Date.now() - rebuildArmed > 4000) { rebuildArmed = Date.now(); $("kitDefault").textContent = "Click again: replaces every drum"; setTimeout(() => $("kitDefault").textContent = "Pick a whole new kit", 4000); return; }
+  kits[pat.id] = buildKit(pat.id); saveKits(); drawSeq(); drawEditor(); $("kitDefault").textContent = "Pick a whole new kit";
+};
 $("kitExport").onclick = () => {
-  const data = { app: "fatchip-beatlab", version: 2, exported: new Date().toISOString(), kits, saved, edits };
+  const data = { app: "fatchip-beatlab", version: 3, exported: new Date().toISOString(), kits, saved, edits };
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
   a.download = `beatlab-kits-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
-$("resetPat").onclick = () => { delete edits[pat.id]; store.set("edits", edits); drawSeq(); drawVoices(); };
+$("resetPat").onclick = () => { delete edits[pat.id]; store.set("edits2", edits); drawSeq(); };
 
 // transport controls
 $("playBtn").onclick = () => playing ? stop() : start();
@@ -812,7 +935,7 @@ function onMidi(e) {
   if (st === 0xFC) { clockCount = -1; return; }
   if (st === 0xF8) { if (clockCount >= 0) clockCount++; return; }
   if ((st & 0xF0) !== 0x90 || (st & 15) !== 15 || !b || !KEY_VOICE[a]) return;
-  pend.push({ vid: KEY_VOICE[a], vel: b, lvl: 1 });   // gather the notes of one step (sent back to back)
+  pend.push({ vid: KEY_VOICE[a], c: b >= 80 ? "X" : b <= 56 ? "o" : "x" });   // gather the notes of one step (sent back to back)
   clearTimeout(pendTimer);
   pendTimer = setTimeout(() => {
     const hits = pend; pend = []; if (playing) stop();
