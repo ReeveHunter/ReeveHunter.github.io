@@ -98,6 +98,7 @@ code { font-family: var(--mono); font-size: 13px; }
 .mute[aria-pressed="true"] { background: var(--danger); color: #fff; border-color: var(--danger); }
 .cell.muted { opacity: 0.35; }
 .edhead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 12px 0 10px; }
+.edhead.aud { margin-top: 0; gap: 8px 10px; }
 .edhead h3 { margin: 0; font-size: 18px; }
 .edhead h3 small { font-size: 13px; color: var(--muted); font-weight: 500; }
 #editor h4 { font-size: 14px; margin: 14px 0 6px; }
@@ -186,13 +187,15 @@ code { font-family: var(--mono); font-size: 13px; }
     <div class="card-head">
       <h2><span class="step-n">2</span>Kit</h2>
       <div class="row">
+        <select id="choice" aria-label="How sounds are chosen" style="width:auto" title="Kit: your buckets. By size: Fat Chip's own choice (accents from the biggest sounds, ghosts from the smallest). Wild: any sound for that drum.">
+          <option value="kit">Choose from: kit buckets</option><option value="size">Choose from: Fat Chip by size</option><option value="wild">Choose from: anything (wild)</option></select>
         <select id="kitSel" aria-label="Load a kit" style="width:auto"></select>
         <button id="kitSave" class="btn small">Save as…</button>
         <button id="kitDefault" class="btn small">Pick a whole new kit</button>
         <button id="kitExport" class="btn small">Export kits</button>
       </div>
     </div>
-    <p class="hint" style="margin-top:0">Click a drum's name in the grid (or <b>↑ ↓</b>) to open its buckets: <b>Main</b> for normal hits, <b>Accent</b> for accented hits, <b>Ghost</b> for ghost notes (toms: Hi, Mid, Lo). The NES can't play a sample softer or louder, so dynamics come from different sounds. Drag sounds in from the list below, between buckets, or out to remove them; click one to hear it. <b>Vary</b> 0 always plays a bucket's first sound; higher shuffles through the bucket. <b>Speed wobble</b> plays hits a speed or more higher or lower (a little, or a lot when cranked). Hats and cymbal can use NES noise too.</p>
+    <p class="hint" style="margin-top:0">Click a drum's name in the grid (or <b>↑ ↓</b>) to open its buckets: <b>Main</b> for normal hits, <b>Accent</b> for accented hits, <b>Ghost</b> for ghost notes (toms: Hi, Mid, Lo). The NES can't play a sample softer or louder, so dynamics come from different sounds. Drag sounds in from the list below, between buckets, or out to remove them; click one to hear it. <b>Vary</b> 0 always plays a bucket's first sound; higher shuffles through the bucket. <b>Speed wobble</b> plays hits a speed or more higher or lower (a little, or a lot when cranked). Hats and cymbal can use NES noise too (shown as MidiNES notes: long noise C2–D#3, metallic E3–G4). <b>Hear</b> plays one hit, accent or ghost the way the beat would (keys <b>Z X C</b>); <b>Solo</b> (S) plays just this drum in the beat. Kick and snare can add a <b>noise layer</b>: a short burst with each sample for the top end the sample channel can't play (longer on accents, shorter on ghosts). <b>Choose from</b> lets you hear the beat with Fat Chip choosing on its own: by size (accents from the biggest sounds, ghosts from the smallest) or anything at all.</p>
     <div id="editor"></div>
     <div id="hits" role="log" aria-live="off"></div>
     <p class="hint">NES rules: one sample at a time (kick, then snare, tom, percussion, cymbal, open hat, closed hat); a hat or cymbal that loses the sample channel moves to noise, anything else is dropped. One noise sound at a time too, so a closed hat cuts an open hat off.</p>
@@ -483,7 +486,7 @@ const kit = () => kits[pat.id];
 const BUCKETS = vid => vid === "tom" ? [["hi", "Hi tom (1)"], ["mid", "Mid tom (2)"], ["lo", "Lo tom (3)"]] : vid === "p1" || vid === "p2" ? [["main", "Hits"], ["acc", "Accent"], ["ghost", "Ghost"]] : [["main", "Main"], ["acc", "Accent"], ["ghost", "Ghost"]];
 const NOISE_LIB = { ch: [["closed", 4], ["closed", 6], ["closed", 8], ["pedal", 5], ["metal", 5]], oh: [["open", 5], ["open", 7], ["metal", 6]], cy: [["crash", 5], ["crash", 7], ["ride", 5], ["ride", 7]] };
 const itemKey = it => it.id ? it.id : `noise:${it.noise}:${it.vol}`;
-const itemName = it => it.id ? it.id : `${it.noise} ${it.vol}`;
+const itemName = it => it.id ? it.id : `${it.noise} ${noiseNote(NOISE[it.noise])} vol ${it.vol}`;
 // build a kit for a beat: the style's preferred sounds for main hits, plus sounds you bucketed with them;
 // accents = the biggest of those (length × level), ghosts = the smallest; toms by pitch
 function buildKit(pid) {
@@ -575,10 +578,14 @@ function noiseBuf(p, vol, dp = 0) {
   }
   return out;
 }
+// the MidiNES note for a noise sound: long mode C2–D#3, short ("metal") mode E3–G4, one note per noise period
+// (taken as higher note = shorter period = higher pitch; to check in the NES Lab)
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+function noiseNote(p, dp = 0) { const per = Math.max(0, Math.min(15, p.period + dp)), m = (p.mode ? 52 : 36) + 15 - per; return NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1); }
 function hitNoise(preset, when, vol, dp = 0) {
   vol = Math.max(0, Math.min(15, Math.round(vol)));
   if (noiseVoice) { try { noiseVoice.stop(when); } catch { /* */ } }
-  const d = noiseBuf(NOISE[preset], vol, dp), b = actx.createBuffer(1, d.length, SR); b.copyToChannel(d, 0);
+  const d = noiseBuf(typeof preset === "string" ? NOISE[preset] : preset, vol, dp), b = actx.createBuffer(1, d.length, SR); b.copyToChannel(d, 0);
   noiseVoice = playBuffer(b, when, W_NOISE);
 }
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -602,7 +609,8 @@ function tone(type, m, when, end, gain) {
 function stopTones() { for (const o of tones) { try { o.stop(); } catch { /* */ } } tones = []; }
 
 // ====================================================================== playing one step by NES rules
-let rng = Math.random, hitLog = [];
+let rng = Math.random, hitLog = [], soloV = null;
+const layerOf = vid => kit()[vid].layer || { on: false, vol: 5, period: 0 };
 const lastPick = {};
 // which bucket a hit uses: accent / ghost / main (falling back to main when empty); toms by level
 function bucketFor(vid, c) {
@@ -610,9 +618,20 @@ function bucketFor(vid, c) {
   const want = vid === "tom" ? ["hi", "mid", "lo"][(+c || 1) - 1] : c === "X" ? "acc" : c === "o" ? "ghost" : "main";
   return { name: want, list: B[want]?.length ? B[want] : B.main?.length ? B.main : Object.values(B).find(b => b.length) || [] };
 }
+// how sounds are chosen: from the kit's buckets, by Fat Chip's own size analysis (accents from the biggest third of the
+// drum's sounds, ghosts from the smallest, toms by pitch), or wild (any of the drum's sounds)
+const choiceMode = () => $("choice").value;
+function analysisPick(vid, c) {
+  const all = candidates(vid); if (!all.length) return null;
+  if (choiceMode() === "wild") return { id: all[Math.floor(rng() * all.length)] };
+  const tom = vid === "tom", by = all.slice().sort((a, b) => tom ? measure(b).f0 - measure(a).f0 : measure(b).size - measure(a).size), n = by.length, t = Math.max(1, Math.round(n / 3));
+  const part = tom ? [by.slice(0, t), by.slice(t, n - t), by.slice(n - t)][(+c || 1) - 1] : c === "X" ? by.slice(0, t) : c === "o" ? by.slice(n - t) : by.slice(t, Math.max(t + 1, n - t));
+  const L = part.length ? part : by; return { id: L[Math.floor(rng() * L.length)] };
+}
 // vary 0: always the first sound in the bucket; higher: more often another one (never the same twice running)
-function pickItem(vid, bucket) {
+function pickItem(vid, bucket, c) {
   const k = kit()[vid], L = bucket.list; if (!L.length) return null;
+  if (choiceMode() !== "kit" && L[0].id) return analysisPick(vid, c) || L[0];
   let it = L[0];
   if (L.length > 1 && rng() * 100 < k.vary) { const key = vid + bucket.name, others = L.filter(x => itemKey(x) !== lastPick[key]); it = others[Math.floor(rng() * others.length)] || L[0]; }
   lastPick[vid + bucket.name] = itemKey(it);
@@ -626,8 +645,8 @@ function playStep(hits, when, offs = {}) {
   const lines = [], flash = [];
   const picks = [];
   for (const h of hits) {
-    if (kit()[h.vid].mute) continue;
-    const b = bucketFor(h.vid, h.c), it = pickItem(h.vid, b); if (!it) continue;
+    if (!h.force && (kit()[h.vid].mute || (soloV && h.vid !== soloV))) continue;
+    const b = bucketFor(h.vid, h.c), it = h.it || pickItem(h.vid, b, h.c); if (!it) continue;
     picks.push({ ...h, it, b: b.name });
   }
   const dmc = picks.filter(p => p.it.id).sort((a, b) => V[a.vid].prio - V[b.vid].prio), noise = picks.filter(p => p.it.noise);
@@ -636,15 +655,20 @@ function playStep(hits, when, offs = {}) {
       const s = byId[p.it.id], sp = Math.max(0, Math.min(15, s.native + pitchOffset(p.vid)));
       hitDmc(p.it.id, sp, at(p.vid)); flash.push(p.vid);
       lines.push(`${V[p.vid].name} ${p.b} ${p.it.id}${sp !== s.native ? " @" + sp : ""}`);
+      // noise layer: a short burst with the sample for the top end it can't play (MidiNES "full frequency DMC");
+      // longer on accents, shorter on ghosts, like the manual's velocity-to-decay envelope
+      const L = layerOf(p.vid);
+      if (L.on) noise.push({ ...p, it: { noise: "layer", vol: L.vol + (p.c === "X" ? 1 : p.c === "o" ? -1 : 0), preset: { period: L.period, mode: 0, len: p.c === "X" ? 120 : p.c === "o" ? 35 : 70 } }, layer: true });
     } else if (V[p.vid].noise) noise.push({ ...p, it: { noise: V[p.vid].noise, vol: p.c === "X" ? 7 : p.c === "o" ? 4 : 5 }, fallback: true });
     else lines.push(`${V[p.vid].name} dropped (sample channel busy)`);
   });
-  noise.sort((a, b) => NOISE_ORDER.indexOf(a.vid) - NOISE_ORDER.indexOf(b.vid));
+  noise.sort((a, b) => (a.layer ? -1 : NOISE_ORDER.indexOf(a.vid)) - (b.layer ? -1 : NOISE_ORDER.indexOf(b.vid)));
   noise.forEach((p, i) => {
     if (i > 0) { lines.push(`${V[p.vid].name} dropped (noise busy)`); return; }
     const off = pitchOffset(p.vid), h = +$("human").value / 100, vol = p.it.vol + (h && rng() < h ? (rng() < 0.5 ? -1 : 1) : 0);
-    hitNoise(p.it.noise, at(p.vid), vol, off); flash.push(p.vid);
-    lines.push(`${V[p.vid].name} ${p.b} noise ${p.it.noise} ${vol}${p.fallback ? " (sample channel busy)" : ""}`);
+    const pre = p.it.preset || NOISE[p.it.noise];
+    hitNoise(pre, at(p.vid), vol, p.layer ? 0 : off); flash.push(p.vid);
+    lines.push(p.layer ? `+ noise layer ${noiseNote(pre)} vol ${vol}` : `${V[p.vid].name} ${p.b} noise ${p.it.noise} ${noiseNote(pre, off)} vol ${vol}${p.fallback ? " (sample channel busy)" : ""}`);
   });
   const wait = Math.max(0, (when - actx.currentTime) * 1000);
   setTimeout(() => {
@@ -739,14 +763,14 @@ function drawSeq() {
   box.innerHTML = "";
   for (const v of VOICES) {
     const inBeat = !!T[v.id], k = kit()[v.id];
-    const l = document.createElement("div"); l.className = "lbl" + (v.id === focusV ? " focus" : "") + (k.mute ? " muted" : ""); l.dataset.row = v.id;
+    const l = document.createElement("div"); l.className = "lbl" + (v.id === focusV ? " focus" : "") + (k.mute || (soloV && soloV !== v.id) ? " muted" : ""); l.dataset.row = v.id;
     l.innerHTML = `<button class="mute" aria-pressed="${k.mute}" title="Mute ${v.name}" aria-label="Mute ${v.name}">${k.mute ? "✕" : "♪"}</button><button class="rname" aria-label="Edit ${v.name} sounds"${inBeat ? "" : ' style="opacity:.5"'}>${inBeat ? "" : "+ "}${v.name}</button>`;
     l.querySelector(".mute").onclick = () => { k.mute = !k.mute; saveKits(); drawSeq(); };
     l.querySelector(".rname").onclick = () => setFocus(v.id);
     box.append(l);
     for (let i = 0; i < N; i++) {
       const c = cellAt(v.id, i), b = document.createElement("button");
-      b.className = "cell" + (c === "X" ? " acc" : c === "o" ? " soft" : c !== "." ? " on" : "") + (i % pat.spb === 0 ? " beat" : "") + (k.mute ? " muted" : "");
+      b.className = "cell" + (c === "X" ? " acc" : c === "o" ? " soft" : c !== "." ? " on" : "") + (i % pat.spb === 0 ? " beat" : "") + (k.mute || (soloV && soloV !== v.id) ? " muted" : "");
       if (!inBeat) b.style.opacity = 0.45;
       b.dataset.i = i; b.textContent = /[123]/.test(c) ? c : "";
       b.setAttribute("aria-label", `${v.name} step ${i + 1}: ${c === "." ? "off" : c === "X" ? "accent" : c === "o" ? "ghost" : c}`);
@@ -767,8 +791,8 @@ function desc(id) { return [label(id), ...tagList(id, "style:"), ...tagList(id, 
 function chipEl(it, where) {
   const b = document.createElement("button"); b.type = "button";
   b.className = "cand" + (it.noise ? " noise" : ""); b.dataset.key = itemKey(it); b.dataset.where = where;
-  b.innerHTML = it.id ? `${it.id}<small>${label(it.id)}</small>` : `noise<small>${it.noise} ${it.vol}</small>`;
-  b.title = it.id ? desc(it.id) || it.id : `NES noise, ${it.noise}, volume ${it.vol}`;
+  b.innerHTML = it.id ? `${it.id}<small>${label(it.id)}</small>` : `${noiseNote(NOISE[it.noise])}<small>${it.noise} · vol ${it.vol}</small>`;
+  b.title = it.id ? desc(it.id) || it.id : `NES noise "${it.noise}": MidiNES note ${noiseNote(NOISE[it.noise])}, volume ${it.vol}`;
   b.setAttribute("aria-label", `${itemName(it)}${where === "lib" ? ", in the library: press 1, 2 or 3 to add it to a bucket" : ", in a bucket: Delete removes it"}`);
   return b;
 }
@@ -787,6 +811,14 @@ function drawEditor() {
       <label class="mini">Speed wobble <input type="range" min="0" max="100" step="10" value="${k.pitch}" data-k="pitch" aria-label="${v.name} speed wobble"><output>${k.pitch}%</output></label>
       <button class="btn small" data-a="rebuild">Pick again</button>
     </div>
+    <div class="edhead aud">
+      <span class="mini">Hear</span>
+      ${(v.id === "tom" ? [["1", "Hi"], ["2", "Mid"], ["3", "Lo"]] : [["x", "Hit (Z)"], ["X", "Accent (X)"], ["o", "Ghost (C)"]]).map(([c, n]) => `<button class="btn small" data-hear="${c}">▶ ${n}</button>`).join("")}
+      <button class="btn small" data-a="solo" aria-pressed="${soloV === v.id}">${soloV === v.id ? "Solo on (S)" : "Solo (S)"}</button>
+      ${v.id === "bd" || v.id === "sd" ? `<label class="check"><input type="checkbox" data-l="on"${layerOf(v.id).on ? " checked" : ""}> Noise layer</label>
+      <label class="mini">note <select data-l="period" aria-label="Noise layer note">${Array.from({ length: 16 }, (_, i) => `<option value="${i}"${layerOf(v.id).period === i ? " selected" : ""}>${noiseNote({ period: i, mode: 0 })}</option>`).join("")}</select></label>
+      <label class="mini">vol <input type="range" min="1" max="15" value="${layerOf(v.id).vol}" data-l="vol" aria-label="Noise layer volume"><output>${layerOf(v.id).vol}</output></label>` : ""}
+    </div>
     <div class="bucks"></div>
     <h4>All ${v.name.toLowerCase()} sounds <small>· drag into a bucket (or focus one and press 1, 2, 3) · green = bucketed with something in yours in Sound Sorter</small></h4>
     <div class="zone lib" data-b="lib"><div class="items"></div></div>`;
@@ -802,6 +834,12 @@ function drawEditor() {
   for (const it of libItems(v.id)) { const c = chipEl(it, "lib"); if (used.has(itemKey(it))) c.classList.add("inuse"); if (it.id && part.has(it.id)) c.classList.add("vary"); lib.append(c); }
   box.querySelectorAll("[data-k]").forEach(inp => inp.addEventListener("input", () => { k[inp.dataset.k] = +inp.value; inp.nextElementSibling.textContent = inp.value + "%"; saveKits(); }));
   box.querySelectorAll("[data-k]").forEach(inp => inp.addEventListener("change", () => inp.blur()));
+  box.querySelectorAll("[data-hear]").forEach(b => b.onclick = () => hear(v.id, b.dataset.hear));
+  box.querySelector('[data-a="solo"]').onclick = () => toggleSolo();
+  box.querySelectorAll("[data-l]").forEach(inp => inp.addEventListener(inp.type === "range" ? "input" : "change", () => {
+    const L = k.layer = { ...layerOf(v.id) }; L[inp.dataset.l] = inp.type === "checkbox" ? inp.checked : +inp.value; saveKits();
+    if (inp.type === "range") inp.nextElementSibling.textContent = inp.value; else inp.blur();
+  }));
   box.querySelector('[data-a="rebuild"]').onclick = () => { const fresh = buildKit(pat.id)[v.id]; k.buckets = fresh.buckets; saveKits(); drawEditor(); };
 }
 // moving sounds: library → bucket adds a copy; bucket → bucket moves; bucket → library (or anywhere off the buckets) removes
@@ -848,9 +886,12 @@ document.addEventListener("pointerup", e => {
 document.addEventListener("pointercancel", () => { if (drag?.g) drag.g.remove(); drag = null; });
 document.addEventListener("click", e => {
   const p = e.target.closest("#editor [data-play]"); if (!p) return;
-  const list = kit()[focusV].buckets[p.dataset.play]; playListItems(list);
+  const b = p.dataset.play, c = { main: "x", acc: "X", ghost: "o", hi: "1", mid: "2", lo: "3" }[b];
+  playListItems(focusV, kit()[focusV].buckets[b], c);
 });
-async function playListItems(list) { await ctx(); list.forEach((it, i) => setTimeout(() => auditionItem(it), i * 380)); }
+async function playListItems(vid, list, c) { await ctx(); const t = actx.currentTime + 0.03; list.forEach((it, i) => playStep([{ vid, c, it, force: true }], t + i * 0.38)); }
+async function hear(vid, c) { await ctx(); playStep([{ vid, c, force: true }], actx.currentTime + 0.01); }
+function toggleSolo() { soloV = soloV === focusV ? null : focusV; drawEditor(); drawSeq(); }
 document.addEventListener("keydown", e => {
   if (e.target.closest?.("input[type=text], input[type=number], select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
   const c = e.target.closest?.("#editor .cand");
@@ -865,6 +906,8 @@ document.addEventListener("keydown", e => {
     " ": () => playing ? stop() : start(),
     ArrowDown: () => setFocus(order[(i + 1) % order.length]), ArrowUp: () => setFocus(order[(i - 1 + order.length) % order.length]),
     m: () => { kit()[focusV].mute = !kit()[focusV].mute; saveKits(); drawSeq(); },
+    z: () => hear(focusV, focusV === "tom" ? "1" : "x"), x: () => hear(focusV, focusV === "tom" ? "2" : "X"), c: () => hear(focusV, focusV === "tom" ? "3" : "o"),
+    s: () => toggleSolo(),
   }[e.key.length === 1 ? e.key.toLowerCase() : e.key];
   if (act) { e.preventDefault(); act(); }
 });
@@ -878,6 +921,8 @@ function drawKitSel() {
   for (const n of Object.keys(saved).sort()) g2.append(new Option(n, "saved:" + n));
   if (g1.children.length) sel.append(g1); if (g2.children.length) sel.append(g2);
 }
+$("choice").value = store.get("choice", "kit");
+$("choice").onchange = () => { store.set("choice", $("choice").value); $("choice").blur(); };
 $("kitSel").onchange = () => {
   const v = $("kitSel").value, src = v.startsWith("beat:") ? kits[v.slice(5)] : v.startsWith("saved:") ? saved[v.slice(6)] : null;
   if (src) { kits[pat.id] = JSON.parse(JSON.stringify(src)); saveKits(); drawSeq(); drawEditor(); }
