@@ -194,7 +194,11 @@ class Chips extends AudioWorkletProcessor {
   }
   apply(m) {
     if (m.t === "lv") { Object.assign(this.lv, m.p); return; }
-    if (m.t === "sidf") { Object.assign(this.sid, m.p); if (m.trig) { this.sid.envT = 0; this.sid.envOn = 1; } return; }
+    if (m.t === "sidf") { Object.assign(this.sid, m.p, this.sid.live || {}); if (m.trig) { this.sid.envT = 0; this.sid.envOn = 1; } return; }
+    // live effect changes (sliders moved while playing): applied now, and to every later note until cleared
+    if (m.t === "fxClear") { for (const v of this.v) v.live = null; this.sid.live = null; return; }
+    if (m.t === "sidLive") { this.sid.live = { ...(this.sid.live || {}), ...m.p }; Object.assign(this.sid, m.p); return; }
+    if (m.t === "fx") { const v = this.v[m.v]; v.live = { ...(v.live || {}), ...m.p }; if (v.active) Object.assign(v, m.p); return; }
     if (m.t === "allOff") { for (const v of this.v) { v.gate = 0; v.active = false; v.stage = 4; v.env = 0; v.sStage = 4; } return; }
     const v = this.v[m.v];
     if (m.t === "off") { v.gate = 0; v.toff = this.time; if (v.chip === "sid") v.stage = 3; else v.sStage = 3; return; }
@@ -202,7 +206,7 @@ class Chips extends AudioWorkletProcessor {
     if (m.t === "on") {
       const prevF = v.cur;
       // reset the per-note modulation, then take this note's settings
-      Object.assign(v, { glide: 0, vib: null, warb: null, trem: null, pdrop: null, arp: null, pwm: null, dseq: null, senv: null, ring: 0, sync: 0, filt: 0, envPace: 0, envDir: 0 }, p);
+      Object.assign(v, { glide: 0, vib: null, warb: null, trem: null, pdrop: null, arp: null, pwm: null, dseq: null, senv: null, ring: 0, sync: 0, filt: 0, envPace: 0, envDir: 0 }, p, v.live || {});
       v.cur = v.glide && v.active ? prevF : v.f;
       v.gate = 1; v.active = true; v.t0 = this.time;
       if (v.chip === "sid") v.stage = 0;
@@ -544,9 +548,9 @@ async function playDemo(patch, card) {
   send(msgs);
   const end = ev[ev.length - 1].end + 1.5;
   card?.classList.add("playing");
-  playing = { card, timer: setTimeout(() => { card?.classList.remove("playing"); playing = null; }, (end - actx.currentTime) * 1000) };
+  playing = { patch, card, timer: setTimeout(() => { card?.classList.remove("playing"); playing = null; }, (end - actx.currentTime) * 1000) };
 }
-function stopAll() { send({ t: "allOff", at: 0 }); if (playing) { clearTimeout(playing.timer); playing.card?.classList.remove("playing"); playing = null; } held.clear(); keyAlloc = []; document.querySelectorAll(".key.down").forEach(k => k.classList.remove("down")); }
+function stopAll() { send([{ t: "allOff", at: 0 }, { t: "fxClear", at: 0 }]); if (playing) { clearTimeout(playing.timer); playing.card?.classList.remove("playing"); playing = null; } held.clear(); keyAlloc = []; document.querySelectorAll(".key.down").forEach(k => k.classList.remove("down")); }
 // keyboard: the selected patch, re-stacked whenever the held notes change (like Fat Chip)
 let held = new Set(), keyAlloc = [], current = store.get("current", P[0].id), octave = store.get("octave", 4);
 const curPatch = () => P.find(p => p.id === current) || P[0];
@@ -632,6 +636,7 @@ function drawLib() {
         if (key) (o[mod] ||= {})[key] = +inp.value; else o[mod] = +inp.value;
         store.set("fxOver", fxOver); inp.nextElementSibling.textContent = inp.value;
         c.querySelector("[data-fxreset]").hidden = false; c.querySelector(".fxchanged").hidden = false;
+        liveFx(p);
         c.querySelector(".cost")?.replaceWith(htmlEl(costTag(p)));
       });
       inp.addEventListener("change", () => inp.blur());
@@ -641,6 +646,7 @@ function drawLib() {
       const fx = fxOf(p);
       c.querySelectorAll("[data-fx]").forEach(inp => { const [mod, key] = inp.dataset.fx.split("."), v = key ? fx[mod][key] ?? 0 : fx[mod]; inp.value = v; inp.nextElementSibling.textContent = v; });
       rs.hidden = true; c.querySelector(".fxchanged").hidden = true; c.querySelector(".cost")?.replaceWith(htmlEl(costTag(p)));
+      liveFx(p);
     };
     // clicking a card (or its ▶) makes it the sound on the keys and MIDI in
     const select = () => { if (current === p.id) return; current = p.id; store.set("current", current); document.querySelectorAll(".snd.current").forEach(x => x.classList.remove("current")); c.classList.add("current"); $("curName").textContent = $("curName2").textContent = p.name; held.clear(); keyAlloc = []; send({ t: "allOff", at: 0 }); };
@@ -683,6 +689,21 @@ function costTag(p) {
   const n = midiCost(p); if (!n) return "";
   const lvl = n < 150 ? "light" : n < 500 ? "medium" : "heavy";
   return `<span class="dv cost c-${lvl}" title="About ${n} MIDI messages a second to the Game Boy and NES for this sound's effects. Fat Chip has roughly 1,000 a second for everything; Fat Chip GB could run its effects on the Game Boy itself instead.">MIDI ${lvl}</span>`;
+}
+// moving a slider while this sound is playing changes it right away: every channel that plays the main sound or a
+// job gets the new modules (Fat Bass stays steady), and the SID filter sweep follows
+const FX_KEYS = ["vib", "trem", "warb", "pwm", "dseq", "glide", "arp"];
+function liveFx(p) {
+  if (!node || !(playing?.patch === p || (current === p.id && keyAlloc.length))) return;
+  const msgs = [];
+  allocate(p, [48, 52, 55, 59, 62, 65, 69]).forEach((a, idx) => {
+    if (a.job === "Fat Bass") return;
+    const full = payload(p, a, idx), sub = {};
+    for (const k of FX_KEYS) sub[k] = full[k] ?? (k === "glide" ? 0 : null);
+    msgs.push({ t: "fx", v: CH[a.ch], at: 0, p: sub });
+  });
+  const F = sidFilter(p); msgs.push({ t: "sidLive", at: 0, p: { lfoRate: F.lfoRate, lfoDepth: F.lfoDepth } });
+  send(msgs);
 }
 const htmlEl = h => { const t = document.createElement("template"); t.innerHTML = h || "<span></span>"; return t.content.firstElementChild; };
 // play-as and Fat Bass
