@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fat Chip Chip Lab</title>
+<meta name="description" content="SID, Game Boy and NES sound chips emulated together in the browser, for prototyping Fat Chip sounds: play any voice, and try experiments like a Shepard-tone arpeggio across chips.">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f3fb; --surface: #ffffff; --surface-2: #efeaf7; --border: #ddd5ec; --text: #1d1730; --muted: #675d84;
+  --accent: #c4302a; --accent-strong: #a8231e; --accent-ink: #ffffff; --ok: #2e9b3a; --warn: #b77900; --danger: #cf3a3a;
+  --hit: #c4302a; --step: #e3dcf0; --step-on: #c4302a; --step-acc: #7a1612; --step-soft: #e89a95;
+  --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Chakra Petch", "Inter", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+    --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
+    --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+  --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
+  --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Inter", system-ui, sans-serif; padding-bottom: 64px; }
+a { color: var(--accent-strong); }
+.top { padding: 28px 16px 8px; max-width: 1100px; margin: 0 auto; }
+.crumb { margin: 0 0 2px; color: var(--muted); font-size: 14px; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4vw, 34px); letter-spacing: 0.02em; margin: 0; }
+.top h1::before { content: ""; display: inline-block; width: 0.55em; height: 0.85em; background: var(--accent); margin-right: 0.35em; vertical-align: -0.08em; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .top h1::before { animation: none; } }
+.sub { margin: 4px 0 0; color: var(--muted); }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 20px; margin: 14px 0; min-width: 0; }
+.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.step-n { font-family: var(--mono); font-size: 13px; color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 1px 7px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.field output { font-family: var(--mono); font-size: 12.5px; color: var(--accent-strong); }
+select, input[type=text], input[type=number] { font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; width: 100%; min-width: 0; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hint { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.status-line { margin: 0; color: var(--muted); }
+code { font-family: var(--mono); font-size: 13px; }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--warn); background: var(--surface-2); }
+/* chip lab */
+.chipgrp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.chipgrp:last-child { border-bottom: 0; }
+.chipname { font: 600 12.5px var(--mono); color: var(--muted); width: 74px; }
+.vchk { display: flex; align-items: center; gap: 6px; font-size: 14px; padding: 3px 8px; border-radius: 8px; border: 1px solid transparent; }
+.vchk span { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.vchk.edit { border-color: var(--accent); background: var(--surface-2); }
+.vchk input, .check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+#params h3 { margin: 14px 0 8px; font-size: 17px; }
+#params h4 { margin: 14px 0 8px; font-size: 14px; } #params h4 small { color: var(--muted); font-weight: 500; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
+.keys { display: flex; height: 120px; margin-top: 14px; user-select: none; -webkit-user-select: none; touch-action: none; }
+.key { flex: 1; min-width: 0; border: 1px solid var(--border); background: #fff; border-radius: 0 0 6px 6px; position: relative; font: 600 10px var(--mono); color: #555; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; cursor: pointer; }
+.key.black { background: #1d1730; color: #fff; flex: 0.7; margin: 0 -1.2%; z-index: 1; height: 62%; }
+.key.down { background: var(--accent); color: var(--accent-ink); }
+.scope { width: 100%; height: 90px; display: block; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.mix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .mix { grid-template-columns: 1fr 1fr; } }
+.shepgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px 14px; margin-top: 12px; }
+#shepVoices { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+#shepCv { width: 100%; height: 180px; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); margin-top: 12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="crumb"><a href="../../tools/">Tools</a> / <a href="../">Fat Chip</a> /</p>
+  <h1>Chip Lab</h1>
+  <p class="sub">The SID, Game Boy and NES emulated together, for prototyping Fat Chip sounds before they go on the real hardware. It's an approximation: close enough to judge ideas, not to replace the chips.</p>
+</header>
+<main>
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">1</span>Play</h2>
+      <div class="row">
+        <label class="field" style="width:200px"><span>MIDI in</span><select id="midiIn"><option value="">Off</option></select></label>
+        <button id="allOff" class="btn small">All notes off</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:0">Tick the voices to play; notes go to them in turn, so ticking several plays chords across chips. Click a voice's name to edit it. Keys <b>A W S E D F T G Y H U J K</b> play, <b>Z / X</b> change octave.</p>
+    <div id="playOn" style="margin-top:10px"></div>
+    <div id="params"></div>
+    <div class="keys" id="keys"></div>
+    <div class="row" style="margin-top:8px;justify-content:space-between"><span class="status-line">Octave <span id="octOut"></span> · <span id="lastNote"></span></span></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">2</span>Shepard arpeggio</h2>
+      <div class="row"><span class="status-line" id="shepStatus"></span><button id="shepPlay" class="btn primary">▶ Play</button></div>
+    </div>
+    <p class="hint" style="margin-top:0">Voices an octave apart play the same arpeggio note. Each one's volume follows the bell below: loud in the middle, silent at the top and bottom, where it wraps around unheard. It sounds like it climbs (or falls) forever. More voices, smoother illusion. Pulses use their duty from section 1; SID voices their waveform.</p>
+    <div id="shepVoices" style="margin-top:10px"></div>
+    <div class="shepgrid">
+      <label class="field"><span>Notes</span><select id="shepScale"></select></label>
+      <label class="field"><span>Key</span><select id="shepRoot"></select></label>
+      <label class="field"><span>Direction</span><select id="shepDir"><option value="up">Always rising</option><option value="down">Always falling</option></select></label>
+      <label class="field"><span>Lowest octave</span><select id="shepLow"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></label>
+      <label class="field"><span>Note length</span><select id="shepLen"><option value="legato">Legato</option><option value="short">Short</option></select></label>
+      <label class="field"><span>Tempo <output id="shepBpmOut"></output></span><input id="shepBpm" type="range" min="40" max="240" value="100"></label>
+      <label class="field"><span>Peak volume <output id="shepPeakOut"></output></span><input id="shepPeak" type="range" min="4" max="15" value="12"></label>
+    </div>
+    <canvas id="shepCv"></canvas>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2><span class="step-n">3</span>Mix</h2></div>
+    <div class="mix">
+      <label class="field"><span>NES <output id="lvNesOut"></output></span><input id="lvNes" type="range" min="0" max="150" value="100"></label>
+      <label class="field"><span>Game Boy <output id="lvGbOut"></output></span><input id="lvGb" type="range" min="0" max="150" value="100"></label>
+      <label class="field"><span>SID <output id="lvSidOut"></output></span><input id="lvSid" type="range" min="0" max="150" value="100"></label>
+      <label class="field"><span>Master <output id="masterOut"></output></span><input id="master" type="range" min="0" max="100" value="50"></label>
+    </div>
+    <canvas class="scope" id="scope" style="margin-top:12px"></canvas>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("chiplab." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("chiplab." + k, JSON.stringify(v)); } catch { /* */ } },
+};
+// ====================================================================== the chips (runs in an AudioWorklet, one sample at a time)
+// NES: 2 pulses (4 duties, volume 0–15), triangle (32-step, no volume), noise (15-bit LFSR, 16 periods, long / short mode)
+// Game Boy: 2 pulses (4 duties, volume 0–15 with the hardware envelope), wave (32 × 4-bit, 100/50/25 %), noise (LFSR 15 / 7 bit)
+// SID (6581-ish): 3 voices (triangle / saw / pulse with width / noise), ADSR with the SID's rate tables, a shared resonant filter
+// Approximations by design: no band-limiting, linearised mixers, a simple state-variable filter for the SID.
+const ENGINE_SRC = `
+const NES_NOISE = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068], NES_CPU = 1789773;
+const DUTY = [0.125, 0.25, 0.5, 0.75];
+const SID_ATTACK = [0.002, 0.008, 0.016, 0.024, 0.038, 0.056, 0.068, 0.08, 0.1, 0.25, 0.5, 0.8, 1, 3, 5, 8];
+const SID_DECAY = SID_ATTACK.map(a => a * 3);
+class Chips extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    const v = (chip, kind) => ({ chip, kind, f: 440, gate: 0, vol: 0, duty: 2, ph: 0, out: 0, lfsr: 1, period: 0, mode: 0, acc: 0,
+      env: 0, envVol: 0, envDir: 0, envPace: 0, envT: 0, wave: null, level: 1, w: 4, pw: 2048, a: 0, d: 6, s: 10, r: 6, stage: 4, filt: 0, noiseV: 0, nph: 0 });
+    this.v = [v("nes", "pulse"), v("nes", "pulse"), v("nes", "tri"), v("nes", "noise"),
+              v("gb", "pulse"), v("gb", "pulse"), v("gb", "wave"), v("gb", "noise"),
+              v("sid", "sid"), v("sid", "sid"), v("sid", "sid")];
+    this.v[6].wave = Array.from({ length: 32 }, (_, i) => Math.round(7.5 + 7.5 * Math.sin(2 * Math.PI * i / 32)));
+    this.lv = { nes: 1, gb: 1, sid: 1 };
+    this.sid = { cut: 1024, res: 4, mode: 1, vol: 15, lp: 0, bp: 0 };
+    this.q = []; this.hp = 0; this.hpx = 0;
+    this.port.onmessage = e => { for (const m of [].concat(e.data)) this.q.push(m); this.q.sort((a, b) => a.at - b.at); };
+  }
+  apply(m) {
+    if (m.t === "lv") { Object.assign(this.lv, m.p); return; }
+    if (m.t === "sidf") { Object.assign(this.sid, m.p); return; }
+    const v = this.v[m.v];
+    if (m.t === "off") { if (v.chip === "sid") { v.gate = 0; v.stage = 3; } else v.gate = 0; return; }
+    Object.assign(v, m.p);
+    if (m.t === "on") {
+      v.gate = 1;
+      if (v.chip === "sid") v.stage = 0;
+      if (v.chip === "gb" && v.kind !== "wave") { v.envVol = v.vol; v.envT = 0; }
+      if (v.kind === "noise") v.lfsr = 0x7fff;
+    }
+  }
+  process(_, outputs) {
+    const out = outputs[0][0], dt = 1 / sampleRate;
+    let t = currentTime;
+    for (let i = 0; i < out.length; i++, t += dt) {
+      while (this.q.length && this.q[0].at <= t) this.apply(this.q.shift());
+      let nes = 0, gb = 0, sidIn = 0, sidDry = 0;
+      for (const v of this.v) {
+        if (v.chip === "nes") {
+          if (!v.gate) continue;
+          if (v.kind === "pulse") { v.ph = (v.ph + v.f * dt) % 1; nes += (v.ph < DUTY[v.duty] ? v.vol : 0) * 0.00752; }
+          else if (v.kind === "tri") { v.ph = (v.ph + v.f * dt) % 1; const s = Math.floor(v.ph * 32); nes += (s < 16 ? 15 - s : s - 16) * 0.00851; }
+          else { v.acc += NES_CPU / NES_NOISE[v.period] * dt; while (v.acc >= 1) { const fb = (v.lfsr & 1) ^ ((v.lfsr >> (v.mode ? 6 : 1)) & 1); v.lfsr = (v.lfsr >> 1) | (fb << 14); v.acc--; } nes += (v.lfsr & 1 ? 0 : v.vol) * 0.00494; }
+        } else if (v.chip === "gb") {
+          if (!v.gate) continue;
+          if (v.kind !== "wave" && v.envPace) { v.envT += dt; const step = v.envPace / 64; while (v.envT >= step) { v.envT -= step; v.envVol = Math.max(0, Math.min(15, v.envVol + (v.envDir ? 1 : -1))); } }
+          const vol = v.kind === "wave" ? 0 : v.envVol;
+          if (v.kind === "pulse") { v.ph = (v.ph + v.f * dt) % 1; gb += (v.ph < DUTY[v.duty] ? vol : 0) * 0.0075; }
+          else if (v.kind === "wave") { v.ph = (v.ph + v.f * dt) % 1; const s = v.wave[Math.floor(v.ph * 32)]; gb += (v.level ? s >> (v.level - 1) : 0) * 0.0075; }
+          else { v.acc += 524288 / Math.pow(2, v.period) * dt; while (v.acc >= 1) { const fb = (v.lfsr & 1) ^ ((v.lfsr >> 1) & 1); v.lfsr = (v.lfsr >> 1) | (fb << 14); if (v.mode) v.lfsr = (v.lfsr & ~0x40) | (fb << 6); v.acc--; } gb += (v.lfsr & 1 ? 0 : vol) * 0.0075; }
+        } else {
+          // SID envelope: attack linear, decay / release roughly exponential, sustain level 0–15
+          const sus = v.s / 15;
+          if (v.stage === 0) { v.env += dt / SID_ATTACK[v.a]; if (v.env >= 1) { v.env = 1; v.stage = 1; } }
+          else if (v.stage === 1) { v.env -= (v.env - sus) * dt / (SID_DECAY[v.d] / 4.6) + 1e-9; if (v.env <= sus + 1e-3) { v.env = sus; v.stage = 2; } }
+          else if (v.stage === 2) v.env = sus;
+          else if (v.stage === 3) { v.env -= v.env * dt / (SID_DECAY[v.r] / 4.6); if (v.env < 1e-4) { v.env = 0; v.stage = 4; } }
+          if (v.stage === 4 && !v.gate) continue;
+          v.ph = (v.ph + v.f * dt) % 1;
+          let w = 0;
+          if (v.w === 1) w = v.ph < 0.5 ? v.ph * 4 - 1 : 3 - v.ph * 4;
+          else if (v.w === 2) w = v.ph * 2 - 1;
+          else if (v.w === 4) w = v.ph < v.pw / 4096 ? 1 : -1;
+          else { const n = Math.floor(v.ph * 16); if (n !== v.nph) { v.nph = n; v.noiseV = Math.random() * 2 - 1; } w = v.noiseV; }
+          const s = w * v.env * 0.06;
+          if (v.filt) sidIn += s; else sidDry += s;
+        }
+      }
+      // SID filter: state-variable, cutoff roughly 30 Hz – 12 kHz, resonance 0–15
+      const f = Math.min(0.99, 2 * Math.sin(Math.PI * (30 + this.sid.cut / 2047 * 12000) / sampleRate)), damp = 1.45 - this.sid.res / 15 * 1.3;
+      const S = this.sid; const hp = sidIn - S.lp - damp * S.bp; S.bp += f * hp; S.lp += f * S.bp;
+      const filtered = S.mode === 1 ? S.lp : S.mode === 2 ? S.bp : S.mode === 4 ? hp : S.mode === 5 ? S.lp + hp : S.lp;
+      const sid = (sidDry + filtered) * S.vol / 15;
+      let x = nes * this.lv.nes + gb * this.lv.gb + sid * this.lv.sid;
+      // DC block (both consoles high-pass their output too)
+      const y = x - this.hpx + 0.995 * this.hp; this.hpx = x; this.hp = y;
+      out[i] = y;
+    }
+    return true;
+  }
+}
+registerProcessor("chips", Chips);
+`;
+
+// ====================================================================== voices
+const VOICES = [
+  { id: "nes1", name: "NES pulse 1", chip: "nes", kind: "pulse" }, { id: "nes2", name: "NES pulse 2", chip: "nes", kind: "pulse" },
+  { id: "nestri", name: "NES triangle", chip: "nes", kind: "tri" }, { id: "nesnoise", name: "NES noise", chip: "nes", kind: "noise" },
+  { id: "gb1", name: "GB pulse 1", chip: "gb", kind: "pulse" }, { id: "gb2", name: "GB pulse 2", chip: "gb", kind: "pulse" },
+  { id: "gbwave", name: "GB wave", chip: "gb", kind: "wave" }, { id: "gbnoise", name: "GB noise", chip: "gb", kind: "noise" },
+  { id: "sid1", name: "SID voice 1", chip: "sid", kind: "sid" }, { id: "sid2", name: "SID voice 2", chip: "sid", kind: "sid" }, { id: "sid3", name: "SID voice 3", chip: "sid", kind: "sid" },
+];
+VOICES.forEach((v, i) => v.i = i);
+const VI = Object.fromEntries(VOICES.map(v => [v.id, v]));
+const WAVES = {
+  sine: i => 7.5 + 7.5 * Math.sin(2 * Math.PI * i / 32), triangle: i => i < 16 ? i : 31 - i, saw: i => i / 2,
+  square: i => i < 16 ? 15 : 0, "soft bass": i => 7.5 + 5 * Math.sin(2 * Math.PI * i / 32) + 2.5 * Math.sin(4 * Math.PI * i / 32), organ: i => 7.5 + 3.5 * Math.sin(2 * Math.PI * i / 32) + 2.5 * Math.sin(6 * Math.PI * i / 32) + 1.5 * Math.sin(10 * Math.PI * i / 32),
+};
+const waveTable = name => Array.from({ length: 32 }, (_, i) => Math.max(0, Math.min(15, Math.round(WAVES[name](i)))));
+// each voice's settings (what the tester shows), with sensible starting points
+const DEF = {
+  pulse: { duty: 2, vol: 10, envDir: 0, envPace: 0 }, tri: {}, noise: { period: 4, mode: 0, vol: 8, envDir: 0, envPace: 0 },
+  wave: { waveName: "sine", level: 1 }, sid: { w: 4, pw: 2048, a: 0, d: 6, s: 10, r: 6, filt: 0 },
+};
+let settings = store.get("settings", {});
+for (const v of VOICES) settings[v.id] = { ...DEF[v.kind], ...(settings[v.id] || {}) };
+let sidF = store.get("sidF", { cut: 1024, res: 4, mode: 1, vol: 15 });
+const saveSettings = () => { store.set("settings", settings); store.set("sidF", sidF); };
+
+// ====================================================================== audio
+let actx = null, node = null, master = null, analyser = null;
+async function ctx() {
+  if (!actx) {
+    actx = new AudioContext({ latencyHint: "interactive" });
+    await actx.audioWorklet.addModule(URL.createObjectURL(new Blob([ENGINE_SRC], { type: "text/javascript" })));
+    node = new AudioWorkletNode(actx, "chips", { numberOfInputs: 0, outputChannelCount: [1] });
+    master = actx.createGain(); master.gain.value = +$("master").value / 100 * 2;
+    analyser = actx.createAnalyser(); analyser.fftSize = 2048;
+    node.connect(master).connect(analyser).connect(actx.destination);
+    sendLevels(); send({ t: "sidf", p: sidF });
+    requestAnimationFrame(scope);
+  }
+  if (actx.state === "suspended") await actx.resume();
+}
+const send = m => node && node.port.postMessage({ at: 0, ...m });
+const now = () => actx.currentTime;
+function sendLevels() { send({ t: "lv", p: { nes: +$("lvNes").value / 100, gb: +$("lvGb").value / 100, sid: +$("lvSid").value / 100 } }); }
+const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteName = m => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+// what a voice gets for a note: pitch for tonal voices; for noise, the MidiNES layout (long C2–D#3, short E3–G4)
+function notePayload(v, m, extra = {}) {
+  const s = settings[v.id], p = { ...s, ...extra };
+  if (v.kind === "noise") {
+    if (v.chip === "nes" && m >= 36 && m <= 67) { p.mode = m >= 52 ? 1 : 0; p.period = (m >= 52 ? 67 : 51) - m; }
+    else if (v.chip === "gb") { p.period = Math.max(0, Math.min(15, 15 - (m - 36) % 16)); p.mode = s.mode; }
+  } else p.f = midiHz(m);
+  if (v.kind === "wave") p.wave = waveTable(s.waveName);
+  delete p.waveName;
+  return p;
+}
+function noteOn(v, m, at, extra) { send({ t: "on", v: v.i, at, p: notePayload(v, m, extra) }); }
+function noteOff(v, at) { send({ t: "off", v: v.i, at }); }
+function setVoice(v, p, at) { send({ t: "set", v: v.i, at, p }); }
+
+// ====================================================================== scope
+function scope() {
+  const cv = $("scope"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (r.width) {
+    if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+    const g = cv.getContext("2d"), d = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(d);
+    let z = 0; for (let i = 1; i < d.length / 2; i++) if (d[i - 1] < 0 && d[i] >= 0) { z = i; break; }
+    g.clearRect(0, 0, cv.width, cv.height); g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent"); g.lineWidth = 1.5 * dpr; g.beginPath();
+    const n = d.length / 2;
+    for (let i = 0; i < n; i++) { const x = i / n * cv.width, y = cv.height / 2 - d[z + i] * cv.height * 1.2; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  }
+  requestAnimationFrame(scope);
+}
+
+// ====================================================================== tester: play any voice (or several, round-robin) from the keyboard or MIDI
+let playOn = store.get("playOn", ["nes1"]), editV = store.get("editV", "nes1"), octave = store.get("octave", 4), rr = 0;
+const held = new Map();   // midi note -> voice
+function drawPlayOn() {
+  const box = $("playOn"); box.innerHTML = "";
+  for (const chip of ["nes", "gb", "sid"]) {
+    const grp = document.createElement("div"); grp.className = "chipgrp";
+    grp.innerHTML = `<span class="chipname">${{ nes: "NES", gb: "Game Boy", sid: "SID" }[chip]}</span>`;
+    for (const v of VOICES.filter(x => x.chip === chip)) {
+      const l = document.createElement("label"); l.className = "vchk" + (v.id === editV ? " edit" : "");
+      l.innerHTML = `<input type="checkbox"${playOn.includes(v.id) ? " checked" : ""}> <span>${v.name.replace(/^(NES|GB|SID) /, "")}</span>`;
+      l.querySelector("input").onchange = e => { playOn = e.target.checked ? [...playOn, v.id] : playOn.filter(x => x !== v.id); store.set("playOn", playOn); e.target.blur(); };
+      l.querySelector("span").onclick = ev => { ev.preventDefault(); editV = v.id; store.set("editV", v.id); drawPlayOn(); drawParams(); };
+      grp.append(l);
+    }
+    box.append(grp);
+  }
+}
+function slider(label, key, min, max, val, fmt = x => x) {
+  return `<label class="field"><span>${label} <output>${fmt(val)}</output></span><input type="range" min="${min}" max="${max}" value="${val}" data-p="${key}"></label>`;
+}
+function sel(label, key, opts, val) { return `<label class="field"><span>${label}</span><select data-p="${key}">${opts.map(([v, l]) => `<option value="${v}"${String(v) === String(val) ? " selected" : ""}>${l}</option>`).join("")}</select></label>`; }
+function drawParams() {
+  const v = VI[editV], s = settings[v.id], box = $("params");
+  const duty = sel("Duty", "duty", [[0, "12.5 %"], [1, "25 %"], [2, "50 %"], [3, "75 %"]], s.duty);
+  const env = v.chip === "gb" ? sel("Envelope", "envDir", [[0, "fade down"], [1, "swell up"]], s.envDir) + slider("Envelope speed (0 = hold)", "envPace", 0, 7, s.envPace) : "";
+  let h = "";
+  if (v.kind === "pulse") h = duty + slider(v.chip === "gb" ? "Start volume" : "Volume", "vol", 0, 15, s.vol) + env;
+  else if (v.kind === "tri") h = `<p class="hint" style="margin:0">The NES triangle has one sound and no volume control: it's always this loud.</p>`;
+  else if (v.kind === "noise") h = (v.chip === "nes" ? `<p class="hint" style="margin:0;grid-column:1/-1">Keys pick the noise like the MidiNES: C2–D#3 long noise, E3–G4 short (metallic).</p>` : sel("Width", "mode", [[0, "15-bit (hiss)"], [1, "7-bit (metallic)"]], s.mode)) + slider(v.chip === "gb" ? "Start volume" : "Volume", "vol", 0, 15, s.vol) + env;
+  else if (v.kind === "wave") h = sel("Wave", "waveName", Object.keys(WAVES).map(k => [k, k]), s.waveName) + sel("Level", "level", [[1, "100 %"], [2, "50 %"], [3, "25 %"]], s.level);
+  else h = sel("Waveform", "w", [[1, "triangle"], [2, "saw"], [4, "pulse"], [8, "noise"]], s.w) + slider("Pulse width", "pw", 64, 4032, s.pw, x => Math.round(x / 40.96) + " %") +
+    slider("Attack", "a", 0, 15, s.a) + slider("Decay", "d", 0, 15, s.d) + slider("Sustain", "s", 0, 15, s.s) + slider("Release", "r", 0, 15, s.r) +
+    sel("Filter", "filt", [[0, "off"], [1, "on"]], s.filt);
+  box.innerHTML = `<h3>${v.name}</h3><div class="pgrid">${h}</div>` + (v.chip === "sid" ? `<h4>SID filter and volume <small>(shared by all three voices)</small></h4><div class="pgrid">
+    ${sel("Mode", "mode", [[1, "low-pass"], [2, "band-pass"], [4, "high-pass"], [5, "notch"]], sidF.mode)}${slider("Cutoff", "cut", 0, 2047, sidF.cut)}${slider("Resonance", "res", 0, 15, sidF.res)}${slider("Volume", "vol", 0, 15, sidF.vol)}</div>` : "");
+  box.querySelectorAll(".pgrid").forEach((g, gi) => g.querySelectorAll("[data-p]").forEach(inp => {
+    const ev = inp.type === "range" ? "input" : "change";
+    inp.addEventListener(ev, () => {
+      const k = inp.dataset.p, val = k === "waveName" ? inp.value : +inp.value;
+      if (gi === 1) { sidF[k] = val; send({ t: "sidf", p: { [k]: val } }); }
+      else { s[k] = val; const p = { [k]: val }; if (k === "waveName") { delete p.waveName; p.wave = waveTable(val); } setVoice(v, p, 0); }
+      saveSettings();
+      const o = inp.parentElement.querySelector("output"); if (o) o.textContent = k === "pw" ? Math.round(val / 40.96) + " %" : val;
+      if (inp.tagName === "SELECT") inp.blur();
+    });
+    inp.addEventListener("change", () => inp.blur());
+  }));
+}
+async function keyDown(m) {
+  await ctx();
+  if (held.has(m) || !playOn.length) return;
+  const ids = playOn.filter(id => ![...held.values()].includes(id));
+  const id = ids.length ? ids[rr++ % ids.length] : playOn[rr++ % playOn.length];
+  for (const [mm, vv] of held) if (vv === id) held.delete(mm);
+  held.set(m, id); noteOn(VI[id], m, 0); markKey(m, true);
+  $("lastNote").textContent = `${noteName(m)} on ${VI[id].name}`;
+}
+function keyUp(m) { const id = held.get(m); if (!id) return; held.delete(m); noteOff(VI[id], 0); markKey(m, false); }
+function markKey(m, on) { const k = document.querySelector(`.key[data-m="${m}"]`); if (k) k.classList.toggle("down", on); }
+function drawKeys() {
+  const box = $("keys"); box.innerHTML = "";
+  const lo = 12 * (octave + 1);
+  for (let m = lo; m < lo + 25; m++) {
+    const black = [1, 3, 6, 8, 10].includes(m % 12), k = document.createElement("button");
+    k.className = "key" + (black ? " black" : ""); k.dataset.m = m; k.setAttribute("aria-label", noteName(m)); if (m % 12 === 0) k.textContent = noteName(m);
+    k.addEventListener("pointerdown", e => { k.setPointerCapture(e.pointerId); keyDown(m); });
+    k.addEventListener("pointerup", () => keyUp(m)); k.addEventListener("pointercancel", () => keyUp(m));
+    box.append(k);
+  }
+  $("octOut").textContent = `C${octave}–C${octave + 2}`;
+}
+const KEYMAP = "awsedftgyhujkolp;'";   // a = C, w = C#, … k = C next octave
+document.addEventListener("keydown", e => {
+  if (e.repeat || e.target.closest?.("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const i = KEYMAP.indexOf(e.key.toLowerCase());
+  if (i >= 0) { e.preventDefault(); keyDown(12 * (octave + 1) + i); return; }
+  if (e.key === "z") { octave = Math.max(0, octave - 1); store.set("octave", octave); drawKeys(); }
+  if (e.key === "x") { octave = Math.min(7, octave + 1); store.set("octave", octave); drawKeys(); }
+});
+document.addEventListener("keyup", e => { const i = KEYMAP.indexOf(e.key.toLowerCase()); if (i >= 0) keyUp(12 * (octave + 1) + i); });
+$("allOff").onclick = () => { for (const v of VOICES) noteOff(v, 0); held.clear(); document.querySelectorAll(".key.down").forEach(k => k.classList.remove("down")); shepStop(); };
+
+// MIDI in: notes play the checked voices
+let midi = null;
+$("midiIn").addEventListener("pointerdown", async () => {
+  if (midi || !navigator.requestMIDIAccess) return;
+  try { midi = await navigator.requestMIDIAccess(); } catch { return; }
+  const fill = () => { const s = $("midiIn"), v = s.value; s.innerHTML = '<option value="">Off</option>'; for (const i of midi.inputs.values()) s.add(new Option(i.name, i.id)); s.value = v; };
+  midi.onstatechange = fill; fill();
+}, { once: true });
+$("midiIn").onchange = () => {
+  if (!midi) return;
+  for (const i of midi.inputs.values()) i.onmidimessage = null;
+  const inp = midi.inputs.get($("midiIn").value); if (!inp) return;
+  inp.onmidimessage = e => { const [st, a, b] = e.data, t = st & 0xF0; if (t === 0x90 && b) keyDown(a); else if (t === 0x80 || (t === 0x90 && !b)) keyUp(a); };
+  $("midiIn").blur();
+};
+
+// ====================================================================== Shepard arpeggio: always rising (or falling)
+// N voices an octave apart play the same arpeggio note; each one's volume follows a bell over the N-octave range,
+// so a voice fades out at the top while another fades in at the bottom, and the climb never arrives.
+const SCALES = { "Major arpeggio": [0, 4, 7], "Minor arpeggio": [0, 3, 7], "Major 7th": [0, 4, 7, 11], "Pentatonic": [0, 2, 4, 7, 9], "Whole tone": [0, 2, 4, 6, 8, 10], "Chromatic": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "Major scale": [0, 2, 4, 5, 7, 9, 11] };
+const SHEP_VOICES = ["nes1", "nes2", "gb1", "gb2", "sid1", "sid2", "sid3"];
+let shep = { on: false, timer: 0, next: 0, deg: 0, oct: 0, last: [] }, shepSel = store.get("shepSel", ["nes1", "nes2", "gb1", "gb2"]);
+function drawShepVoices() {
+  const box = $("shepVoices"); box.innerHTML = "";
+  for (const id of SHEP_VOICES) {
+    const l = document.createElement("label"); l.className = "check";
+    l.innerHTML = `<input type="checkbox"${shepSel.includes(id) ? " checked" : ""}> ${VI[id].name}`;
+    l.querySelector("input").onchange = e => { shepSel = e.target.checked ? [...shepSel, id] : shepSel.filter(x => x !== id); shepSel = SHEP_VOICES.filter(x => shepSel.includes(x)); store.set("shepSel", shepSel); e.target.blur(); };
+    box.append(l);
+  }
+}
+for (const k of Object.keys(SCALES)) $("shepScale").add(new Option(k, k));
+NAMES.forEach((n, i) => $("shepRoot").add(new Option(n, i)));
+for (const id of ["shepScale", "shepRoot", "shepDir", "shepLow", "shepLen"]) { $(id).value = store.get(id, $(id).value); $(id).onchange = () => { store.set(id, $(id).value); $(id).blur(); }; }
+for (const id of ["shepBpm", "shepPeak"]) { $(id).value = store.get(id, +$(id).value); $(id + "Out").textContent = $(id).value; $(id).oninput = () => { $(id + "Out").textContent = $(id).value; store.set(id, +$(id).value); }; $(id).onchange = () => $(id).blur(); }
+function shepStep(at) {
+  const sc = SCALES[$("shepScale").value], N = shepSel.length, span = 12 * N, dir = $("shepDir").value === "down" ? -1 : 1;
+  const x = shep.oct * 12 + sc[shep.deg];   // semitones above the root, unbounded
+  const root = +$("shepRoot").value, low = 12 * (+$("shepLow").value + 1) + root, peak = +$("shepPeak").value;
+  const stepDur = 60 / +$("shepBpm").value / 2, legato = $("shepLen").value === "legato";
+  const vis = [];
+  shepSel.forEach((id, k) => {
+    const v = VI[id], pos = (((x + 12 * k) % span) + span) % span, rel = pos / span;
+    const vol = Math.round(peak * Math.pow(Math.sin(Math.PI * rel), 2)), m = low + pos;
+    vis.push({ id, m, vol, rel });
+    if (v.chip === "sid") noteOn(v, m, at, { s: vol, a: 0, d: 0, r: legato ? 2 : 1, w: settings[id].w, pw: settings[id].pw });
+    else if (v.chip === "gb") noteOn(v, m, at, { vol, envPace: 0, duty: settings[id].duty });
+    else noteOn(v, m, at, { vol, duty: settings[id].duty });
+    if (!legato) noteOff(v, at + stepDur * 0.55);
+  });
+  const delay = Math.max(0, (at - actx.currentTime) * 1000);
+  setTimeout(() => { if (shep.on) drawShep(vis); }, delay);
+  // next degree
+  shep.deg += dir;
+  if (shep.deg >= sc.length) { shep.deg = 0; shep.oct++; }
+  if (shep.deg < 0) { shep.deg = sc.length - 1; shep.oct--; }
+}
+function shepTick() {
+  while (shep.next < actx.currentTime + 0.12) { shepStep(shep.next); shep.next += 60 / +$("shepBpm").value / 2; }
+}
+async function shepStart() {
+  await ctx(); if (shep.on) return; if (shepSel.length < 2) { $("shepStatus").textContent = "Pick at least two voices."; return; }
+  shep.on = true; shep.deg = 0; shep.oct = 0; shep.next = actx.currentTime + 0.05;
+  clearInterval(shep.timer); shep.timer = setInterval(shepTick, 25); shepTick();
+  $("shepPlay").textContent = "■ Stop"; $("shepStatus").textContent = "";
+}
+function shepStop() {
+  if (!shep.on) return; shep.on = false; clearInterval(shep.timer);
+  for (const id of shepSel) noteOff(VI[id], 0);
+  $("shepPlay").textContent = "▶ Play"; drawShep([]);
+}
+$("shepPlay").onclick = () => shep.on ? shepStop() : shepStart();
+function drawShep(vis) {
+  const cv = $("shepCv"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; if (!r.width) return;
+  if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const g = cv.getContext("2d"), css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim(), W = cv.width, H = cv.height;
+  g.clearRect(0, 0, W, H);
+  // the bell
+  g.strokeStyle = col("--border"); g.lineWidth = 1.5 * dpr; g.beginPath();
+  for (let i = 0; i <= 100; i++) { const x = i / 100 * W, y = H - 14 * dpr - Math.pow(Math.sin(Math.PI * i / 100), 2) * (H - 30 * dpr); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+  g.font = `${11 * dpr}px ${col("--mono")}`;
+  const peak = +$("shepPeak").value || 15;
+  for (const s of vis) {
+    const x = s.rel * W, h = s.vol / 15 * (H - 30 * dpr);
+    g.fillStyle = { nes: col("--accent"), gb: col("--ok"), sid: col("--warn") }[VI[s.id].chip] || col("--accent");
+    g.fillRect(x - 5 * dpr, H - 14 * dpr - h, 10 * dpr, h);
+    g.fillStyle = col("--text"); g.fillText(`${noteName(s.m)} ${s.vol}`, Math.min(W - 60 * dpr, x + 7 * dpr), H - 18 * dpr - h);
+  }
+  g.fillStyle = col("--muted"); g.fillText("low", 4 * dpr, H - 2 * dpr); g.fillText("high", W - 30 * dpr, H - 2 * dpr);
+}
+
+// ====================================================================== mixer
+for (const id of ["lvNes", "lvGb", "lvSid", "master"]) {
+  $(id).value = store.get(id, +$(id).value); $(id + "Out").textContent = $(id).value;
+  $(id).oninput = () => { $(id + "Out").textContent = $(id).value; store.set(id, +$(id).value); if (!actx) return; if (id === "master") master.gain.value = +$(id).value / 100 * 2; else sendLevels(); };
+  $(id).onchange = () => $(id).blur();
+}
+document.addEventListener("pointerdown", () => ctx(), { once: true });
+drawPlayOn(); drawParams(); drawKeys(); drawShepVoices(); drawShep([]);
+</script>
+</body>
+</html>
