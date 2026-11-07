@@ -644,6 +644,7 @@ $("midiIn").onchange = () => {
 
 // ====================================================================== the library: rate, note, needs
 let ratings = store.get("ratings", {});   // id -> {r: "yes" | "maybe" | "no", note, needs: ["sid", ...]}
+const RLABEL = { yes: "Yes", maybe: "Maybe", no: "No" };
 const rate = id => ratings[id] || (ratings[id] = { r: "", note: "", needs: [] });
 const saveRatings = () => { store.set("ratings", ratings); drawCounts(); };
 const usesDev = (p, d) => Object.keys(DEV).some(g => p[g] && DEV[g] === d);
@@ -662,7 +663,7 @@ function drawLib() {
     const c = document.createElement("article"); c.className = "snd" + (p.id === current ? " current" : "") + (R.r ? " r-" + R.r : ""); c.dataset.id = p.id;
     c.innerHTML = `<div class="sh"><button class="playbtn" aria-label="Play the ${p.name} demo">▶</button><div><h4>${p.name}</h4><p class="uses">${devs.map(d => `<span class="dv d-${d}${devOn[d] ? "" : " off"}">${d.toUpperCase()}</span>`).join("")}${p.play === "mono" ? '<span class="dv">mono</span>' : ""}</p></div></div>
       <p class="sdesc">${p.desc}</p>
-      <div class="rate" role="group" aria-label="Rating">${["yes", "maybe", "no"].map(r => `<button data-r="${r}" aria-pressed="${R.r === r}">${{ yes: "Yes", maybe: "Maybe", no: "No" }[r]}</button>`).join("")}
+      <div class="rate" role="group" aria-label="Rating">${["yes", "maybe", "no"].map(r => `<button data-r="${r}" aria-pressed="${R.r === r}">${RLABEL[r]}</button>`).join("")}
         <button class="keysbtn" title="Play this sound on the keys / MIDI">Keys</button></div>
       <div class="needs"><span>Needs</span>${["sid", "gb", "nes"].map(d => `<button data-n="${d}" aria-pressed="${(R.needs || []).includes(d)}">${d.toUpperCase()}</button>`).join("")}</div>
       <textarea placeholder="Notes for Claude…" rows="1" aria-label="Notes on ${p.name}">${R.note || ""}</textarea>`;
