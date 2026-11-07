@@ -128,14 +128,14 @@ h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; t
   <section class="card">
     <div class="tools">
       <div class="devs"><span class="lab">Devices</span><button class="devbtn" id="dev-sid">SID</button><button class="devbtn" id="dev-gb">GB</button><button class="devbtn" id="dev-nes">NES</button></div>
-      <div class="devs"><button class="devbtn fb" id="fatBass" title="Keep the bass inside a range, folding by octaves">Fat Bass</button>
-        <select id="bassLo" aria-label="Fat Bass lowest note" style="width:auto"></select><span class="lab">to</span><select id="bassHi" aria-label="Fat Bass highest note" style="width:auto"></select></div>
+      <div class="devs" style="align-items:flex-end"><label class="field" style="width:150px"><span>Fat Bass</span><select id="fbMode"><option value="patch">As designed</option><option value="on">Always on</option><option value="off">Always off</option></select></label>
+        <label class="field"><span>range</span><span class="row" style="gap:4px"><select id="bassLo" aria-label="Fat Bass lowest note" style="width:auto"></select>–<select id="bassHi" aria-label="Fat Bass highest note" style="width:auto"></select></span></label></div>
       <label class="field" style="width:150px"><span>Play</span><select id="playAs"><option value="patch">As designed</option><option value="poly">Poly</option><option value="mono">Mono</option></select></label>
       <span class="now">On the keys: <b id="curName2"></b></span>
       <label class="field" style="width:170px"><span>Show</span><select id="filter"><option value="all">All sounds</option><option value="unrated">Not rated yet</option><option value="yes">Yes</option><option value="maybe">Maybe</option><option value="no">No</option></select></label>
       <div class="row"><button id="stopBtn" class="btn small">Stop (Esc)</button><button id="exportBtn" class="btn small primary">Export ratings</button></div>
     </div>
-    <p class="hint">Every available chip plays: a sound's important jobs (a sub, an octave, its main tone) move to another chip when you turn one off. <b>Fat Bass</b> adds a bass that stays inside its range (folding by octaves) whatever octave you play in; turn it off for high, airy sets. <b>Play</b> forces poly or mono. <b>Effects</b> on a card adjusts that sound's modules; the <b>MIDI</b> tag is how much Game Boy / NES traffic its effects would take. Turn devices off to hear how a sound holds up without them. <b>▶</b> plays a demo that suits the sound; click a card to put that sound on your keyboard, MIDI in and the keys at the bottom. <b>Needs</b> marks the devices a sound can't do without, so Fat Chip can offer only the sounds the connected devices can play. Ratings and notes stay in this browser until you export them. <span id="counts"></span></p>
+    <p class="hint">Every available chip plays: a sound's important jobs (a sub, an octave, its main tone) move to another chip when you turn one off. <b>Fat Bass</b> adds a bass that stays inside its range (folding by octaves) whatever octave you play in. Like mono / poly, each sound has its own default (tagged "fat bass" when it's on), and you can lock it on or off for every sound, e.g. off for high, airy sets. <b>Play</b> does the same for poly and mono. <b>Effects</b> on a card adjusts that sound's modules; the <b>MIDI</b> tag is how much Game Boy / NES traffic its effects would take. Turn devices off to hear how a sound holds up without them. <b>▶</b> plays a demo that suits the sound; click a card to put that sound on your keyboard, MIDI in and the keys at the bottom. <b>Needs</b> marks the devices a sound can't do without, so Fat Chip can offer only the sounds the connected devices can play. Ratings and notes stay in this browser until you export them. <span id="counts"></span></p>
     <div id="lib"></div>
   </section>
 
@@ -314,7 +314,7 @@ registerProcessor("chips", Chips);
 //   3. poly: as many held notes as possible; fewer notes = more stacking (Fat Chip 64's order)
 //   4. "needs" tags are set by Reeve on each card
 //   6. effects are modules, adjustable per patch, so patches can be blended later
-//   7. Fat Bass (a global toggle) adds a bass job that keeps the lowest note inside a range, folding by octaves
+//   7. Fat Bass (a per-patch default, which Reeve can lock on or off) adds a bass job that keeps the lowest note inside a range, folding by octaves
 // voice fields: sid {w 1 tri / 2 saw / 4 pulse / 8 noise, pw, adsr [a,d,s,r] 0–15, filt}, gbp / nesp {duty 0–3, vol 0–15,
 //   senv [a, d, s, r] seconds (sustain 0–1), env [pace, dir] (GB hardware)}, gbw {wave, senv}, nest {senv}.
 // fx modules: vib {rate, depth (semitones), delay}, trem {rate, depth 0–1}, warb {rate, depth}, pwm {rate, depth}
@@ -322,7 +322,8 @@ registerProcessor("chips", Chips);
 //   filter LFO), glide (s). sidF: SID filter {cut, res, mode, envAmt, envA, envD}.
 const SE = (a, d, s, r) => ({ a, d, s, r });
 const P = [];
-const add = (cat, name, desc, demo, def) => P.push({ id: cat.slice(0, 3).toLowerCase() + "-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), cat, name, desc, demo, mode: "poly", jobs: [], fx: {}, ...def });
+const FB_ON = ["Warble pad", "Electric piano", "Combo organ", "Seasick chorus", "Duty shimmer pad", "Warm SID pad", "Sweep pad", "Chorus pad", "Breathing pad", "Dark pad", "Bright stack pad", "Glide bass", "Wave bass", "Tremolo gate", "Detune beating"];   // sounds that come with Fat Bass on (the rest without)
+const add = (cat, name, desc, demo, def) => P.push({ id: cat.slice(0, 3).toLowerCase() + "-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), cat, name, desc, demo, mode: "poly", jobs: [], fx: {}, fatBass: FB_ON.includes(name), ...def });
 
 // ---------------------------------------------------------------- loved
 add("Leads", "Duty-cycle lead", "Pulses cycling 12.5 → 25 → 50 % every few ms: the shimmering game lead. The SID joins with its pulse width stepping along.", "lead",
@@ -436,10 +437,11 @@ function sendLevels() { send({ t: "lv", at: 0, p: { nes: +$("lvNes").value / 100
 
 // ====================================================================== who plays what: jobs, fallbacks, stacking, Fat Bass
 let devOn = store.get("devOn", { sid: true, gb: true, nes: true });
-let fatBass = store.get("fatBass", true), bassLo = store.get("bassLo", 28), bassHi = store.get("bassHi", 40);   // E1–E2
+let fbMode = store.get("fbMode", "patch"), bassLo = store.get("bassLo", 28), bassHi = store.get("bassHi", 40);   // E1–E2
 let fxOver = store.get("fxOver", {});
 const KIND = ch => groupOf(ch);
 const fold = m => { while (m > bassHi) m -= 12; while (m < bassLo) m += 12; return m; };
+const fatBassOn = patch => fbMode === "patch" ? !!patch.fatBass : fbMode === "on";   // per-patch default, or locked on / off
 function playMode(patch) { const v = $("playAs").value; return v === "patch" ? patch.mode : v; }
 function fxOf(patch) {   // the patch's effect modules, with Reeve's adjustments on top
   const o = fxOver[patch.id] || {}, out = {};
@@ -456,7 +458,7 @@ function allocate(patch, notes) {
   // spread notes over channels the Fat Chip 64 way: one each lowest first, leftovers on the lowest two
   const spread = (chs, ns) => chs.map((ch, i) => ({ ch, note: i < ns.length ? ns[i] : ns[(i - ns.length) % Math.min(2, ns.length)] }));
   const out = [];
-  if (fatBass && !patch.only) for (const ch of take(["nest", "gbw", "sid"], 2)) out.push({ ch, note: fold(notes[0]), job: "Fat Bass" });
+  if (fatBassOn(patch) && !patch.only) for (const ch of take(["nest", "gbw", "sid"], 2)) out.push({ ch, note: fold(notes[0]), job: "Fat Bass" });
   for (const J of patch.jobs || []) {
     const chs = take(J.on, J.n || 1);
     const ns = J.note === "top" ? [notes[notes.length - 1]] : notes;
@@ -616,7 +618,7 @@ function drawLib() {
     if (p.cat !== cat) { cat = p.cat; const h = document.createElement("h3"); h.className = "cat"; h.textContent = cat; box.append(h); grid = document.createElement("div"); grid.className = "lib"; box.append(grid); }
     const devs = ["sid", "gb", "nes"].filter(d => usesDev(p, d));
     const c = document.createElement("article"); c.className = "snd" + (p.id === current ? " current" : "") + (R.r ? " r-" + R.r : ""); c.dataset.id = p.id;
-    c.innerHTML = `<div class="sh"><button class="playbtn" aria-label="Play the ${p.name} demo">▶</button><div><h4>${p.name}</h4><p class="uses">${devs.map(d => `<span class="dv d-${d}${devOn[d] ? "" : " off"}">${d.toUpperCase()}</span>`).join("")}${p.mode === "mono" ? '<span class="dv">mono</span>' : ""}${costTag(p)}</p></div></div>
+    c.innerHTML = `<div class="sh"><button class="playbtn" aria-label="Play the ${p.name} demo">▶</button><div><h4>${p.name}</h4><p class="uses">${devs.map(d => `<span class="dv d-${d}${devOn[d] ? "" : " off"}">${d.toUpperCase()}</span>`).join("")}${p.mode === "mono" ? '<span class="dv">mono</span>' : ""}${p.fatBass ? '<span class="dv" title="Comes with Fat Bass on">fat bass</span>' : ""}${costTag(p)}</p></div></div>
       <p class="sdesc">${p.desc}</p>
       <div class="rate" role="group" aria-label="Rating">${["yes", "maybe", "no"].map(r => `<button data-r="${r}" aria-pressed="${R.r === r}">${RLABEL[r]}</button>`).join("")}
 </div>
@@ -682,11 +684,11 @@ for (const id of ["bassLo", "bassHi"]) for (const m of NOTE_OPTS) $(id).add(new 
 $("bassLo").value = bassLo; $("bassHi").value = bassHi;
 $("bassLo").onchange = () => { bassLo = Math.min(+$("bassLo").value, bassHi - 11); $("bassLo").value = bassLo; store.set("bassLo", bassLo); $("bassLo").blur(); };
 $("bassHi").onchange = () => { bassHi = Math.max(+$("bassHi").value, bassLo + 11); $("bassHi").value = bassHi; store.set("bassHi", bassHi); $("bassHi").blur(); };
-$("fatBass").setAttribute("aria-pressed", fatBass);
-$("fatBass").onclick = () => { fatBass = !fatBass; store.set("fatBass", fatBass); $("fatBass").setAttribute("aria-pressed", fatBass); stopAll(); drawLib(); };
+$("fbMode").value = fbMode;
+$("fbMode").onchange = () => { fbMode = $("fbMode").value; store.set("fbMode", fbMode); stopAll(); drawLib(); $("fbMode").blur(); };
 $("exportBtn").onclick = () => {
   const out = P.map(p => ({ id: p.id, cat: p.cat, name: p.name, ...(ratings[p.id] || {}) })).filter(x => x.r || x.note || (x.needs || []).length);
-  const data = { app: "fatchip-chiplab", version: 2, exported: new Date().toISOString(), library: "2026-11-06b", settings: { devOn, playAs: $("playAs").value, fatBass, bassLo, bassHi }, ratings: out, effects: fxOver };
+  const data = { app: "fatchip-chiplab", version: 2, exported: new Date().toISOString(), library: "2026-11-06b", settings: { devOn, playAs: $("playAs").value, fatBass: fbMode, bassLo, bassHi }, ratings: out, effects: fxOver };
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
   a.download = `chiplab-ratings-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
