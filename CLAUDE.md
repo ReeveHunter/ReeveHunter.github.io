@@ -23,6 +23,6 @@ Reeve Hunter's site (GitHub Pages, custom domain in `CNAME`). Each top-level fol
 | `CheckItBU/` | CheckIt course material (`Cal-I`). |
 | `assets/` | Shared images, favicon and the home page's styles. |
 
-GitHub Pages builds this site with Jekyll (there is no `.nojekyll`), so a page must never contain `{{` or `{%` (Liquid tags), not even inside a script: the whole Pages build fails. Write `${ {` with a space, or use a named object.
+The repo root has an empty `.nojekyll`, so GitHub Pages serves every file exactly as it is (no Jekyll, no Liquid templating). Keep it: without it, Markdown files like this one go through Liquid, and a double curly brace or brace-percent anywhere in them fails the whole Pages build. Markdown files are served raw, not as pages.
 
 Web MIDI pages (`C64/`, `flash/`, `CZ/`, `sightreading/`, `fatchip/linktest/`, `fatchip/nes-lab/`, `fatchip/samples/`, `fatchip/keytar/`, `fatchip/beatlab/`, `fatchip/sorter/`) need Chrome, Edge or Opera on a computer (or a Web MIDI browser app on iPad), and `https://` or `localhost`. To try a page locally: `python3 -m http.server` in the repo root, then open `http://localhost:8000/<folder>/`.
