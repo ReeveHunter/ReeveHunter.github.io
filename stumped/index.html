@@ -93,7 +93,7 @@
 </head>
 <body>
 <div id="app">
-  <header><h1>STUMPED</h1><span>v0.62</span></header>
+  <header><h1>STUMPED</h1><span>v0.64</span></header>
 
   <div id="screen-wrap">
     <canvas id="screen" width="640" height="480" aria-label="Stumped game screen"></canvas>
@@ -519,8 +519,9 @@
   });
 
   /* ---------- gestures, anywhere on the page ----------
-     tap: step toward it (menus: choose what you tap) · swipe: walk, and keep walking while you hold ·
-     two-finger tap: undo · touch and hold: map · pinch: zoom. Menus: swipe up/down to move, right to go back.
+     tap: walk there (next to you: one step; menus: choose what you tap) · swipe: walk, and keep walking
+     while you hold · two-finger tap: undo · touch and hold: map · pinch: zoom. Menus don't swipe: the
+     game draws BACK, MENU and page buttons.
      They work on the whole page, not just the game screen, so a thumb below or beside it still plays.
      Links and the start overlay keep their own clicks; Listen's finger-play stays on the screen. */
   function gestOn() { return ctlMode === 'g'; }
@@ -600,6 +601,11 @@
     }
   }
   document.addEventListener('pointerup', gestEnd);
+  /* with the keyboard or on-screen buttons, a click on a square in a level walks there too */
+  canvas.addEventListener('click', function (e) {
+    if (gestOn() || !ready) return;
+    var p = gameXY(e.clientX, e.clientY); Module._web_click(p[0], p[1]);
+  });
   document.addEventListener('pointercancel', gestEnd);
   document.addEventListener('contextmenu', function (e) { if (gestOn()) e.preventDefault(); });
 
@@ -708,7 +714,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261030123613'; },
+    locateFile: function (path) { return path + '?v=20261106150313'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -771,6 +777,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261030123613" async></script>
+<script src="stumped.js?v=20261106150313" async></script>
 </body>
 </html>
