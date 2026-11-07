@@ -105,6 +105,14 @@ h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; t
 .key { flex: 1; min-width: 0; border: 1px solid var(--border); background: #fff; border-radius: 0 0 6px 6px; font: 600 10px var(--mono); color: #555; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; cursor: pointer; }
 .key.black { background: #1d1730; color: #fff; flex: 0.7; margin: 0 -1.2%; z-index: 1; height: 62%; }
 .key.down { background: var(--accent); color: var(--accent-ink); }
+.devbtn.fb { text-decoration: none; }
+.devbtn.fb[aria-pressed="false"] { text-decoration: line-through; }
+.cost.c-light { color: var(--ok); } .cost.c-medium { color: var(--warn); border-color: var(--warn); } .cost.c-heavy { color: #fff; background: var(--danger); border-color: var(--danger); }
+.fxd { font-size: 13px; }
+.fxd summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.fxk { display: grid; grid-template-columns: 1fr 110px 40px; gap: 6px; align-items: center; margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.fxk output { font: 600 11.5px var(--mono); color: var(--accent-strong); }
+.fxreset { margin-top: 6px; border: 0; background: none; color: var(--accent-strong); cursor: pointer; padding: 0; font-size: 12.5px; }
 .scope { width: 100%; height: 70px; display: block; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); margin-top: 12px; }
 .mix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 760px) { .mix { grid-template-columns: 1fr 1fr; } }
@@ -114,17 +122,20 @@ h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; t
 <header class="top">
   <p class="crumb"><a href="../../tools/">Tools</a> / <a href="../">Fat Chip</a> /</p>
   <h1>Chip Lab</h1>
-  <p class="sub">Candidate built-in sounds for Fat Chip, played on emulated SID, Game Boy and NES chips with Fat Chip 64's voice stacking. Rate each one, add notes, and export them for Claude. The emulation is close, not exact.</p>
+  <p class="sub">Fat Chip's candidate built-in sounds, played on emulated SID, Game Boy and NES chips by Fat Chip's rules. Rate each one, add notes, and export them for Claude. The emulation is close, not exact.</p>
 </header>
 <main>
   <section class="card">
     <div class="tools">
       <div class="devs"><span class="lab">Devices</span><button class="devbtn" id="dev-sid">SID</button><button class="devbtn" id="dev-gb">GB</button><button class="devbtn" id="dev-nes">NES</button></div>
+      <div class="devs"><button class="devbtn fb" id="fatBass" title="Keep the bass inside a range, folding by octaves">Fat Bass</button>
+        <select id="bassLo" aria-label="Fat Bass lowest note" style="width:auto"></select><span class="lab">to</span><select id="bassHi" aria-label="Fat Bass highest note" style="width:auto"></select></div>
+      <label class="field" style="width:150px"><span>Play</span><select id="playAs"><option value="patch">As designed</option><option value="poly">Poly</option><option value="mono">Mono</option></select></label>
       <span class="now">On the keys: <b id="curName2"></b></span>
       <label class="field" style="width:170px"><span>Show</span><select id="filter"><option value="all">All sounds</option><option value="unrated">Not rated yet</option><option value="yes">Yes</option><option value="maybe">Maybe</option><option value="no">No</option></select></label>
       <div class="row"><button id="stopBtn" class="btn small">Stop (Esc)</button><button id="exportBtn" class="btn small primary">Export ratings</button></div>
     </div>
-    <p class="hint">Turn devices off to hear how a sound holds up without them. <b>▶</b> plays a demo that suits the sound; click a card to put that sound on your keyboard, MIDI in and the keys at the bottom. <b>Needs</b> marks the devices a sound can't do without, so Fat Chip can offer only the sounds the connected devices can play. Ratings and notes stay in this browser until you export them. <span id="counts"></span></p>
+    <p class="hint">Every available chip plays: a sound's important jobs (a sub, an octave, its main tone) move to another chip when you turn one off. <b>Fat Bass</b> adds a bass that stays inside its range (folding by octaves) whatever octave you play in; turn it off for high, airy sets. <b>Play</b> forces poly or mono. <b>Effects</b> on a card adjusts that sound's modules; the <b>MIDI</b> tag is how much Game Boy / NES traffic its effects would take. Turn devices off to hear how a sound holds up without them. <b>▶</b> plays a demo that suits the sound; click a card to put that sound on your keyboard, MIDI in and the keys at the bottom. <b>Needs</b> marks the devices a sound can't do without, so Fat Chip can offer only the sounds the connected devices can play. Ratings and notes stay in this browser until you export them. <span id="counts"></span></p>
     <div id="lib"></div>
   </section>
 
@@ -133,7 +144,7 @@ h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; t
       <h2><span class="step-n">♪</span>Keys: <span id="curName"></span></h2>
       <label class="field" style="width:200px"><span>MIDI in</span><select id="midiIn"><option value="">Off</option></select></label>
     </div>
-    <p class="hint" style="margin-top:0">Click or use <b>A W S E D F T G Y H U J K</b>; <b>Z / X</b> change octave. Chords stack across the chips the way Fat Chip 64 does: the lowest notes get the most voices, and the wave and triangle take the bass.</p>
+    <p class="hint" style="margin-top:0">Click or use <b>A W S E D F T G Y H U J K</b>; <b>Z / X</b> change octave. Chords stack across the chips the way Fat Chip 64 does: as many notes as there are voices, the lowest notes get the leftovers, and Fat Bass (when on) holds the bottom.</p>
     <div class="keys" id="keys"></div>
     <p class="status-line" style="margin-top:6px">Octave <span id="octOut"></span></p>
     <div class="mix" style="margin-top:14px">
@@ -293,197 +304,102 @@ class Chips extends AudioWorkletProcessor {
 registerProcessor("chips", Chips);
 `;
 
-// ====================================================================== the sound library
-// A patch says what each part of Fat Chip's voice pool plays (same pool and stacking as Fat Chip 64):
-//   sid  = the 3 SID voices        gbp = Game Boy pulses 1–2     nesp = NES pulses 1–2
-//   gbw  = Game Boy wave           nest = NES triangle           (role "bass": lowest note, an octave down)
-//   gbn / nesn = noise layers (riding on the lowest note)
-// Per part: oct (octaves), det (detune spread in cents), and effects: vib {rate Hz, depth semitones, delay s},
-// warb {depth, rate} (tape wow), trem {rate, depth 0–1}, glide (s), pdrop {semis, time} (pitch falls into the note),
-// arp {steps, rate}, pwm {rate, depth} (SID width), dseq {seq, rate} (NES/GB duty cycling),
-// senv [a, d, s, r] (software volume envelope for NES / GB, seconds, sustain 0–1), env [pace, dir] (GB hardware envelope).
-// SID: w 1 tri / 2 saw / 4 pulse / 8 noise, pw 0–4095, adsr [a, d, s, r] in SID steps 0–15, filt, ring, sync.
-// sidF: the SID filter: cut 0–2047, res 0–15, mode 1 lp / 2 bp / 4 hp, envAmt, envA, envD (s), lfoRate, lfoDepth.
+// ====================================================================== the sound library (v2: the rules of Fat Chip)
+// A patch says how each kind of channel sounds when it plays this patch ("voice"), which extra jobs it wants and which
+// channels can do them (in order of preference), and its effects as modules (type, rate, depth) that can be adjusted.
+//   Channel kinds: sid (3 SID voices), gbp (GB pulses), gbw (GB wave), nesp (NES pulses), nest (NES triangle).
+// Rules (Reeve, 2026-11-06):
+//   1. every available channel plays: whatever no job claims joins the main sound
+//   2. a job whose channel is gone moves to the next channel kind on its list
+//   3. poly: as many held notes as possible; fewer notes = more stacking (Fat Chip 64's order)
+//   4. "needs" tags are set by Reeve on each card
+//   6. effects are modules, adjustable per patch, so patches can be blended later
+//   7. Fat Bass (a global toggle) adds a bass job that keeps the lowest note inside a range, folding by octaves
+// voice fields: sid {w 1 tri / 2 saw / 4 pulse / 8 noise, pw, adsr [a,d,s,r] 0–15, filt}, gbp / nesp {duty 0–3, vol 0–15,
+//   senv [a, d, s, r] seconds (sustain 0–1), env [pace, dir] (GB hardware)}, gbw {wave, senv}, nest {senv}.
+// fx modules: vib {rate, depth (semitones), delay}, trem {rate, depth 0–1}, warb {rate, depth}, pwm {rate, depth}
+//   (SID pulse width), duty {rate, seq} (duty cycling on pulses; SID follows with width steps), filt {rate, depth} (SID
+//   filter LFO), glide (s). sidF: SID filter {cut, res, mode, envAmt, envA, envD}.
 const SE = (a, d, s, r) => ({ a, d, s, r });
-const VIB = (rate = 5.5, depth = 0.25, delay = 0.25) => ({ rate, depth, delay });
 const P = [];
-const add = (cat, name, desc, demo, def) => P.push({ id: cat.slice(0, 3).toLowerCase() + "-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), cat, name, desc, demo, ...def });
+const add = (cat, name, desc, demo, def) => P.push({ id: cat.slice(0, 3).toLowerCase() + "-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), cat, name, desc, demo, mode: "poly", jobs: [], fx: {}, ...def });
 
-// ---------------------------------------------------------------- Fat stacks (Fat Chip 64's own sounds, and relatives)
-add("Fat stacks", "FAT", "Fat Chip 64's FAT as it is now: SID pulses with a little detune, GB and NES pulses at 50 %, wave and triangle on the bass, light warble.", "pad",
-  { sid: { w: 4, pw: 2048, adsr: [2, 9, 12, 9], det: 7, warb: { depth: 0.08, rate: 3 } }, gbp: { duty: 2, vol: 11, det: 4 }, nesp: { duty: 2, vol: 10 }, gbw: { wave: "triangle", role: "bass" }, nest: { role: "bass" } });
-add("Fat stacks", "PADS", "Fat Chip 64's PADS: slower attack and longer release, more warble.", "pad",
-  { sid: { w: 4, pw: 2048, adsr: [9, 11, 15, 11], det: 7, warb: { depth: 0.16, rate: 2.5 } }, gbp: { duty: 2, vol: 10, det: 4, senv: SE(0.4, 0.2, 1, 0.8) }, nesp: { duty: 2, vol: 9, senv: SE(0.5, 0.2, 1, 0.8) }, gbw: { wave: "triangle", role: "bass" }, nest: { role: "bass" } });
-add("Fat stacks", "RAW", "Fat Chip 64's RAW: everything square, SID widths 50 / 25 / 12.5 %, pulse 2 at 25 %, instant release, no warble.", "keys",
-  { sid: { w: 4, pws: [2048, 1024, 512], adsr: [0, 0, 15, 0], det: 7 }, gbp: { duties: [2, 1], vol: 12 }, nesp: { duties: [2, 1], vol: 11 }, gbw: { wave: "square", role: "bass" }, nest: { role: "bass" } });
-add("Fat stacks", "FAT saw", "FAT with SID saws instead of pulses: brighter and buzzier on top.", "pad",
-  { sid: { w: 2, adsr: [2, 9, 12, 9], det: 9, warb: { depth: 0.08, rate: 3 } }, gbp: { duty: 1, vol: 10, det: 5 }, nesp: { duty: 2, vol: 9 }, gbw: { wave: "saw", role: "bass" }, nest: { role: "bass" } });
-add("Fat stacks", "FAT wide", "FAT with much wider detune across all three chips: a supersaw-style smear.", "pad",
-  { sid: { w: 4, pw: 1800, adsr: [3, 9, 12, 9], det: 18, pwm: { rate: 0.4, depth: 600 } }, gbp: { duty: 2, vol: 10, det: 14 }, nesp: { duty: 1, vol: 9, det: 10 }, gbw: { wave: "triangle", role: "bass" }, nest: { role: "bass" } });
-add("Fat stacks", "FAT filtered", "FAT through the SID's low-pass, opening slowly on each chord.", "pad",
-  { sid: { w: 2, adsr: [5, 9, 13, 10], det: 8, filt: 1 }, sidF: { cut: 250, res: 8, mode: 1, envAmt: 1100, envA: 1.2, envD: 2.5 }, gbp: { duty: 2, vol: 8, det: 4, senv: SE(0.6, 0.4, 0.8, 0.6) }, nesp: { duty: 2, vol: 7, senv: SE(0.8, 0.4, 0.8, 0.6) }, gbw: { wave: "sine", role: "bass" }, nest: { role: "bass" } });
-
-// ---------------------------------------------------------------- Leads
-add("Leads", "Classic SID lead", "SID saw + pulse with delayed vibrato, Game Boy pulse an octave up. Glides between notes.", "lead",
-  { play: "mono", sid: { w: 2, adsr: [0, 8, 11, 6], det: 6, vib: VIB(5.5, 0.3, 0.3), glide: 0.06 }, gbp: { duty: 1, vol: 9, oct: 1, vib: VIB(5.5, 0.3, 0.3), glide: 0.06 } });
-add("Leads", "Square lead", "NES and GB 50 % squares in unison with vibrato: clean, classic chip lead.", "lead",
-  { play: "mono", nesp: { duty: 2, vol: 11, det: 6, vib: VIB(6, 0.25, 0.25) }, gbp: { duty: 2, vol: 11, det: 6, vib: VIB(6, 0.25, 0.25) } });
-add("Leads", "Thin 12.5 lead", "12.5 % pulses on NES and GB: nasal, cuts through anything.", "lead",
-  { play: "mono", nesp: { duty: 0, vol: 12, vib: VIB(6.5, 0.2, 0.2) }, gbp: { duty: 0, vol: 11, oct: 1, det: 5 } });
-add("Leads", "Glide lead", "Mono SID saws with long portamento, like a Minimoog solo.", "lead",
-  { play: "mono", sid: { w: 2, adsr: [0, 9, 13, 8], det: 10, glide: 0.18, vib: VIB(5, 0.2, 0.5), filt: 1 }, sidF: { cut: 1300, res: 6, mode: 1 } });
-add("Leads", "PWM lead", "SID pulse with a swirling width sweep, NES pulse doubling it.", "lead",
-  { play: "mono", sid: { w: 4, pw: 2048, pwm: { rate: 3, depth: 1500 }, adsr: [0, 6, 12, 6], det: 4 }, nesp: { duty: 1, vol: 8, vib: VIB(5, 0.15, 0.4) } });
-add("Leads", "Sync lead", "SID hard sync: voice 2 synced to voice 1 with a pitch drop into each note, a screaming, tearing lead.", "lead",
-  { play: "mono", sid: { w: 2, adsr: [0, 6, 12, 6], syncPair: true, pdrop: { semis: 12, time: 0.12 } } });
-add("Leads", "Duty-cycle lead", "NES and GB pulses cycling 12.5 → 25 → 50 % every few ms: the classic shimmering game lead.", "lead",
-  { play: "mono", nesp: { duty: 2, vol: 11, dseq: { seq: [0, 1, 2, 1], rate: 30 } }, gbp: { duty: 2, vol: 10, dseq: { seq: [1, 2, 3, 2], rate: 24 } } });
-add("Leads", "Whistle", "Triangle-ish soft lead: SID triangle with slow vibrato, GB wave sine.", "lead",
-  { play: "mono", sid: { w: 1, adsr: [3, 8, 12, 7], vib: VIB(4.5, 0.25, 0.4), glide: 0.04 }, gbw: { wave: "sine", vol: 10, vib: VIB(4.5, 0.25, 0.4) } });
-add("Leads", "Fifth lead", "Lead in fifths: one chip on the note, another a fifth above (7 semitones).", "lead",
-  { play: "mono", sid: { w: 2, adsr: [0, 8, 12, 6], vib: VIB() }, gbp: { duty: 1, vol: 9, semis: 7 }, nesp: { duty: 2, vol: 8, oct: -1 } });
-add("Leads", "Octave stack lead", "Three octaves of one note across the chips: SID low, NES middle, GB high.", "lead",
-  { play: "mono", sid: { w: 4, pw: 1500, adsr: [0, 8, 12, 6], oct: -1 }, nesp: { duty: 2, vol: 10 }, gbp: { duty: 1, vol: 9, oct: 1 } });
-add("Leads", "Wobbly tape lead", "Square lead with heavy tape warble: drifty and seasick.", "lead",
-  { play: "mono", nesp: { duty: 2, vol: 11, warb: { depth: 0.4, rate: 2 } }, gbp: { duty: 1, vol: 9, det: 12, warb: { depth: 0.4, rate: 1.7 } } });
-add("Leads", "Screamer", "Resonant SID saw with the filter opening on each note and fast vibrato.", "lead",
-  { play: "mono", sid: { w: 2, adsr: [0, 7, 12, 6], filt: 1, det: 8, vib: VIB(7, 0.35, 0.15) }, sidF: { cut: 400, res: 13, mode: 1, envAmt: 1400, envA: 0.03, envD: 0.4 } });
-
-// ---------------------------------------------------------------- Pads
-add("Pads", "Warm SID pad", "Three detuned SID saws through a gentle low-pass, slow attack.", "pad",
-  { sid: { w: 2, adsr: [10, 11, 14, 11], det: 10, filt: 1 }, sidF: { cut: 600, res: 4, mode: 1 }, gbw: { wave: "sine", role: "bass" }, nest: { role: "bass" } });
-add("Pads", "Glass pad", "GB and NES pulses at 12.5 % with slow swells and tremolo: thin and glassy.", "pad",
-  { gbp: { duty: 0, vol: 9, det: 6, senv: SE(0.8, 0.5, 0.8, 1), trem: { rate: 4, depth: 0.25 } }, nesp: { duty: 0, vol: 8, det: 6, senv: SE(1, 0.5, 0.8, 1) }, sid: { w: 1, adsr: [10, 10, 12, 11], det: 5 } });
-add("Pads", "Sweep pad", "SID filter sweeping slowly up and down with an LFO while the chord holds.", "pad",
-  { sid: { w: 2, adsr: [8, 10, 14, 11], det: 9, filt: 1 }, sidF: { cut: 700, res: 10, mode: 1, lfoRate: 0.25, lfoDepth: 550 }, gbp: { duty: 2, vol: 7, det: 5, senv: SE(0.8, 0.4, 0.9, 1) }, gbw: { wave: "triangle", role: "bass" } });
-add("Pads", "PWM strings", "SID pulses with slow, independent width sweeps: the classic string-machine pad.", "pad",
-  { sid: { w: 4, pw: 2048, pwm: { rate: 0.6, depth: 1600 }, adsr: [9, 11, 14, 10], det: 8 }, gbp: { duty: 2, vol: 7, senv: SE(0.9, 0.4, 0.9, 1) }, nesp: { duty: 1, vol: 6, senv: SE(1, 0.4, 0.9, 1) } });
-add("Pads", "Chorus pad", "Everything doubled and detuned across chips with slow vibrato on some voices: a chorus effect.", "pad",
-  { sid: { w: 4, pw: 1800, adsr: [7, 10, 13, 10], det: 12, vib: VIB(0.8, 0.1, 0) }, gbp: { duty: 2, vol: 9, det: 10, vib: VIB(0.6, 0.1, 0) }, nesp: { duty: 2, vol: 8, det: 9 }, gbw: { wave: "triangle", role: "bass" }, nest: { role: "bass" } });
-add("Pads", "Breathing pad", "Slow tremolo on the Game Boy and NES, out of phase with each other: the pad swells and breathes.", "pad",
-  { gbp: { duty: 2, vol: 11, det: 5, trem: { rate: 0.5, depth: 0.6 }, senv: SE(0.6, 0.2, 1, 1) }, nesp: { duty: 1, vol: 10, det: 5, trem: { rate: 0.37, depth: 0.6 }, senv: SE(0.6, 0.2, 1, 1) }, gbw: { wave: "sine", role: "bass" } });
-add("Pads", "Dark pad", "Low SID triangles and saws through a closed filter, sub on the triangle.", "pad",
-  { sid: { w: 2, adsr: [10, 11, 14, 12], det: 7, oct: -1, filt: 1 }, sidF: { cut: 300, res: 6, mode: 1 }, nest: { role: "bass" }, gbw: { wave: "sine", role: "bass" } });
-add("Pads", "Bright stack pad", "Pulses on everything, GB an octave up, no filter: big and bright.", "pad",
-  { sid: { w: 4, pw: 1400, adsr: [5, 10, 13, 10], det: 8 }, gbp: { duty: 1, vol: 10, oct: 1, det: 6, senv: SE(0.4, 0.3, 0.9, 0.8) }, nesp: { duty: 2, vol: 9, senv: SE(0.4, 0.3, 0.9, 0.8) }, gbw: { wave: "square", role: "bass" }, nest: { role: "bass" } });
-add("Pads", "Swell pad", "Very slow attack on every chip: chords bloom in over two seconds.", "pad",
-  { sid: { w: 2, adsr: [12, 11, 15, 12], det: 9 }, gbp: { duty: 2, vol: 10, senv: SE(2, 0.5, 1, 1.5) }, nesp: { duty: 2, vol: 9, senv: SE(2.2, 0.5, 1, 1.5) }, gbw: { wave: "triangle", role: "bass" } });
-add("Pads", "Organ pad", "GB wave organ shape on the bass, square pulses above with fast vibrato: churchy, with a combo-organ wobble.", "pad",
-  { gbw: { wave: "organ", role: "bass" }, gbp: { duty: 2, vol: 10, vib: VIB(6.5, 0.12, 0) }, nesp: { duty: 2, vol: 9, vib: VIB(6.5, 0.12, 0) }, sid: { w: 4, pw: 2048, adsr: [1, 8, 14, 5] } });
-add("Pads", "Resonant pad", "SID band-pass with high resonance, filter drifting: vocal, 'aah'-like.", "pad",
-  { sid: { w: 2, adsr: [8, 11, 14, 11], det: 6, filt: 1 }, sidF: { cut: 800, res: 14, mode: 2, lfoRate: 0.18, lfoDepth: 350 }, gbw: { wave: "sine", role: "bass" } });
-add("Pads", "Warble pad", "PADS with much heavier tape warble on every chip: woozy, lo-fi.", "pad",
-  { sid: { w: 4, pw: 2048, adsr: [8, 11, 14, 11], det: 9, warb: { depth: 0.35, rate: 1.5 } }, gbp: { duty: 2, vol: 9, warb: { depth: 0.35, rate: 1.3 }, senv: SE(0.6, 0.3, 1, 1) }, nesp: { duty: 2, vol: 8, warb: { depth: 0.35, rate: 1.1 }, senv: SE(0.6, 0.3, 1, 1) }, gbw: { wave: "triangle", role: "bass" } });
-
-// ---------------------------------------------------------------- Bass
-add("Bass", "Triangle bass", "NES triangle bass with GB wave sine underneath: round and deep.", "bass",
-  { play: "mono", nest: { oct: 0 }, gbw: { wave: "sine", oct: 0 } });
-add("Bass", "SID saw bass", "SID saws, filter snapping shut after each note: a classic acid-ish bass.", "bass",
-  { play: "mono", sid: { w: 2, adsr: [0, 7, 6, 4], det: 8, oct: 0, filt: 1 }, sidF: { cut: 200, res: 10, mode: 1, envAmt: 1200, envA: 0.005, envD: 0.18 } });
-add("Bass", "Square bass", "NES 50 % pulse an octave down with GB 25 % on top: punchy chip bass.", "bass",
-  { play: "mono", nesp: { duty: 2, vol: 12, senv: SE(0.005, 0.25, 0.6, 0.05) }, gbp: { duty: 1, vol: 8, oct: 1, senv: SE(0.005, 0.15, 0.3, 0.05) }, nest: { oct: 0 } });
-add("Bass", "Sub drop bass", "Triangle and SID triangle with a pitch drop into each note: an 808-style boom.", "bass",
-  { play: "mono", nest: { pdrop: { semis: 12, time: 0.05 } }, sid: { w: 1, adsr: [0, 10, 0, 8], pdrop: { semis: 14, time: 0.05 } } });
-add("Bass", "Pulse width bass", "SID pulse bass with a quick width sweep on every note.", "bass",
-  { play: "mono", sid: { w: 4, pw: 600, pwm: { rate: 4, depth: 500 }, adsr: [0, 8, 9, 5], det: 5 }, nest: {} });
-add("Bass", "Glide bass", "Mono SID saw bass gliding between notes, triangle under it.", "bass",
-  { play: "mono", sid: { w: 2, adsr: [0, 9, 11, 5], det: 6, glide: 0.08, filt: 1 }, sidF: { cut: 500, res: 7, mode: 1 }, nest: { glide: 0.08 } });
-add("Bass", "Wave bass", "GB wave 'soft bass' shape with the NES triangle: smooth with a slight edge.", "bass",
-  { play: "mono", gbw: { wave: "soft bass" }, nest: {} });
-add("Bass", "Funky ring bass", "SID ring modulation on the bass: metallic, clangy low end.", "bass",
-  { play: "mono", sid: { w: 1, adsr: [0, 8, 8, 5], ringPair: true, ringRatio: 1.5 } });
-
-// ---------------------------------------------------------------- Arps (the arpeggio is in the sound, played fast like old game music)
-add("Arps", "Chip arp major", "Fast major-chord arpeggio inside each note (0, 4, 7) at 50 Hz: hold one key, get a chord.", "fx",
-  { play: "mono", nesp: { duty: 1, vol: 11, arp: { steps: [0, 4, 7], rate: 50 } }, gbp: { duty: 2, vol: 9, oct: 1, arp: { steps: [0, 4, 7], rate: 50 } } });
-add("Arps", "Chip arp minor", "Same with a minor chord (0, 3, 7), on the SID too.", "fx",
-  { play: "mono", sid: { w: 4, pw: 1200, adsr: [0, 8, 13, 6], arp: { steps: [0, 3, 7], rate: 50 } }, nesp: { duty: 2, vol: 9, arp: { steps: [0, 3, 7], rate: 50 } } });
-add("Arps", "Octave arp", "Root / octave flipping at 25 Hz: the classic C64 bass-lead trick.", "lead",
-  { play: "mono", sid: { w: 4, pw: 1600, adsr: [0, 8, 12, 6], arp: { steps: [0, 12], rate: 25 } }, gbp: { duty: 1, vol: 9, arp: { steps: [0, 12], rate: 25 } } });
-add("Arps", "Seventh arp", "Major 7th arpeggio (0, 4, 7, 11), slower at 20 Hz so you hear each note.", "fx",
-  { play: "mono", gbp: { duty: 0, vol: 11, arp: { steps: [0, 4, 7, 11], rate: 20 } }, nesp: { duty: 1, vol: 9, arp: { steps: [0, 4, 7, 11], rate: 20 }, oct: -1 } });
-add("Arps", "Pluck arp", "Short plucky notes for played arpeggios: GB pulse with a fast envelope, SID echoing.", "arp",
-  { play: "mono", gbp: { duty: 1, vol: 12, env: [1, 0] }, sid: { w: 4, pw: 1000, adsr: [0, 6, 0, 6] }, nesp: { duty: 0, vol: 9, senv: SE(0.002, 0.12, 0, 0.05) } });
-add("Arps", "Bell arp", "Bell-like arp tone: SID ring-modulated triangles, GB 12.5 % sparkle an octave up.", "arp",
-  { play: "mono", sid: { w: 1, adsr: [0, 9, 0, 9], ringPair: true, ringRatio: 2.76 }, gbp: { duty: 0, vol: 9, oct: 1, env: [2, 0] } });
-add("Arps", "Filtered arp", "Arp notes through the SID filter, each note opening it a little.", "arp",
-  { play: "mono", sid: { w: 2, adsr: [0, 7, 4, 5], det: 6, filt: 1 }, sidF: { cut: 300, res: 11, mode: 1, envAmt: 900, envA: 0.005, envD: 0.15 } });
-add("Arps", "Echo arp", "NES pulse with a GB pulse delayed and quieter: a fake echo across chips.", "arp",
-  { play: "mono", nesp: { duty: 2, vol: 12, senv: SE(0.002, 0.15, 0.3, 0.1) }, gbp: { duty: 1, vol: 6, delay: 0.09, senv: SE(0.002, 0.15, 0.3, 0.1) } });
-
-// ---------------------------------------------------------------- Keys and plucks
-add("Keys and plucks", "Chip piano", "Pulses with a quick decay and some sustain: a simple chip piano.", "keys",
-  { sid: { w: 4, pw: 1500, adsr: [0, 9, 4, 8], det: 5 }, gbp: { duty: 1, vol: 11, senv: SE(0.002, 0.5, 0.3, 0.3) }, nesp: { duty: 2, vol: 10, senv: SE(0.002, 0.6, 0.25, 0.3) } });
-add("Keys and plucks", "Pluck", "Very short notes with a click of pitch drop: a harp-ish pluck.", "keys",
-  { sid: { w: 2, adsr: [0, 6, 0, 6], filt: 1, pdrop: { semis: 2, time: 0.01 } }, sidF: { cut: 600, res: 6, envAmt: 1000, envA: 0.002, envD: 0.12 }, gbp: { duty: 0, vol: 11, senv: SE(0.001, 0.12, 0, 0.08) } });
-add("Keys and plucks", "Marimba", "Triangle and sine with a fast decay: woody mallet.", "keys",
-  { sid: { w: 1, adsr: [0, 7, 0, 7] }, gbw: { wave: "sine", senv: SE(0.001, 0.25, 0, 0.1) }, nest: { senv: SE(0.001, 0.12, 0, 0.05) } });
-add("Keys and plucks", "Electric piano", "SID triangles with tremolo on the GB and NES: a Rhodes-style wobble.", "keys",
-  { sid: { w: 1, adsr: [0, 10, 6, 9], det: 4 }, gbp: { duty: 2, vol: 8, senv: SE(0.003, 0.8, 0.3, 0.5), trem: { rate: 5, depth: 0.4 } }, nesp: { duty: 2, vol: 7, senv: SE(0.003, 0.8, 0.3, 0.5), trem: { rate: 5, depth: 0.4 } } });
-add("Keys and plucks", "Clav", "Thin, funky 12.5 % stabs with the SID filter snapping.", "keys",
-  { sid: { w: 4, pw: 500, adsr: [0, 6, 2, 4], filt: 1 }, sidF: { cut: 600, res: 9, mode: 2, envAmt: 900, envA: 0.002, envD: 0.08 }, nesp: { duty: 0, vol: 11, senv: SE(0.001, 0.15, 0.1, 0.05) } });
-add("Keys and plucks", "Music box", "High, bell-ish 12.5 % pulses with long decay, two octaves up.", "keys",
-  { gbp: { duty: 0, vol: 10, oct: 2, env: [3, 0] }, nesp: { duty: 0, vol: 8, oct: 2, senv: SE(0.001, 1.2, 0, 0.5) } });
-add("Keys and plucks", "Harpsichord", "Bright pulses with a pluck and quick fade, octave doubled.", "keys",
-  { sid: { w: 4, pw: 900, adsr: [0, 8, 0, 7] }, gbp: { duty: 1, vol: 10, oct: 1, env: [2, 0] }, nesp: { duty: 0, vol: 9, senv: SE(0.001, 0.4, 0, 0.2) } });
-add("Keys and plucks", "Vibraphone", "Sine-ish tones with slow tremolo and a long ring.", "keys",
-  { sid: { w: 1, adsr: [0, 11, 3, 11] }, gbw: { wave: "sine", senv: SE(0.002, 1.5, 0.2, 1), trem: { rate: 4.5, depth: 0.5 } } });
-
-// ---------------------------------------------------------------- Brass, strings, organ
-add("Brass, strings, organ", "Brass", "SID saws with the filter swelling open on each chord and a slight pitch rise: synth brass.", "keys",
-  { sid: { w: 2, adsr: [3, 9, 12, 7], det: 8, filt: 1, pdrop: { semis: -0.6, time: 0.06 } }, sidF: { cut: 300, res: 5, envAmt: 1200, envA: 0.12, envD: 0.6 }, nesp: { duty: 2, vol: 9, senv: SE(0.08, 0.3, 0.8, 0.2) } });
-add("Brass, strings, organ", "Strings", "Detuned saws and pulses with slow attack and delayed vibrato.", "pad",
-  { sid: { w: 2, adsr: [9, 10, 14, 10], det: 12, vib: VIB(5, 0.12, 0.8) }, gbp: { duty: 1, vol: 8, det: 9, senv: SE(0.8, 0.3, 1, 0.8), vib: VIB(5.3, 0.12, 0.8) } });
-add("Brass, strings, organ", "Combo organ", "Square waves stacked in octaves, instant on and off, with fast vibrato.", "keys",
-  { gbp: { duty: 2, vol: 10, vib: VIB(7, 0.1, 0) }, nesp: { duty: 2, vol: 9, oct: 1, vib: VIB(7, 0.1, 0) }, gbw: { wave: "organ", role: "bass" } });
-add("Brass, strings, organ", "Church organ", "GB wave organ and SID pulses in octaves, slow on and off.", "pad",
-  { gbw: { wave: "organ" }, sid: { w: 4, pw: 2048, adsr: [4, 8, 15, 8], oct: 1 }, nest: { role: "bass" } });
-add("Brass, strings, organ", "Flute", "SID triangle with breathy noise on attack and vibrato.", "lead",
-  { play: "mono", sid: { w: 1, adsr: [4, 8, 12, 6], vib: VIB(5, 0.2, 0.3) }, gbn: { period: 0, mode: 0, vol: 3, senv: SE(0.05, 0.15, 0.2, 0.1) } });
-add("Brass, strings, organ", "Choir", "Band-pass SID with resonant formant and a slow chorus of GB pulses.", "pad",
-  { sid: { w: 2, adsr: [9, 10, 14, 11], det: 8, filt: 1 }, sidF: { cut: 900, res: 12, mode: 2 }, gbp: { duty: 2, vol: 7, det: 10, senv: SE(0.9, 0.3, 1, 1), vib: VIB(0.9, 0.12, 0) } });
-
-// ---------------------------------------------------------------- Sweeps and risers
-add("Sweeps and risers", "Filter riser", "The SID filter rising slowly from closed to wide open while a chord holds.", "drone",
-  { sid: { w: 2, adsr: [6, 10, 15, 10], det: 10, filt: 1 }, sidF: { cut: 50, res: 12, mode: 1, envAmt: 1900, envA: 6, envD: 20 } });
-add("Sweeps and risers", "Noise wash", "NES and GB noise with slow swells: wind or ocean.", "drone",
-  { nesn: { period: 3, mode: 0, vol: 8, senv: SE(2, 1, 0.7, 2), trem: { rate: 0.3, depth: 0.5 } }, gbn: { period: 4, mode: 0, vol: 7, senv: SE(2.5, 1, 0.7, 2) } });
-add("Sweeps and risers", "Pitch riser", "Every chip gliding slowly up an octave: a build-up.", "drone",
-  { sid: { w: 2, adsr: [5, 10, 15, 10], det: 10, pdrop: { semis: -12, time: 3 } }, gbp: { duty: 1, vol: 9, pdrop: { semis: -12, time: 3 } }, nesp: { duty: 2, vol: 8, pdrop: { semis: -12, time: 3 } } });
-add("Sweeps and risers", "Laser", "Fast pitch drop from very high: pew.", "fx",
-  { play: "mono", nesp: { duty: 0, vol: 12, pdrop: { semis: 36, time: 0.08 }, senv: SE(0.001, 0.3, 0, 0.05) }, sid: { w: 4, pw: 500, adsr: [0, 7, 0, 5], pdrop: { semis: 30, time: 0.1 } } });
-add("Sweeps and risers", "Resonant sweep", "High-resonance SID band-pass sweeping fast up and down: a wah.", "drone",
-  { sid: { w: 2, adsr: [2, 10, 15, 10], det: 6, filt: 1 }, sidF: { cut: 800, res: 15, mode: 2, lfoRate: 1.5, lfoDepth: 700 } });
-
-// ---------------------------------------------------------------- Experimental (Reeve judges these)
-add("Experimental", "Glitch arp", "A random-looking jumble of fast arp steps across octaves.", "fx",
-  { play: "mono", nesp: { duty: 1, vol: 11, arp: { steps: [0, 19, 7, 24, 12, 3, 31, -5], rate: 33 } }, gbp: { duty: 0, vol: 8, arp: { steps: [12, 0, 24, 7, -12, 19], rate: 27 } } });
-add("Experimental", "Bit crush stack", "Noise in short (metallic) mode under a duty-cycling pulse: crunchy and digital.", "lead",
-  { play: "mono", nesp: { duty: 2, vol: 10, dseq: { seq: [3, 0, 2, 1], rate: 70 } }, nesn: { period: 1, mode: 1, vol: 4 } });
+// ---------------------------------------------------------------- loved
+add("Leads", "Duty-cycle lead", "Pulses cycling 12.5 → 25 → 50 % every few ms: the shimmering game lead. The SID joins with its pulse width stepping along.", "lead",
+  { mode: "mono", voice: { nesp: { duty: 2, vol: 11 }, gbp: { duty: 2, vol: 10 }, sid: { w: 4, pw: 1024, adsr: [0, 8, 12, 6] }, gbw: { wave: "square" }, nest: {} },
+    fx: { duty: { rate: 30, seq: [0, 1, 2, 1] } } });
+add("Leads", "Whistle", "Soft, breathy lead: SID triangle and GB sine with slow vibrato and a little glide; the pulses add a quiet hollow edge.", "lead",
+  { mode: "mono", voice: { sid: { w: 1, adsr: [3, 8, 12, 7] }, gbw: { wave: "sine", senv: [0.04, 0.2, 0.9, 0.2] }, nest: { senv: [0.04, 0.2, 0.9, 0.2] }, gbp: { duty: 2, vol: 3, senv: [0.08, 0.2, 0.9, 0.2] }, nesp: { duty: 2, vol: 3, senv: [0.08, 0.2, 0.9, 0.2] } },
+    jobs: [{ job: "main tone", on: ["sid", "gbw", "nest"], n: 2 }],
+    fx: { vib: { rate: 4.5, depth: 0.25, delay: 0.4 }, glide: 0.04 } });
+add("Pads", "Warble pad", "PADS with heavy tape warble on every chip: woozy and lo-fi.", "pad",
+  { voice: { sid: { w: 4, pw: 2048, adsr: [8, 11, 14, 11] }, gbp: { duty: 2, vol: 9, senv: [0.6, 0.3, 1, 1] }, nesp: { duty: 2, vol: 8, senv: [0.6, 0.3, 1, 1] }, gbw: { wave: "triangle", senv: [0.6, 0.3, 1, 1] }, nest: { senv: [0.6, 0.3, 1, 1] } },
+    det: 9, fx: { warb: { rate: 1.5, depth: 0.35 } } });
+add("Keys and plucks", "Marimba", "Woody mallet: triangles and sine with a fast decay; the pulses tap in quietly underneath.", "keys",
+  { voice: { sid: { w: 1, adsr: [0, 7, 0, 7] }, gbw: { wave: "sine", senv: [0.001, 0.25, 0, 0.1] }, nest: { senv: [0.001, 0.12, 0, 0.05] }, gbp: { duty: 2, vol: 4, senv: [0.001, 0.08, 0, 0.05] }, nesp: { duty: 2, vol: 4, senv: [0.001, 0.08, 0, 0.05] } },
+    jobs: [{ job: "mallet", on: ["sid", "gbw", "nest"], n: 3 }] });
+add("Keys and plucks", "Electric piano", "Rhodes-style: SID triangles with tremolo wobbling the Game Boy and NES.", "keys",
+  { voice: { sid: { w: 1, adsr: [0, 10, 6, 9] }, gbp: { duty: 2, vol: 8, senv: [0.003, 0.8, 0.3, 0.5] }, nesp: { duty: 2, vol: 7, senv: [0.003, 0.8, 0.3, 0.5] }, gbw: { wave: "sine", senv: [0.003, 0.9, 0.3, 0.5] }, nest: { senv: [0.003, 0.6, 0.2, 0.4] } },
+    det: 4, fx: { trem: { rate: 5, depth: 0.4 } } });
+add("Brass, strings, organ", "Combo organ", "Square waves with fast vibrato, instant on and off, the organ wave on the bottom.", "keys",
+  { voice: { gbp: { duty: 2, vol: 10 }, nesp: { duty: 2, vol: 9 }, sid: { w: 4, pw: 2048, adsr: [0, 0, 15, 1] }, gbw: { wave: "organ" }, nest: {} },
+    jobs: [{ job: "octave up", on: ["nesp", "gbp", "sid"], n: 1, oct: 1, note: "top" }],
+    fx: { vib: { rate: 7, depth: 0.1, delay: 0 } } });
 add("Experimental", "Seasick chorus", "Every chip warbling independently and heavily: the pitch never settles.", "pad",
-  { sid: { w: 2, adsr: [6, 10, 14, 10], det: 14, warb: { depth: 0.8, rate: 1.2 } }, gbp: { duty: 2, vol: 9, warb: { depth: 0.9, rate: 0.9 } }, nesp: { duty: 1, vol: 8, warb: { depth: 0.9, rate: 1.6 } } });
-add("Experimental", "Ring bells", "Ring-modulated SID triangles at an odd ratio: clangy, gamelan-like.", "keys",
-  { sid: { w: 1, adsr: [0, 10, 0, 10], ringPair: true, ringRatio: 3.37 } });
-add("Experimental", "Sync sweep", "SID sync with the synced voice slowly gliding up: vowel-like tearing.", "drone",
-  { sid: { w: 2, adsr: [3, 10, 15, 10], syncPair: true, syncSweep: true } });
-add("Experimental", "Tremolo gate", "Hard 8 Hz tremolo on everything: a choppy, gated pad.", "pad",
-  { gbp: { duty: 2, vol: 11, trem: { rate: 8, depth: 1 } }, nesp: { duty: 2, vol: 10, trem: { rate: 8, depth: 1 } }, sid: { w: 4, pw: 1600, adsr: [3, 10, 13, 9] } });
-add("Experimental", "Detune beating", "Two chips 30 cents apart: slow, wide beating.", "drone",
-  { gbp: { duty: 2, vol: 11, cents: 15 }, nesp: { duty: 2, vol: 11, cents: -15 } });
-add("Experimental", "Noise pitched", "Short-mode noise played as notes (metallic tones), with a triangle underneath.", "lead",
-  { play: "mono", nesn: { pitched: true, vol: 9 }, nest: {} });
-add("Experimental", "Duty shimmer pad", "Each pulse cycling through all four duties at a different slow rate.", "pad",
-  { gbp: { duty: 0, vol: 10, dseq: { seq: [0, 1, 2, 3, 2, 1], rate: 3 } }, nesp: { duty: 0, vol: 9, dseq: { seq: [0, 1, 2, 3, 2, 1], rate: 2.3 } }, sid: { w: 4, pw: 600, pwm: { rate: 0.3, depth: 1400 }, adsr: [6, 10, 14, 10] } });
-add("Experimental", "Underwater", "SID low-pass wobbling fast with heavy resonance plus slow warble.", "pad",
-  { sid: { w: 2, adsr: [5, 10, 14, 10], det: 9, filt: 1, warb: { depth: 0.3, rate: 1 } }, sidF: { cut: 350, res: 14, mode: 1, lfoRate: 3.5, lfoDepth: 250 } });
-add("Experimental", "Stutter pluck", "Pluck with a fast-cycling arp of the same note in octaves: a stuttered, ratchety pluck.", "keys",
-  { play: "mono", gbp: { duty: 1, vol: 12, env: [1, 0], arp: { steps: [0, 0, 12, 0], rate: 16 } }, nesp: { duty: 0, vol: 9, senv: SE(0.001, 0.25, 0, 0.05), arp: { steps: [12, 0, 0], rate: 12 } } });
-add("Experimental", "Drone of fifths", "Root and fifth in several octaves across all chips, slowly breathing.", "drone",
-  { sid: { w: 2, adsr: [12, 11, 15, 12], det: 8, fifths: true }, gbp: { duty: 2, vol: 8, semis: 7, trem: { rate: 0.2, depth: 0.4 } }, nesp: { duty: 1, vol: 7, oct: 1, trem: { rate: 0.27, depth: 0.4 } }, nest: { role: "bass" }, gbw: { wave: "sine", role: "bass" } });
-add("Experimental", "Broken radio", "Noise and pulse fighting, with fast random warble.", "fx",
-  { play: "mono", gbp: { duty: 0, vol: 9, warb: { depth: 2, rate: 12 } }, gbn: { period: 2, mode: 1, vol: 5, trem: { rate: 7, depth: 0.8 } } });
-add("Experimental", "Sweep arp (one chip)", "One device climbing from very low to very high and fading in and out, then looping around (Reeve's sweep-arpeggio idea).", "drone",
-  { play: "mono", gbp: { duty: 1, vol: 12, arp: { steps: Array.from({ length: 36 }, (_, i) => i * 2 - 24), rate: 9 }, trem: { rate: 0.25, depth: 1 } } });
+  { voice: { sid: { w: 2, adsr: [6, 10, 14, 10] }, gbp: { duty: 2, vol: 9 }, nesp: { duty: 1, vol: 8 }, gbw: { wave: "saw" }, nest: {} },
+    det: 14, fx: { warb: { rate: 1.2, depth: 0.85 } } });
+add("Experimental", "Duty shimmer pad", "Each pulse slowly cycling through all four duties at its own rate; SID widths sweeping slowly.", "pad",
+  { voice: { gbp: { duty: 0, vol: 10 }, nesp: { duty: 0, vol: 9 }, sid: { w: 4, pw: 600, adsr: [6, 10, 14, 10] }, gbw: { wave: "triangle" }, nest: {} },
+    fx: { duty: { rate: 3, seq: [0, 1, 2, 3, 2, 1] }, pwm: { rate: 0.3, depth: 1400 } } });
+
+// ---------------------------------------------------------------- liked
+add("Leads", "Screamer", "Resonant SID saws with the filter opening on each note and fast vibrato; the pulses double the scream.", "lead",
+  { mode: "mono", voice: { sid: { w: 2, adsr: [0, 7, 12, 6], filt: 1 }, gbp: { duty: 1, vol: 8 }, nesp: { duty: 1, vol: 7 }, gbw: { wave: "saw" }, nest: {} },
+    det: 8, sidF: { cut: 400, res: 13, mode: 1, envAmt: 1400, envA: 0.03, envD: 0.4 }, fx: { vib: { rate: 7, depth: 0.35, delay: 0.15 } } });
+add("Pads", "Warm SID pad", "Detuned SID saws through a gentle low-pass with a slow attack; the other chips swell in softly.", "pad",
+  { voice: { sid: { w: 2, adsr: [10, 11, 14, 11], filt: 1 }, gbp: { duty: 2, vol: 6, senv: [1, 0.5, 0.9, 1] }, nesp: { duty: 2, vol: 5, senv: [1.2, 0.5, 0.9, 1] }, gbw: { wave: "sine", senv: [0.8, 0.3, 1, 1] }, nest: { senv: [0.8, 0.3, 1, 1] } },
+    det: 10, sidF: { cut: 600, res: 4, mode: 1 } });
+add("Pads", "Sweep pad", "The SID filter sweeping slowly up and down while the chord holds.", "pad",
+  { voice: { sid: { w: 2, adsr: [8, 10, 14, 11], filt: 1 }, gbp: { duty: 2, vol: 7, senv: [0.8, 0.4, 0.9, 1] }, nesp: { duty: 2, vol: 6, senv: [0.9, 0.4, 0.9, 1] }, gbw: { wave: "triangle", senv: [0.8, 0.4, 0.9, 1] }, nest: { senv: [0.8, 0.4, 0.9, 1] } },
+    det: 9, sidF: { cut: 700, res: 10, mode: 1 }, fx: { filt: { rate: 0.25, depth: 550 } } });
+add("Pads", "Chorus pad", "Everything doubled and detuned across chips, with slow vibrato drifting the voices apart.", "pad",
+  { voice: { sid: { w: 4, pw: 1800, adsr: [7, 10, 13, 10] }, gbp: { duty: 2, vol: 9 }, nesp: { duty: 2, vol: 8 }, gbw: { wave: "triangle" }, nest: {} },
+    det: 12, fx: { vib: { rate: 0.7, depth: 0.1, delay: 0 } } });
+add("Pads", "Breathing pad", "Slow tremolo on the Game Boy and NES, out of step with each other: the pad swells and breathes.", "pad",
+  { voice: { gbp: { duty: 2, vol: 11, senv: [0.6, 0.2, 1, 1] }, nesp: { duty: 1, vol: 10, senv: [0.6, 0.2, 1, 1] }, sid: { w: 4, pw: 2048, adsr: [9, 10, 13, 10] }, gbw: { wave: "sine", senv: [0.6, 0.2, 1, 1] }, nest: { senv: [0.6, 0.2, 1, 1] } },
+    det: 5, fx: { trem: { rate: 0.45, depth: 0.6 } } });
+add("Pads", "Dark pad", "Low SID saws through a closed filter, one octave down; the other chips stay soft and round.", "pad",
+  { voice: { sid: { w: 2, adsr: [10, 11, 14, 12], filt: 1, oct: -1 }, gbw: { wave: "sine" }, nest: {}, gbp: { duty: 2, vol: 5, senv: [1, 0.5, 0.9, 1] }, nesp: { duty: 2, vol: 4, senv: [1, 0.5, 0.9, 1] } },
+    det: 7, sidF: { cut: 300, res: 6, mode: 1 } });
+add("Pads", "Bright stack pad", "Pulses on everything, no filter, the Game Boy an octave up: big and bright.", "pad",
+  { voice: { sid: { w: 4, pw: 1400, adsr: [5, 10, 13, 10] }, gbp: { duty: 1, vol: 10, senv: [0.4, 0.3, 0.9, 0.8] }, nesp: { duty: 2, vol: 9, senv: [0.4, 0.3, 0.9, 0.8] }, gbw: { wave: "square" }, nest: {} },
+    jobs: [{ job: "octave sparkle", on: ["gbp", "nesp", "sid"], n: 2, oct: 1, note: "spread" }], det: 8 });
+add("Bass", "Glide bass", "Mono SID saw bass gliding between notes through a low-pass, triangle underneath.", "bass",
+  { mode: "mono", voice: { sid: { w: 2, adsr: [0, 9, 11, 5], filt: 1 }, nest: {}, gbw: { wave: "soft bass" }, gbp: { duty: 1, vol: 5 }, nesp: { duty: 2, vol: 5 } },
+    jobs: [{ job: "sub", on: ["nest", "gbw", "sid"], n: 1 }], det: 6, sidF: { cut: 500, res: 7, mode: 1 }, fx: { glide: 0.08 } });
+add("Bass", "Wave bass", "The Game Boy 'soft bass' wave with the NES triangle: smooth with a slight edge; pulses add a quiet top.", "bass",
+  { mode: "mono", voice: { gbw: { wave: "soft bass" }, nest: {}, sid: { w: 1, adsr: [0, 9, 12, 6] }, gbp: { duty: 1, vol: 4 }, nesp: { duty: 2, vol: 4 } },
+    jobs: [{ job: "bass body", on: ["gbw", "nest", "sid"], n: 2 }] });
+add("Keys and plucks", "Vibraphone", "Sine-ish tones with slow tremolo and a long ring.", "keys",
+  { voice: { sid: { w: 1, adsr: [0, 11, 3, 11] }, gbw: { wave: "sine", senv: [0.002, 1.5, 0.2, 1] }, nest: { senv: [0.002, 1.2, 0.15, 0.8] }, gbp: { duty: 2, vol: 5, senv: [0.002, 1.2, 0.15, 0.8] }, nesp: { duty: 2, vol: 4, senv: [0.002, 1.2, 0.15, 0.8] } },
+    fx: { trem: { rate: 4.5, depth: 0.5 } } });
+add("Experimental", "Tremolo gate", "Hard 8 Hz tremolo chopping the Game Boy and NES; the SID holds the chord steady.", "pad",
+  { voice: { gbp: { duty: 2, vol: 11 }, nesp: { duty: 2, vol: 10 }, sid: { w: 4, pw: 1600, adsr: [3, 10, 13, 9] }, gbw: { wave: "square" }, nest: {} },
+    fx: { trem: { rate: 8, depth: 1 } } });
+add("Experimental", "Detune beating", "Chips tuned 30 cents apart: slow, wide beating.", "drone",
+  { voice: { gbp: { duty: 2, vol: 11 }, nesp: { duty: 2, vol: 11 }, sid: { w: 4, pw: 2048, adsr: [4, 10, 14, 10] }, gbw: { wave: "square" }, nest: {} },
+    det: 30 });
+
+// ---------------------------------------------------------------- arpeggiator ideas (for Fat Chip 64's arpeggiator, not sounds)
+add("Arpeggiator ideas", "Glitch arp", "A jumble of fast steps across octaves, as an arpeggiator mode.", "fx",
+  { mode: "mono", voice: { nesp: { duty: 1, vol: 11 }, gbp: { duty: 0, vol: 8 }, sid: { w: 4, pw: 900, adsr: [0, 8, 12, 6] }, gbw: { wave: "square" }, nest: {} },
+    fx: { arp: { rate: 33, steps: [0, 19, 7, 24, 12, 3, 31, -5] } } });
+add("Arpeggiator ideas", "Stutter", "The same note ratcheting between octaves, as an arpeggiator mode.", "keys",
+  { mode: "mono", voice: { gbp: { duty: 1, vol: 12, env: [1, 0] }, nesp: { duty: 0, vol: 9, senv: [0.001, 0.25, 0, 0.05] }, sid: { w: 4, pw: 1000, adsr: [0, 7, 0, 6] }, gbw: { wave: "square" }, nest: {} },
+    fx: { arp: { rate: 16, steps: [0, 0, 12, 0] } } });
+add("Arpeggiator ideas", "Sweep arp", "One device climbing from very low to very high, fading in and out, then looping (Reeve's sweep-arpeggio idea).", "drone",
+  { mode: "mono", voice: { gbp: { duty: 1, vol: 12 } }, only: ["gbp"],
+    fx: { arp: { rate: 9, steps: Array.from({ length: 36 }, (_, i) => i * 2 - 24) }, trem: { rate: 0.25, depth: 1 } } });
 
 // ====================================================================== voices: the engine's channels, and Fat Chip 64's pool order
 const CH = { nes1: 0, nes2: 1, nestri: 2, nesnoise: 3, gb1: 4, gb2: 5, gbwave: 6, gbnoise: 7, sid1: 8, sid2: 9, sid3: 10 };
@@ -518,47 +434,82 @@ async function ctx() {
 const send = m => node && node.port.postMessage(m);
 function sendLevels() { send({ t: "lv", at: 0, p: { nes: +$("lvNes").value / 100, gb: +$("lvGb").value / 100, sid: +$("lvSid").value / 100 } }); }
 
-// ====================================================================== which chip plays which note (Fat Chip 64's smart stacking)
+// ====================================================================== who plays what: jobs, fallbacks, stacking, Fat Bass
 let devOn = store.get("devOn", { sid: true, gb: true, nes: true });
-function allocate(patch, notes) {
-  notes = [...new Set(notes)].sort((a, b) => a - b); if (!notes.length) return [];
-  const has = g => patch[g] && devOn[DEV[g]], out = [];
-  const slots = POOL.filter(ch => has(groupOf(ch)));
-  const bass = slots.filter(ch => (ch === "gbwave" || ch === "nestri") && patch[groupOf(ch)].role === "bass");
-  const rest = slots.filter(ch => !bass.includes(ch));
-  const mono = patch.play === "mono" || notes.length === 1;
-  rest.forEach((ch, i) => out.push({ ch, note: mono ? notes[notes.length - 1] : i < notes.length ? notes[i] : notes[(i - notes.length) % Math.min(2, notes.length)] }));
-  for (const ch of bass) out.push({ ch, note: notes[0] - 12 });
-  for (const g of ["gbn", "nesn"]) if (has(g)) out.push({ ch: GROUP[g][0], note: mono ? notes[notes.length - 1] : notes[0] });
-  // special SID setups: fifths, a ring-mod pair, a hard-sync pair
-  if (patch.sid?.fifths) out.filter(o => o.ch.startsWith("sid")).forEach((o, i) => o.note = notes[0] + [0, 7, 12][i]);
+let fatBass = store.get("fatBass", true), bassLo = store.get("bassLo", 28), bassHi = store.get("bassHi", 40);   // E1–E2
+let fxOver = store.get("fxOver", {});
+const KIND = ch => groupOf(ch);
+const fold = m => { while (m > bassHi) m -= 12; while (m < bassLo) m += 12; return m; };
+function playMode(patch) { const v = $("playAs").value; return v === "patch" ? patch.mode : v; }
+function fxOf(patch) {   // the patch's effect modules, with Reeve's adjustments on top
+  const o = fxOver[patch.id] || {}, out = {};
+  for (const [k, v] of Object.entries(patch.fx || {})) out[k] = typeof v === "object" ? { ...v, ...(o[k] || {}) } : o[k] ?? v;
   return out;
 }
-// what one channel gets for its note: the group's settings, its place in the group (detune, width, duty), the effects
-function payload(patch, ch, note) {
-  const g = groupOf(ch), s = patch[g], idx = GROUP[g].indexOf(ch), k = { ...s };
-  const spread = g === "sid" ? [0, 1, -1][idx] : GROUP[g].length > 1 ? [0.5, -0.5][idx] : 0;
-  let m = note + 12 * (s.oct || 0) + (s.semis || 0) + ((s.det || 0) * spread + (s.cents || 0) * (idx ? -1 : 1)) / 100;
-  if (g === "sid" && patch.sid.syncPair) { if (idx === 1) { k.sync = 1; m += 12; if (s.syncSweep) k.pdrop = { semis: -12, time: 2.5 }; } if (idx === 0 && s.syncSweep) k.pdrop = null; }
-  if (g === "sid" && patch.sid.ringPair && idx === 0) m += 12 * Math.log2(s.ringRatio || 2);
-  const p = { f: midiHz(m) };
-  for (const key of ["glide", "vib", "warb", "trem", "pdrop", "arp", "pwm", "dseq", "senv", "sync"]) if (k[key] != null) p[key] = k[key];
-  if (g === "sid") {
-    Object.assign(p, { w: s.w || 2, pw: s.pws ? s.pws[idx] : s.pw ?? 2048, filt: s.filt || 0 });
-    [p.a, p.d, p.s, p.r] = s.adsr || [0, 8, 12, 6];
-    if (patch.sid.ringPair) { if (idx === 1) { p.ring = 1; p.w = 1; } else { p.s = 0; p.d = 0; p.a = 0; p.r = 15; } }   // the modulator runs silent
-  } else if (g === "gbw") Object.assign(p, { wave: waveTable(s.wave), level: 1, vol: 10 });
-  else if (g === "nest") p.vol = 10;
-  else if (g === "gbn" || g === "nesn") {
-    if (s.pitched) { const n = Math.round(note); p.mode = 1; p.period = Math.max(0, Math.min(15, 15 - (((n - 52) % 16) + 16) % 16)); } else { p.period = s.period ?? 3; p.mode = s.mode || 0; }
-    p.vol = s.vol ?? 6; delete p.f;
-  } else {
-    p.duty = s.duties ? s.duties[idx] : s.duty ?? 2; p.vol = s.vol ?? 10;
-    if (s.env) { p.envPace = s.env[0]; p.envDir = s.env[1]; }
+const DET = [0, 0.5, -0.5, 1, -1, 0.25, -0.25, 0.75, -0.75];
+// notes -> [{ch, note, job, oct}]
+function allocate(patch, notes) {
+  notes = [...new Set(notes)].sort((a, b) => a - b); if (!notes.length) return [];
+  if (playMode(patch) === "mono") notes = [notes[notes.length - 1]];
+  const free = POOL.filter(ch => devOn[DEV[KIND(ch)]] && (!patch.only || patch.only.includes(KIND(ch))));
+  const take = (kinds, n) => { const got = []; for (const k of kinds) for (const ch of free.slice()) if (KIND(ch) === k && got.length < n) { got.push(ch); free.splice(free.indexOf(ch), 1); } return got; };
+  // spread notes over channels the Fat Chip 64 way: one each lowest first, leftovers on the lowest two
+  const spread = (chs, ns) => chs.map((ch, i) => ({ ch, note: i < ns.length ? ns[i] : ns[(i - ns.length) % Math.min(2, ns.length)] }));
+  const out = [];
+  if (fatBass && !patch.only) for (const ch of take(["nest", "gbw", "sid"], 2)) out.push({ ch, note: fold(notes[0]), job: "Fat Bass" });
+  for (const J of patch.jobs || []) {
+    const chs = take(J.on, J.n || 1);
+    const ns = J.note === "top" ? [notes[notes.length - 1]] : notes;
+    for (const a of spread(chs, ns)) out.push({ ...a, job: J.job, oct: J.oct || 0 });
   }
+  // rule 1: everything left plays the main sound
+  const rest = POOL.filter(ch => free.includes(ch) && patch.voice[KIND(ch)]);
+  for (const a of spread(rest, notes)) out.push({ ...a, job: "main" });
+  return out;
+}
+// what a channel gets: the patch's voice for its kind, its detune, the effect modules
+function payload(patch, a, idx) {
+  const kind = KIND(a.ch), v = patch.voice[kind] || {}, fx = fxOf(patch), bass = a.job === "Fat Bass";
+  const m = a.note + 12 * ((a.oct || 0) + (bass ? 0 : v.oct || 0)) + (bass ? 0 : (patch.det || 0) * DET[idx % DET.length] / 100);
+  const p = { f: midiHz(m) };
+  if (fx.glide) p.glide = fx.glide;
+  if (!bass) {
+    if (fx.vib) p.vib = fx.vib;
+    if (fx.warb) p.warb = fx.warb;
+    if (fx.arp) p.arp = fx.arp;
+    if (fx.trem && kind !== "sid" && kind !== "nest") p.trem = fx.trem;
+    if (fx.duty && (kind === "gbp" || kind === "nesp")) p.dseq = { seq: fx.duty.seq, rate: fx.duty.rate * (1 + 0.23 * (idx % 3)) };   // each pulse at its own pace
+  }
+  if (kind === "sid") {
+    Object.assign(p, { w: v.w || 2, pw: v.pw ?? 2048, filt: v.filt || 0 });
+    [p.a, p.d, p.s, p.r] = v.adsr || [0, 8, 12, 6];
+    if (bass) { p.w = 1; p.filt = 0; }
+    if (!bass && fx.pwm) p.pwm = fx.pwm;
+    if (!bass && fx.duty && p.w === 4) p.pwm = { rate: fx.duty.rate / fx.duty.seq.length, depth: 900 };
+  } else if (kind === "gbw") Object.assign(p, { wave: waveTable(bass ? "sine" : v.wave || "sine"), level: 1, vol: 10 });
+  else if (kind === "nest") p.vol = 10;
+  else { p.duty = v.duty ?? 2; p.vol = bass ? 10 : v.vol ?? 10; if (v.env) { p.envPace = v.env[0]; p.envDir = v.env[1]; } }
+  if (v.senv && !bass) p.senv = SE(...v.senv);
+  else if (v.senv && bass) p.senv = SE(v.senv[0], v.senv[1], Math.max(0.6, v.senv[2]), v.senv[3]);
   return p;
 }
-const sidFilter = patch => ({ cut: 2047, res: 0, mode: 1, envAmt: 0, envA: 0.01, envD: 0.5, lfoRate: 0, lfoDepth: 0, ...(patch.sidF || {}) });
+function sidFilter(patch) {
+  const fx = fxOf(patch);
+  return { cut: 2047, res: 0, mode: 1, envAmt: 0, envA: 0.01, envD: 0.5, lfoRate: 0, lfoDepth: 0, ...(patch.sidF || {}), ...(fx.filt ? { lfoRate: fx.filt.rate, lfoDepth: fx.filt.depth } : {}) };
+}
+// MIDI cost: messages per second Fat Chip would send to the GB and NES for this sound's effects (one held note)
+function midiCost(patch) {
+  const fx = fxOf(patch); let n = 0;
+  for (const a of allocate(patch, [60])) {
+    const k = KIND(a.ch); if (k === "sid" || a.job === "Fat Bass") continue;
+    if (fx.vib) n += Math.max(40, fx.vib.rate * 16);
+    if (fx.warb) n += 25;
+    if (fx.arp) n += fx.arp.rate;
+    if (fx.trem && k !== "nest") n += fx.trem.rate * 2 * Math.round(fx.trem.depth * (patch.voice[k]?.vol || 10));
+    if (fx.duty && (k === "gbp" || k === "nesp")) n += fx.duty.rate;
+  }
+  return Math.round(n);
+}
 
 // ====================================================================== playing: demo phrases and the keyboard
 // demo phrases, in beats: [start, notes, length]
@@ -574,18 +525,18 @@ const DEMOS = {
 let playing = null;   // {timers, until}
 async function playDemo(patch, card) {
   await ctx(); stopAll();
-  const D = DEMOS[patch.demo] || DEMOS.lead, beat = 60 / D.bpm, t0 = actx.currentTime + 0.05, mono = patch.play === "mono";
+  const D = DEMOS[patch.demo] || DEMOS.lead, beat = 60 / D.bpm, t0 = actx.currentTime + 0.05, mono = playMode(patch) === "mono";
   const ev = D.ev.map(([s, n, l]) => ({ t: t0 + s * beat, n, end: t0 + (s + l) * beat }));
   const msgs = [];
   ev.forEach((e, i) => {
     const next = ev[i + 1], legato = mono && next && next.t <= e.end + 1e-6;
     msgs.push({ t: "sidf", at: e.t, p: sidFilter(patch), trig: true });
     const a = allocate(patch, e.n);
-    for (const { ch, note } of a) {
-      const p = payload(patch, ch, note), d = patch[groupOf(ch)].delay || 0;
+    a.forEach((x, idx) => {
+      const ch = x.ch, p = payload(patch, x, idx), d = 0;
       msgs.push({ t: "on", v: CH[ch], at: e.t + d, p });
       if (!legato) msgs.push({ t: "off", v: CH[ch], at: (next && !mono && next.t <= e.end ? e.end - 0.003 : e.end) + d });
-    }
+    });
   });
   send(msgs);
   const end = ev[ev.length - 1].end + 1.5;
@@ -599,11 +550,11 @@ const curPatch = () => P.find(p => p.id === current) || P[0];
 async function restack() {
   await ctx();
   const patch = curPatch(), notes = [...held], at = actx.currentTime + 0.005;
-  const next = patch.play === "mono" ? (notes.length ? allocate(patch, [notes[notes.length - 1]]) : []) : allocate(patch, notes);
+  const next = allocate(patch, notes);
   const msgs = [];
   if (next.length && !keyAlloc.length) msgs.push({ t: "sidf", at, p: sidFilter(patch), trig: true });
   for (const o of keyAlloc) if (!next.some(n => n.ch === o.ch)) msgs.push({ t: "off", v: CH[o.ch], at });
-  for (const n of next) { const o = keyAlloc.find(x => x.ch === n.ch); if (!o || o.note !== n.note) msgs.push({ t: "on", v: CH[n.ch], at, p: payload(patch, n.ch, n.note) }); }
+  next.forEach((n, idx) => { const o = keyAlloc.find(x => x.ch === n.ch); if (!o || o.note !== n.note || o.job !== n.job) msgs.push({ t: "on", v: CH[n.ch], at, p: payload(patch, n, idx) }); });
   keyAlloc = next; send(msgs);
 }
 function keyDown(m) { if (held.has(m)) return; held.delete(m); held.add(m); markKey(m, true); restack(); }
@@ -651,7 +602,7 @@ let ratings = store.get("ratings", {});   // id -> {r: "yes" | "maybe" | "no", n
 const RLABEL = { yes: "Yes", maybe: "Maybe", no: "No" };
 const rate = id => ratings[id] || (ratings[id] = { r: "", note: "", needs: [] });
 const saveRatings = () => { store.set("ratings", ratings); drawCounts(); };
-const usesDev = (p, d) => Object.keys(DEV).some(g => p[g] && DEV[g] === d);
+const usesDev = (p, d) => Object.keys(p.voice || {}).some(g => DEV[g] === d);
 function drawCounts() {
   const all = P.length, c = { yes: 0, maybe: 0, no: 0 }; for (const p of P) { const r = ratings[p.id]?.r; if (r) c[r]++; }
   $("counts").textContent = `${all} sounds · ${c.yes} yes · ${c.maybe} maybe · ${c.no} no · ${all - c.yes - c.maybe - c.no} to go`;
@@ -665,15 +616,26 @@ function drawLib() {
     if (p.cat !== cat) { cat = p.cat; const h = document.createElement("h3"); h.className = "cat"; h.textContent = cat; box.append(h); grid = document.createElement("div"); grid.className = "lib"; box.append(grid); }
     const devs = ["sid", "gb", "nes"].filter(d => usesDev(p, d));
     const c = document.createElement("article"); c.className = "snd" + (p.id === current ? " current" : "") + (R.r ? " r-" + R.r : ""); c.dataset.id = p.id;
-    c.innerHTML = `<div class="sh"><button class="playbtn" aria-label="Play the ${p.name} demo">▶</button><div><h4>${p.name}</h4><p class="uses">${devs.map(d => `<span class="dv d-${d}${devOn[d] ? "" : " off"}">${d.toUpperCase()}</span>`).join("")}${p.play === "mono" ? '<span class="dv">mono</span>' : ""}</p></div></div>
+    c.innerHTML = `<div class="sh"><button class="playbtn" aria-label="Play the ${p.name} demo">▶</button><div><h4>${p.name}</h4><p class="uses">${devs.map(d => `<span class="dv d-${d}${devOn[d] ? "" : " off"}">${d.toUpperCase()}</span>`).join("")}${p.mode === "mono" ? '<span class="dv">mono</span>' : ""}${costTag(p)}</p></div></div>
       <p class="sdesc">${p.desc}</p>
       <div class="rate" role="group" aria-label="Rating">${["yes", "maybe", "no"].map(r => `<button data-r="${r}" aria-pressed="${R.r === r}">${RLABEL[r]}</button>`).join("")}
 </div>
       <div class="needs"><span>Needs</span>${["sid", "gb", "nes"].map(d => `<button data-n="${d}" aria-pressed="${(R.needs || []).includes(d)}">${d.toUpperCase()}</button>`).join("")}</div>
+      ${fxPanel(p)}
       <textarea placeholder="Notes for Claude…" rows="1" aria-label="Notes on ${p.name}">${R.note || ""}</textarea>`;
+    c.querySelectorAll("[data-fx]").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const [mod, key] = inp.dataset.fx.split("."), o = fxOver[p.id] ||= {};
+        if (key) (o[mod] ||= {})[key] = +inp.value; else o[mod] = +inp.value;
+        store.set("fxOver", fxOver); inp.nextElementSibling.textContent = inp.value;
+        c.querySelector(".cost")?.replaceWith(htmlEl(costTag(p)));
+      });
+      inp.addEventListener("change", () => inp.blur());
+    });
+    const rs = c.querySelector("[data-fxreset]"); if (rs) rs.onclick = () => { delete fxOver[p.id]; store.set("fxOver", fxOver); drawLib(); };
     // clicking a card (or its ▶) makes it the sound on the keys and MIDI in
     const select = () => { if (current === p.id) return; current = p.id; store.set("current", current); document.querySelectorAll(".snd.current").forEach(x => x.classList.remove("current")); c.classList.add("current"); $("curName").textContent = $("curName2").textContent = p.name; held.clear(); keyAlloc = []; send({ t: "allOff", at: 0 }); };
-    c.addEventListener("click", e => { if (!e.target.closest("button, textarea")) select(); });
+    c.addEventListener("click", e => { if (!e.target.closest("button, textarea, details, input")) select(); });
     c.querySelector(".playbtn").onclick = () => { select(); playDemo(p, c); };
     c.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { const x = rate(p.id); x.r = x.r === b.dataset.r ? "" : b.dataset.r; saveRatings(); c.className = "snd" + (p.id === current ? " current" : "") + (x.r ? " r-" + x.r : ""); c.querySelectorAll("[data-r]").forEach(y => y.setAttribute("aria-pressed", x.r === y.dataset.r)); });
     c.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { const x = rate(p.id), d = b.dataset.n; x.needs = x.needs.includes(d) ? x.needs.filter(y => y !== d) : [...x.needs, d]; saveRatings(); b.setAttribute("aria-pressed", x.needs.includes(d)); });
@@ -690,9 +652,41 @@ for (const d of ["sid", "gb", "nes"]) {
   const b = $("dev-" + d); b.setAttribute("aria-pressed", devOn[d]);
   b.onclick = () => { devOn[d] = !devOn[d]; store.set("devOn", devOn); b.setAttribute("aria-pressed", devOn[d]); stopAll(); drawLib(); };
 }
+// effect modules on each card, adjustable (saved per sound); the MIDI cost tag
+const FX_KNOBS = { vib: [["rate", "Vibrato rate", 0.2, 10, 0.1], ["depth", "Vibrato depth", 0, 1, 0.01], ["delay", "Vibrato delay", 0, 1.5, 0.05]], trem: [["rate", "Tremolo rate", 0.1, 12, 0.05], ["depth", "Tremolo depth", 0, 1, 0.05]],
+  warb: [["rate", "Warble speed", 0.2, 6, 0.1], ["depth", "Warble depth", 0, 1.5, 0.05]], pwm: [["rate", "Width sweep rate", 0.05, 6, 0.05], ["depth", "Width sweep depth", 0, 2000, 50]],
+  duty: [["rate", "Duty cycling rate", 0.5, 60, 0.5]], filt: [["rate", "Filter sweep rate", 0.05, 4, 0.05], ["depth", "Filter sweep depth", 0, 1000, 25]], arp: [["rate", "Step rate", 2, 60, 1]], glide: [[null, "Glide time", 0, 0.5, 0.01]] };
+function fxPanel(p) {
+  const fx = fxOf(p), rows = [];
+  for (const [mod, knobs] of Object.entries(FX_KNOBS)) {
+    if (fx[mod] == null) continue;
+    for (const [key, label, min, max, step] of knobs) {
+      const val = key ? fx[mod][key] ?? 0 : fx[mod];
+      rows.push(`<label class="fxk"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${val}" data-fx="${mod}${key ? "." + key : ""}"><output>${val}</output></label>`);
+    }
+  }
+  if (!rows.length) return "";
+  return `<details class="fxd"><summary>Effects</summary>${rows.join("")}${fxOver[p.id] ? '<button class="fxreset" data-fxreset>Back to the patch\'s settings</button>' : ""}</details>`;
+}
+function costTag(p) {
+  const n = midiCost(p); if (!n) return "";
+  const lvl = n < 150 ? "light" : n < 500 ? "medium" : "heavy";
+  return `<span class="dv cost c-${lvl}" title="About ${n} MIDI messages a second to the Game Boy and NES for this sound's effects. Fat Chip has roughly 1,000 a second for everything; Fat Chip GB could run its effects on the Game Boy itself instead.">MIDI ${lvl}</span>`;
+}
+const htmlEl = h => { const t = document.createElement("template"); t.innerHTML = h || "<span></span>"; return t.content.firstElementChild; };
+// play-as and Fat Bass
+$("playAs").value = store.get("playAs", "patch");
+$("playAs").onchange = () => { store.set("playAs", $("playAs").value); stopAll(); drawLib(); $("playAs").blur(); };
+const NOTE_OPTS = Array.from({ length: 37 }, (_, i) => 24 + i);
+for (const id of ["bassLo", "bassHi"]) for (const m of NOTE_OPTS) $(id).add(new Option(noteName(m), m));
+$("bassLo").value = bassLo; $("bassHi").value = bassHi;
+$("bassLo").onchange = () => { bassLo = Math.min(+$("bassLo").value, bassHi - 11); $("bassLo").value = bassLo; store.set("bassLo", bassLo); $("bassLo").blur(); };
+$("bassHi").onchange = () => { bassHi = Math.max(+$("bassHi").value, bassLo + 11); $("bassHi").value = bassHi; store.set("bassHi", bassHi); $("bassHi").blur(); };
+$("fatBass").setAttribute("aria-pressed", fatBass);
+$("fatBass").onclick = () => { fatBass = !fatBass; store.set("fatBass", fatBass); $("fatBass").setAttribute("aria-pressed", fatBass); stopAll(); drawLib(); };
 $("exportBtn").onclick = () => {
   const out = P.map(p => ({ id: p.id, cat: p.cat, name: p.name, ...(ratings[p.id] || {}) })).filter(x => x.r || x.note || (x.needs || []).length);
-  const data = { app: "fatchip-chiplab", version: 1, exported: new Date().toISOString(), library: "2026-11-06", ratings: out };
+  const data = { app: "fatchip-chiplab", version: 2, exported: new Date().toISOString(), library: "2026-11-06b", settings: { devOn, playAs: $("playAs").value, fatBass, bassLo, bassHi }, ratings: out, effects: fxOver };
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
   a.download = `chiplab-ratings-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
