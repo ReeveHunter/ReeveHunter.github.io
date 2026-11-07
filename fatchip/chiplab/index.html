@@ -112,7 +112,8 @@ h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; t
 .fxd summary { cursor: pointer; color: var(--muted); font-weight: 600; }
 .fxk { display: grid; grid-template-columns: 1fr 110px 40px; gap: 6px; align-items: center; margin-top: 4px; font-size: 12.5px; color: var(--muted); }
 .fxk output { font: 600 11.5px var(--mono); color: var(--accent-strong); }
-.fxreset { margin-top: 6px; border: 0; background: none; color: var(--accent-strong); cursor: pointer; padding: 0; font-size: 12.5px; }
+.fxreset { align-self: flex-start; }
+.fxchanged { color: var(--warn); font-weight: 600; }
 .scope { width: 100%; height: 70px; display: block; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); margin-top: 12px; }
 .mix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 760px) { .mix { grid-template-columns: 1fr 1fr; } }
@@ -630,11 +631,17 @@ function drawLib() {
         const [mod, key] = inp.dataset.fx.split("."), o = fxOver[p.id] ||= {};
         if (key) (o[mod] ||= {})[key] = +inp.value; else o[mod] = +inp.value;
         store.set("fxOver", fxOver); inp.nextElementSibling.textContent = inp.value;
+        c.querySelector("[data-fxreset]").hidden = false; c.querySelector(".fxchanged").hidden = false;
         c.querySelector(".cost")?.replaceWith(htmlEl(costTag(p)));
       });
       inp.addEventListener("change", () => inp.blur());
     });
-    const rs = c.querySelector("[data-fxreset]"); if (rs) rs.onclick = () => { delete fxOver[p.id]; store.set("fxOver", fxOver); drawLib(); };
+    const rs = c.querySelector("[data-fxreset]"); if (rs) rs.onclick = () => {   // back to the patch as designed, this card only
+      delete fxOver[p.id]; store.set("fxOver", fxOver);
+      const fx = fxOf(p);
+      c.querySelectorAll("[data-fx]").forEach(inp => { const [mod, key] = inp.dataset.fx.split("."), v = key ? fx[mod][key] ?? 0 : fx[mod]; inp.value = v; inp.nextElementSibling.textContent = v; });
+      rs.hidden = true; c.querySelector(".fxchanged").hidden = true; c.querySelector(".cost")?.replaceWith(htmlEl(costTag(p)));
+    };
     // clicking a card (or its ▶) makes it the sound on the keys and MIDI in
     const select = () => { if (current === p.id) return; current = p.id; store.set("current", current); document.querySelectorAll(".snd.current").forEach(x => x.classList.remove("current")); c.classList.add("current"); $("curName").textContent = $("curName2").textContent = p.name; held.clear(); keyAlloc = []; send({ t: "allOff", at: 0 }); };
     c.addEventListener("click", e => { if (!e.target.closest("button, textarea, details, input")) select(); });
@@ -668,7 +675,9 @@ function fxPanel(p) {
     }
   }
   if (!rows.length) return "";
-  return `<details class="fxd"><summary>Effects</summary>${rows.join("")}${fxOver[p.id] ? '<button class="fxreset" data-fxreset>Back to the patch\'s settings</button>' : ""}</details>`;
+  const changed = !!fxOver[p.id];
+  return `<details class="fxd"${changed ? " open" : ""}><summary>Effects<span class="fxchanged"${changed ? "" : " hidden"}> · changed</span></summary>${rows.join("")}</details>
+    <button class="btn small fxreset" data-fxreset${changed ? "" : " hidden"}>Reset effects to Claude's defaults</button>`;
 }
 function costTag(p) {
   const n = midiCost(p); if (!n) return "";
