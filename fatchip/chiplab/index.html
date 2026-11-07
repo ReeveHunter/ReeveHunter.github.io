@@ -72,7 +72,10 @@ code { font-family: var(--mono); font-size: 13px; }
 .devs .lab { font-size: 12.5px; color: var(--muted); font-weight: 600; margin-right: 2px; }
 .devbtn { font: 700 13px/1 var(--mono); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); cursor: pointer; text-decoration: line-through; }
 .devbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); text-decoration: none; }
-.tools { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; }
+.tools { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; position: sticky; top: 0; z-index: 5; background: var(--surface); padding: 12px 0 10px; border-bottom: 1px solid var(--border); }
+.tools .now { font-size: 13px; color: var(--muted); align-self: center; }
+.tools .now b { color: var(--text); }
+.snd { cursor: pointer; }
 h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
 .lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .snd { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -117,10 +120,11 @@ h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; t
   <section class="card">
     <div class="tools">
       <div class="devs"><span class="lab">Devices</span><button class="devbtn" id="dev-sid">SID</button><button class="devbtn" id="dev-gb">GB</button><button class="devbtn" id="dev-nes">NES</button></div>
+      <span class="now">On the keys: <b id="curName2"></b></span>
       <label class="field" style="width:170px"><span>Show</span><select id="filter"><option value="all">All sounds</option><option value="unrated">Not rated yet</option><option value="yes">Yes</option><option value="maybe">Maybe</option><option value="no">No</option></select></label>
       <div class="row"><button id="stopBtn" class="btn small">Stop (Esc)</button><button id="exportBtn" class="btn small primary">Export ratings</button></div>
     </div>
-    <p class="hint">Turn devices off to hear how a sound holds up without them. <b>▶</b> plays a demo that suits the sound; <b>Keys</b> puts it on the keyboard below (and MIDI in). <b>Needs</b> marks the devices a sound can't do without, so Fat Chip can offer only the sounds the connected devices can play. Ratings and notes stay in this browser until you export them. <span id="counts"></span></p>
+    <p class="hint">Turn devices off to hear how a sound holds up without them. <b>▶</b> plays a demo that suits the sound; click a card to put that sound on your keyboard, MIDI in and the keys at the bottom. <b>Needs</b> marks the devices a sound can't do without, so Fat Chip can offer only the sounds the connected devices can play. Ratings and notes stay in this browser until you export them. <span id="counts"></span></p>
     <div id="lib"></div>
   </section>
 
@@ -616,7 +620,7 @@ function drawKeys() {
     box.append(k);
   }
   $("octOut").textContent = `C${octave}–C${octave + 2}`;
-  $("curName").textContent = curPatch().name;
+  $("curName").textContent = $("curName2").textContent = curPatch().name;
 }
 const KEYMAP = "awsedftgyhujkolp;'";
 document.addEventListener("keydown", e => {
@@ -664,11 +668,13 @@ function drawLib() {
     c.innerHTML = `<div class="sh"><button class="playbtn" aria-label="Play the ${p.name} demo">▶</button><div><h4>${p.name}</h4><p class="uses">${devs.map(d => `<span class="dv d-${d}${devOn[d] ? "" : " off"}">${d.toUpperCase()}</span>`).join("")}${p.play === "mono" ? '<span class="dv">mono</span>' : ""}</p></div></div>
       <p class="sdesc">${p.desc}</p>
       <div class="rate" role="group" aria-label="Rating">${["yes", "maybe", "no"].map(r => `<button data-r="${r}" aria-pressed="${R.r === r}">${RLABEL[r]}</button>`).join("")}
-        <button class="keysbtn" title="Play this sound on the keys / MIDI">Keys</button></div>
+</div>
       <div class="needs"><span>Needs</span>${["sid", "gb", "nes"].map(d => `<button data-n="${d}" aria-pressed="${(R.needs || []).includes(d)}">${d.toUpperCase()}</button>`).join("")}</div>
       <textarea placeholder="Notes for Claude…" rows="1" aria-label="Notes on ${p.name}">${R.note || ""}</textarea>`;
-    c.querySelector(".playbtn").onclick = () => playDemo(p, c);
-    c.querySelector(".keysbtn").onclick = () => { current = p.id; store.set("current", current); document.querySelectorAll(".snd.current").forEach(x => x.classList.remove("current")); c.classList.add("current"); $("curName").textContent = p.name; stopAll(); };
+    // clicking a card (or its ▶) makes it the sound on the keys and MIDI in
+    const select = () => { if (current === p.id) return; current = p.id; store.set("current", current); document.querySelectorAll(".snd.current").forEach(x => x.classList.remove("current")); c.classList.add("current"); $("curName").textContent = $("curName2").textContent = p.name; held.clear(); keyAlloc = []; send({ t: "allOff", at: 0 }); };
+    c.addEventListener("click", e => { if (!e.target.closest("button, textarea")) select(); });
+    c.querySelector(".playbtn").onclick = () => { select(); playDemo(p, c); };
     c.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { const x = rate(p.id); x.r = x.r === b.dataset.r ? "" : b.dataset.r; saveRatings(); c.className = "snd" + (p.id === current ? " current" : "") + (x.r ? " r-" + x.r : ""); c.querySelectorAll("[data-r]").forEach(y => y.setAttribute("aria-pressed", x.r === y.dataset.r)); });
     c.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { const x = rate(p.id), d = b.dataset.n; x.needs = x.needs.includes(d) ? x.needs.filter(y => y !== d) : [...x.needs, d]; saveRatings(); b.setAttribute("aria-pressed", x.needs.includes(d)); });
     const ta = c.querySelector("textarea");
