@@ -93,7 +93,7 @@
 </head>
 <body>
 <div id="app">
-  <header><h1>STUMPED</h1><span>v0.64</span></header>
+  <header><h1>STUMPED</h1><span>v0.67</span></header>
 
   <div id="screen-wrap">
     <canvas id="screen" width="640" height="480" aria-label="Stumped game screen"></canvas>
@@ -117,7 +117,7 @@
 
   <div id="help">
     <p><kbd>Arrows</kbd>/<kbd>WASD</kbd> move &nbsp; <kbd>Enter</kbd> choose &nbsp; <kbd>Esc</kbd> back, pause &nbsp; <kbd>Z</kbd> undo &nbsp; <kbd>X</kbd>/<kbd>Y</kbd> redo</p>
-    <p>hold <kbd>R</kbd> restart &nbsp; hold <kbd>M</kbd> map &nbsp; <kbd>-</kbd>/<kbd>=</kbd> zoom &nbsp; <kbd>[</kbd>/<kbd>]</kbd> level &nbsp; <kbd>L</kbd> level list</p>
+    <p>hold <kbd>R</kbd> restart &nbsp; hold <kbd>M</kbd> map &nbsp; <kbd>-</kbd>/<kbd>=</kbd> zoom &nbsp; <kbd>[</kbd>/<kbd>]</kbd> level &nbsp; <kbd>L</kbd> level list &nbsp; click a square to walk there</p>
     <p>In the lists: <kbd>M</kbd> menu (progress codes, clearing) &nbsp; <kbd>[</kbd>/<kbd>]</kbd> or <kbd>Page Up</kbd>/<kbd>Down</kbd> page &nbsp; <kbd>N</kbd> next unsolved &nbsp; Level maker: <kbd>T</kbd> test play</p>
     <p>Game controllers work too. Puzzles by David W. Skinner. Progress is saved in this browser. Also plays on the Miyoo Mini.
        <a href="#" id="touch-toggle">Touch controls</a></p>
@@ -714,7 +714,7 @@
     canvas: canvas,
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
-    locateFile: function (path) { return path + '?v=20261106150313'; },
+    locateFile: function (path) { return path + '?v=20261111125554'; },
     stumpedPresent: function (heap, ptr) {
       image.data.set(heap.subarray(ptr, ptr + 640 * 480 * 4));
       ctx.putImageData(image, 0, 0);
@@ -777,6 +777,6 @@
   };
 })();
 </script>
-<script src="stumped.js?v=20261106150313" async></script>
+<script src="stumped.js?v=20261111125554" async></script>
 </body>
 </html>
