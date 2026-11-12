@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fat Chip Chip Lab</title>
-<meta name="description" content="Preview candidate built-in sounds for Fat Chip on emulated SID, Game Boy and NES chips: leads, pads, basses, arps, keys and experiments; rate them yes, maybe or no with notes.">
+<meta name="description" content="Build Fat Chip patches from the shared effect definition, roll the dice, blend two patches and hear them on the real Commodore 64 over MIDI.">
 <link rel="icon" type="image/png" href="../../assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,6 @@
 :root {
   --bg: #f6f3fb; --surface: #ffffff; --surface-2: #efeaf7; --border: #ddd5ec; --text: #1d1730; --muted: #675d84;
   --accent: #c4302a; --accent-strong: #a8231e; --accent-ink: #ffffff; --ok: #2e9b3a; --warn: #b77900; --danger: #cf3a3a;
-  --hit: #c4302a; --step: #e3dcf0; --step-on: #c4302a; --step-acc: #7a1612; --step-soft: #e89a95;
   --radius: 12px;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --display: "Chakra Petch", "Inter", system-ui, sans-serif;
@@ -23,14 +22,12 @@
   :root:not([data-theme="light"]) {
     --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
     --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
-    --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
   --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c; --danger: #ff7a7a;
-  --hit: #ff6a5f; --step: #3a2f52; --step-on: #e4473f; --step-acc: #ffb3ad; --step-soft: #8f3a35;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -46,17 +43,13 @@ a { color: var(--accent-strong); }
 .sub { margin: 4px 0 0; color: var(--muted); }
 main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 20px; margin: 14px 0; min-width: 0; }
-.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 10px; }
+.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.step-n { font-family: var(--mono); font-size: 13px; color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 1px 7px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
-.dot.ok { background: var(--ok); }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .field > span { font-size: 12.5px; font-weight: 500; color: var(--muted); }
-.field output { font-family: var(--mono); font-size: 12.5px; color: var(--accent-strong); }
 select, input[type=text], input[type=number] { font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; width: 100%; min-width: 0; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
-select:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn { font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
 .btn:hover:not(:disabled) { border-color: var(--accent); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -64,512 +57,452 @@ select:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px sol
 .btn.small { padding: 7px 10px; font-size: 13px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .hint { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
-.status-line { margin: 0; color: var(--muted); }
-code { font-family: var(--mono); font-size: 13px; }
-.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--warn); background: var(--surface-2); }
-/* chip lab: sound library */
-.devs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.devs .lab { font-size: 12.5px; color: var(--muted); font-weight: 600; margin-right: 2px; }
-.devbtn { font: 700 13px/1 var(--mono); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); cursor: pointer; text-decoration: line-through; }
-.devbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); text-decoration: none; }
-.tools { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; position: sticky; top: 0; z-index: 5; background: var(--surface); padding: 12px 0 10px; border-bottom: 1px solid var(--border); }
-.tools .now { font-size: 13px; color: var(--muted); align-self: center; }
-.tools .now b { color: var(--text); }
-.snd { cursor: pointer; }
-h3.cat { font-family: var(--display); font-size: 15px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
-.lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-.snd { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.snd.current { box-shadow: 0 0 0 2px var(--accent) inset; }
-.snd.playing .playbtn { background: var(--ok); border-color: var(--ok); }
-.snd.r-yes { border-left: 5px solid var(--ok); }
-.snd.r-maybe { border-left: 5px solid var(--warn); }
-.snd.r-no { border-left: 5px solid var(--danger); opacity: 0.75; }
-.sh { display: flex; gap: 10px; align-items: flex-start; }
-.sh h4 { margin: 0; font-size: 15px; }
-.playbtn { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 15px; cursor: pointer; }
-.uses { margin: 3px 0 0; display: flex; gap: 4px; flex-wrap: wrap; }
-.dv { font: 600 10.5px/1 var(--mono); padding: 3px 5px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
-.dv.off { text-decoration: line-through; opacity: 0.6; }
-.sdesc { margin: 0; font-size: 13px; color: var(--muted); }
-.rate, .needs { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-.rate button, .needs button { font: 600 12.5px/1 "Inter", system-ui, sans-serif; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
-.rate [data-r="yes"][aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
-.rate [data-r="maybe"][aria-pressed="true"] { background: var(--warn); border-color: var(--warn); color: #1d1730; }
-.rate [data-r="no"][aria-pressed="true"] { background: var(--danger); border-color: var(--danger); color: #fff; }
-.rate .keysbtn { margin-left: auto; border-radius: 7px; }
-.needs span { font-size: 12px; color: var(--muted); font-weight: 600; margin-right: 2px; }
-.needs button { font-family: var(--mono); font-size: 11.5px; padding: 4px 8px; }
-.needs button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
-.snd textarea { width: 100%; resize: vertical; font: 13px/1.4 "Inter", system-ui, sans-serif; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text); min-height: 32px; overflow: hidden; }
-.keys { display: flex; height: 110px; margin-top: 10px; user-select: none; -webkit-user-select: none; touch-action: none; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; display: inline-block; }
+.dot.ok { background: var(--ok); }
+.dot.flash { background: var(--warn); }
+/* the bar */
+.bar { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--border); }
+.bar-in { max-width: 1100px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 10px 16px; align-items: flex-end; flex-wrap: wrap; }
+.bar .now { align-self: center; font-size: 13px; color: var(--muted); margin-left: auto; }
+.bar .now b { color: var(--text); }
+.status { font-size: 13px; color: var(--muted); align-self: center; display: flex; gap: 6px; align-items: center; }
+/* patches */
+.plist { display: flex; flex-wrap: wrap; gap: 6px; }
+.pbtn { font: 600 12.5px/1 var(--mono); padding: 7px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.pbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.plabel { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
+/* editor */
+.top-edit { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+@media (max-width: 760px) { .top-edit { grid-template-columns: 1fr 1fr; } }
+.settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0 18px; margin-top: 14px; padding: 4px 12px 10px; border: 1px solid var(--border); border-radius: 10px; }
+.fxgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; margin-top: 14px; }
+@media (max-width: 420px) { .fxgrid, .settings { grid-template-columns: 1fr; } }
+.fx { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px 12px; min-width: 0; }
+.fx.off { opacity: 0.7; }
+.fx.char { box-shadow: 0 0 0 2px var(--accent) inset; }
+.fxh { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fxh h3 { font: 700 13.5px/1.2 var(--display); letter-spacing: 0.05em; margin: 0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sw { position: relative; width: 34px; height: 20px; flex: none; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; padding: 0; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: left .12s; }
+.sw[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.sw[aria-checked="true"]::after { left: 16px; background: #fff; }
+.sw:disabled { opacity: 0.5; cursor: default; }
+.chip { font: 600 10.5px/1 var(--mono); padding: 4px 6px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; text-decoration: line-through; }
+.chip[aria-pressed="true"] { color: var(--text); border-color: var(--text); text-decoration: none; }
+.ico { font-size: 13px; line-height: 1; width: 26px; height: 24px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; padding: 0; flex: none; }
+.ico[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.ico.tiny { width: 22px; height: 22px; font-size: 11.5px; }
+.prm { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 62px 22px 22px; gap: 6px; align-items: center; margin-top: 6px; font-size: 12.5px; }
+.prm > span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prm.nc > span::after { content: " ·"; color: var(--warn); }
+.prm output { font: 600 11.5px var(--mono); color: var(--accent-strong); text-align: right; white-space: nowrap; overflow: hidden; }
+.prm select { padding: 4px 6px; font-size: 12.5px; }
+.prm.hide { display: none; }
+.prm select + output, .prm .sw + output, .prm .row + output { visibility: hidden; }
+.fxbody { margin-top: 2px; }
+.fx.off .fxbody { display: none; }
+.legend { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.legend b { color: var(--warn); }
+/* blend */
+.blend { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); gap: 12px; align-items: end; }
+@media (max-width: 640px) { .blend { grid-template-columns: 1fr; } }
+textarea { width: 100%; resize: vertical; font: 14px/1.4 "Inter", system-ui, sans-serif; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); min-height: 60px; }
+/* keys */
+.keys { display: flex; height: 100px; margin-top: 10px; user-select: none; -webkit-user-select: none; touch-action: none; }
 .key { flex: 1; min-width: 0; border: 1px solid var(--border); background: #fff; border-radius: 0 0 6px 6px; font: 600 10px var(--mono); color: #555; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; cursor: pointer; }
 .key.black { background: #1d1730; color: #fff; flex: 0.7; margin: 0 -1.2%; z-index: 1; height: 62%; }
 .key.down { background: var(--accent); color: var(--accent-ink); }
-.devbtn.fb { text-decoration: none; }
-.devbtn.fb[aria-pressed="false"] { text-decoration: line-through; }
-.cost.c-light { color: var(--ok); } .cost.c-medium { color: var(--warn); border-color: var(--warn); } .cost.c-heavy { color: #fff; background: var(--danger); border-color: var(--danger); }
-.fxd { font-size: 13px; }
-.fxd summary { cursor: pointer; color: var(--muted); font-weight: 600; }
-.fxk { display: grid; grid-template-columns: 1fr 110px 40px; gap: 6px; align-items: center; margin-top: 4px; font-size: 12.5px; color: var(--muted); }
-.fxk output { font: 600 11.5px var(--mono); color: var(--accent-strong); }
-.fxreset { align-self: flex-start; }
-.fxchanged { color: var(--warn); font-weight: 600; }
-.scope { width: 100%; height: 70px; display: block; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); margin-top: 12px; }
-.mix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 760px) { .mix { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .bar { position: static; } }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--warn); background: var(--surface-2); }
 </style>
 </head>
 <body>
+<div class="bar"><div class="bar-in">
+  <label class="field" style="width:220px"><span>To Fat Chip 64 (MIDI out)</span><select id="midiOut"><option value="">Choose…</option></select></label>
+  <label class="field" style="width:200px"><span>Keyboard in (passed on)</span><select id="midiIn"><option value="">Off</option></select></label>
+  <span class="status"><span class="dot" id="sendDot"></span><span id="sendState">Not connected</span></span>
+  <label class="status"><input type="checkbox" id="autoSend" checked> Send as I edit</label>
+  <button class="btn small" id="sendBtn">Send now</button>
+  <button class="btn small" id="panicBtn" title="All notes off on the C64">Notes off</button>
+  <span class="now">Editing <b id="curName"></b></span>
+</div></div>
 <header class="top">
   <p class="crumb"><a href="../../tools/">Tools</a> / <a href="../">Fat Chip</a> /</p>
   <h1>Chip Lab</h1>
-  <p class="sub">Fat Chip's candidate built-in sounds, played on emulated SID, Game Boy and NES chips by Fat Chip's rules. Rate each one, add notes, and export them for Claude. The emulation is close, not exact.</p>
+  <p class="sub">Build Fat Chip patches from the shared effect list, roll the dice, blend two patches, and hear them on the real C64: Chip Lab sends each change to Fat Chip 64 (v0.20 or later) over MIDI. The older emulated sound library is <a href="library.html">here</a>.</p>
 </header>
 <main>
+  <div class="banner" id="noMidi" hidden>This browser can't send MIDI. Use Chrome or Edge on the Mac, and allow MIDI (with SysEx) when it asks.</div>
+  <div class="banner" id="loadErr" hidden></div>
+
   <section class="card">
-    <div class="tools">
-      <div class="devs"><span class="lab">Devices</span><button class="devbtn" id="dev-sid">SID</button><button class="devbtn" id="dev-gb">GB</button><button class="devbtn" id="dev-nes">NES</button></div>
-      <div class="devs" style="align-items:flex-end"><label class="field" style="width:150px"><span>Fat Bass</span><select id="fbMode"><option value="patch">As designed</option><option value="on">Always on</option><option value="off">Always off</option></select></label>
-        <label class="field"><span>range</span><span class="row" style="gap:4px"><select id="bassLo" aria-label="Fat Bass lowest note" style="width:auto"></select>–<select id="bassHi" aria-label="Fat Bass highest note" style="width:auto"></select></span></label></div>
-      <label class="field" style="width:150px"><span>Play</span><select id="playAs"><option value="patch">As designed</option><option value="poly">Poly</option><option value="mono">Mono</option></select></label>
-      <span class="now">On the keys: <b id="curName2"></b></span>
-      <label class="field" style="width:170px"><span>Show</span><select id="filter"><option value="all">All sounds</option><option value="unrated">Not rated yet</option><option value="yes">Yes</option><option value="maybe">Maybe</option><option value="no">No</option></select></label>
-      <div class="row"><button id="stopBtn" class="btn small">Stop (Esc)</button><button id="exportBtn" class="btn small primary">Export ratings</button></div>
+    <div class="card-head"><h2>Patches</h2>
+      <div class="row"><button class="btn small" id="saveBtn">Save to my patches</button><button class="btn small" id="newBtn">New from the dice</button><button class="btn small" id="delBtn">Delete</button></div>
     </div>
-    <p class="hint">Every available chip plays: a sound's important jobs (a sub, an octave, its main tone) move to another chip when you turn one off. <b>Fat Bass</b> adds a bass that stays inside its range (folding by octaves) whatever octave you play in. Like mono / poly, each sound has its own default (tagged "fat bass" when it's on), and you can lock it on or off for every sound, e.g. off for high, airy sets. <b>Play</b> does the same for poly and mono. <b>Effects</b> on a card adjusts that sound's modules; the <b>MIDI</b> tag is how much Game Boy / NES traffic its effects would take. Turn devices off to hear how a sound holds up without them. <b>▶</b> plays a demo that suits the sound; click a card to put that sound on your keyboard, MIDI in and the keys at the bottom. <b>Needs</b> marks the devices a sound can't do without, so Fat Chip can offer only the sounds the connected devices can play. Ratings and notes stay in this browser until you export them. <span id="counts"></span></p>
-    <div id="lib"></div>
+    <div class="plabel">Built in (Fat Chip 64's V list)</div><div class="plist" id="builtList"></div>
+    <div class="plabel">My patches <span id="myCount"></span></div><div class="plist" id="myList"></div>
   </section>
 
   <section class="card">
-    <div class="card-head">
-      <h2><span class="step-n">♪</span>Keys: <span id="curName"></span></h2>
-      <label class="field" style="width:200px"><span>MIDI in</span><select id="midiIn"><option value="">Off</option></select></label>
+    <div class="top-edit">
+      <label class="field"><span>Name (16 characters)</span><input type="text" id="pName" maxlength="16"></label>
+      <button class="btn primary" id="diceAll" title="Every effect and setting that isn't locked">🎲 Roll the dice</button>
+      <button class="btn" id="revertBtn">Undo all changes</button>
+      <label class="status"><input type="checkbox" id="showAll"> Show every setting</label>
     </div>
-    <p class="hint" style="margin-top:0">Click or use <b>A W S E D F T G Y H U J K</b>; <b>Z / X</b> change octave. Chords stack across the chips the way Fat Chip 64 does: as many notes as there are voices, the lowest notes get the leftovers, and Fat Bass (when on) holds the bottom.</p>
+    <div class="settings" id="settings"></div>
+    <div class="fxgrid" id="fxgrid"></div>
+    <p class="legend">Switch an effect on or off; <b>SID / GB / NES</b> limit it to some chips; 🎲 rolls an effect or a single setting; 🔒 keeps it when you roll; ★ marks the effects that make the patch what it is (its character: kept when voices run short, kept on by the dice). Settings marked <b>·</b> are in the plan but Fat Chip 64 doesn't play them yet, so they're hidden unless you tick <i>Show every setting</i>.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Blend</h2></div>
+    <div class="blend">
+      <label class="field"><span>From</span><select id="blendA"></select></label>
+      <label class="field"><span>Blend <output id="blendOut">0 %</output></span><input type="range" id="blendT" min="0" max="100" value="0"></label>
+      <label class="field"><span>To</span><select id="blendB"></select></label>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn small" id="blendKeep">Edit this blend</button></div>
+    <p class="hint">Moving the slider sends the mixture to the C64 as you go: times and rates mix on a log scale, switches flip half way, an effect only one patch has comes in at the half-way point.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Keys and notes</h2><button class="btn small primary" id="exportBtn">Export my patches for Claude</button></div>
     <div class="keys" id="keys"></div>
-    <p class="status-line" style="margin-top:6px">Octave <span id="octOut"></span></p>
-    <div class="mix" style="margin-top:14px">
-      <label class="field"><span>NES <output id="lvNesOut"></output></span><input id="lvNes" type="range" min="0" max="150" value="100"></label>
-      <label class="field"><span>Game Boy <output id="lvGbOut"></output></span><input id="lvGb" type="range" min="0" max="150" value="100"></label>
-      <label class="field"><span>SID <output id="lvSidOut"></output></span><input id="lvSid" type="range" min="0" max="150" value="100"></label>
-      <label class="field"><span>Master <output id="masterOut"></output></span><input id="master" type="range" min="0" max="100" value="50"></label>
-    </div>
-    <canvas class="scope" id="scope"></canvas>
+    <p class="hint" style="margin-top:6px">Click or use <b>A W S E D F T G Y H U J K</b>; <b>Z / X</b> change octave (<span id="octOut"></span>). The notes go to the C64 on MIDI channel 1, like a keyboard on its MIDI in.</p>
+    <label class="field" style="margin-top:12px"><span>Notes on <b id="noteName"></b> (saved with the patch, exported for Claude)</span><textarea id="pNotes" placeholder="What works, what doesn't…"></textarea></label>
   </section>
 </main>
+<script src="fatchip-patch.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
 const store = {
-  get(k, d) { try { const v = localStorage.getItem("chiplab." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("chiplab." + k, JSON.stringify(v)); } catch { /* */ } },
+  get(k, d) { try { const v = localStorage.getItem("chiplab3." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("chiplab3." + k, JSON.stringify(v)); } catch { /* */ } },
 };
-// ====================================================================== the chips (an AudioWorklet, one sample at a time)
-// NES: 2 pulses (4 duties, volume 0–15), triangle (32-step, no volume), noise (15-bit LFSR, 16 periods, long / short)
-// Game Boy: 2 pulses (4 duties, 0–15, hardware envelope), wave (32 × 4-bit, 100/50/25 %), noise (15 / 7-bit)
-// SID (6581-ish): 3 voices (triangle / saw / pulse / noise, ring mod, sync), SID ADSR rate tables, shared resonant filter
-// Modulation runs every 1 ms, the way Fat Chip would update the chips: glide, vibrato, warble, tremolo, pitch drop,
-// fast arpeggio, pulse-width / duty sweeps, software volume envelopes (NES and GB), SID filter envelope and LFO.
-// Volumes on the NES and GB stay whole steps 0–15, as on the hardware. Approximations: no band-limiting, linear mixers.
-const ENGINE_SRC = `
-const NES_NOISE = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068], NES_CPU = 1789773;
-const DUTY = [0.125, 0.25, 0.5, 0.75];
-const SID_ATTACK = [0.002, 0.008, 0.016, 0.024, 0.038, 0.056, 0.068, 0.08, 0.1, 0.25, 0.5, 0.8, 1, 3, 5, 8];
-const SID_DECAY = SID_ATTACK.map(a => a * 3);
-const fresh = (chip, kind) => ({ chip, kind, gate: 0, active: false, f: 440, cur: 440, ph: 0, lfsr: 1, acc: 0, nph: 0, noiseV: 0,
-  vol: 10, duty: 2, period: 4, mode: 0, envDir: 0, envPace: 0, envVol: 0, envT: 0, wave: null, level: 1,
-  w: 2, pw: 2048, a: 0, d: 6, s: 10, r: 6, stage: 4, env: 0, filt: 0, ring: 0, sync: 0,
-  glide: 0, vib: null, warb: null, trem: null, pdrop: null, arp: null, pwm: null, dseq: null, senv: null, t0: 0, toff: 0,
-  sEnv: 0, sStage: 4, wv: 0, wvT: 0, outVol: 0, outF: 440, outDuty: 2, outPw: 2048, hwVol: 0 });
-class Chips extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this.v = [fresh("nes", "pulse"), fresh("nes", "pulse"), fresh("nes", "tri"), fresh("nes", "noise"),
-              fresh("gb", "pulse"), fresh("gb", "pulse"), fresh("gb", "wave"), fresh("gb", "noise"),
-              fresh("sid", "sid"), fresh("sid", "sid"), fresh("sid", "sid")];
-    this.lv = { nes: 1, gb: 1, sid: 1 };
-    this.sid = { cut: 1024, res: 4, mode: 1, vol: 15, lp: 0, bp: 0, env: 0, envAmt: 0, envA: 0.01, envD: 0.5, envT: 0, envOn: 0, lfoRate: 0, lfoDepth: 0, curCut: 1024 };
-    this.q = []; this.hp = 0; this.hpx = 0; this.ctl = 0; this.time = 0;
-    this.port.onmessage = e => { for (const m of [].concat(e.data)) this.q.push(m); this.q.sort((a, b) => a.at - b.at); };
-  }
-  apply(m) {
-    if (m.t === "lv") { Object.assign(this.lv, m.p); return; }
-    if (m.t === "sidf") { Object.assign(this.sid, m.p, this.sid.live || {}); if (m.trig) { this.sid.envT = 0; this.sid.envOn = 1; } return; }
-    // live effect changes (sliders moved while playing): applied now, and to every later note until cleared
-    if (m.t === "fxClear") { for (const v of this.v) v.live = null; this.sid.live = null; return; }
-    if (m.t === "sidLive") { this.sid.live = { ...(this.sid.live || {}), ...m.p }; Object.assign(this.sid, m.p); return; }
-    if (m.t === "fx") { const v = this.v[m.v]; v.live = { ...(v.live || {}), ...m.p }; if (v.active) Object.assign(v, m.p); return; }
-    if (m.t === "allOff") { for (const v of this.v) { v.gate = 0; v.active = false; v.stage = 4; v.env = 0; v.sStage = 4; } return; }
-    const v = this.v[m.v];
-    if (m.t === "off") { v.gate = 0; v.toff = this.time; if (v.chip === "sid") v.stage = 3; else v.sStage = 3; return; }
-    const p = m.p || {};
-    if (m.t === "on") {
-      const prevF = v.cur;
-      // reset the per-note modulation, then take this note's settings
-      Object.assign(v, { glide: 0, vib: null, warb: null, trem: null, pdrop: null, arp: null, pwm: null, dseq: null, senv: null, ring: 0, sync: 0, filt: 0, envPace: 0, envDir: 0 }, p, v.live || {});
-      v.cur = v.glide && v.active ? prevF : v.f;
-      v.gate = 1; v.active = true; v.t0 = this.time;
-      if (v.chip === "sid") v.stage = 0;
-      else { v.sStage = 0; v.sEnv = v.senv ? 0 : 1; v.envVol = v.vol; v.envT = 0; }
-      if (v.kind === "noise") v.lfsr = 0x7fff;
-      return;
-    }
-    Object.assign(v, p);
-  }
-  // 1 ms control tick: what Fat Chip would send
-  control() {
-    const t = this.time;
-    for (let i = 0; i < this.v.length; i++) {
-      const v = this.v[i]; if (!v.active) continue;
-      const age = t - v.t0;
-      // pitch: glide toward the target, then vibrato / warble / pitch drop / arpeggio as semitone offsets
-      if (v.glide) v.cur += (v.f - v.cur) * Math.min(1, 0.001 / v.glide * 3); else v.cur = v.f;
-      let semi = 0;
-      if (v.vib) { const fade = v.vib.delay ? Math.min(1, Math.max(0, (age - v.vib.delay) / 0.3)) : 1; semi += v.vib.depth * fade * Math.sin(2 * Math.PI * v.vib.rate * age); }
-      if (v.warb) { v.wvT += 0.001; if (v.wvT > 1 / v.warb.rate) { v.wvT = 0; v.wvTarget = (Math.random() * 2 - 1) * v.warb.depth; } v.wv += ((v.wvTarget || 0) - v.wv) * 0.004; semi += v.wv; }
-      if (v.pdrop) semi += v.pdrop.semis * Math.exp(-age / v.pdrop.time);
-      if (v.arp) semi += v.arp.steps[Math.floor(age * v.arp.rate) % v.arp.steps.length];
-      v.outF = v.cur * Math.pow(2, semi / 12);
-      // shape: pulse-width sweep (SID) or duty cycling (NES / GB)
-      if (v.pwm) v.outPw = Math.max(64, Math.min(4032, v.pw + v.pwm.depth * Math.sin(2 * Math.PI * v.pwm.rate * age)));
-      else v.outPw = v.pw;
-      v.outDuty = v.dseq ? v.dseq.seq[Math.floor(age * v.dseq.rate) % v.dseq.seq.length] : v.duty;
-      // volume (NES / GB): software ADSR (seconds; sustain 0–1) and tremolo, in whole steps 0–15
-      if (v.chip !== "sid") {
-        let e = 1;
-        if (v.senv) {
-          const E = v.senv;
-          if (v.sStage === 0) { v.sEnv += 0.001 / Math.max(0.001, E.a); if (v.sEnv >= 1) { v.sEnv = 1; v.sStage = 1; } }
-          else if (v.sStage === 1) { v.sEnv -= 0.001 / Math.max(0.001, E.d) * (1 - E.s); if (v.sEnv <= E.s) { v.sEnv = E.s; v.sStage = 2; } }
-          else if (v.sStage === 3) { v.sEnv -= 0.001 / Math.max(0.001, E.r); if (v.sEnv <= 0) { v.sEnv = 0; v.sStage = 4; v.active = false; } }
-          e = v.sEnv;
-        } else if (!v.gate) { v.active = false; e = 0; }
-        if (v.trem) e *= 1 - v.trem.depth * (0.5 + 0.5 * Math.cos(2 * Math.PI * v.trem.rate * age));   // starts at its quietest
-        // GB hardware envelope runs on top (its own 64 Hz steps)
-        let base = v.vol;
-        if (v.chip === "gb" && v.envPace) { v.envT += 0.001; const step = v.envPace / 64; while (v.envT >= step) { v.envT -= step; v.envVol = Math.max(0, Math.min(15, v.envVol + (v.envDir ? 1 : -1))); } base = v.envVol; }
-        v.outVol = Math.round(base * e);
-      }
-    }
-    // SID filter: envelope (attack / decay) and LFO on the cutoff
-    const S = this.sid;
-    if (S.envOn) { S.envT += 0.001; S.env = S.envT < S.envA ? S.envT / S.envA : Math.exp(-(S.envT - S.envA) / Math.max(0.01, S.envD)); }
-    S.curCut = Math.max(0, Math.min(2047, S.cut + S.envAmt * S.env + S.lfoDepth * Math.sin(2 * Math.PI * S.lfoRate * t)));
-  }
-  process(_, outputs) {
-    const out = outputs[0][0], dt = 1 / sampleRate;
-    let t = currentTime;
-    for (let i = 0; i < out.length; i++, t += dt) {
-      while (this.q.length && this.q[0].at <= t) this.apply(this.q.shift());
-      this.time = t; this.ctl += dt; if (this.ctl >= 0.001) { this.ctl -= 0.001; this.control(); }
-      let nes = 0, gb = 0, sidIn = 0, sidDry = 0;
-      for (let k = 0; k < this.v.length; k++) {
-        const v = this.v[k];
-        if (v.chip === "nes") {
-          if (!v.active) continue;
-          if (v.kind === "pulse") { v.ph = (v.ph + v.outF * dt) % 1; nes += (v.ph < DUTY[v.outDuty] ? v.outVol : 0) * 0.00752; }
-          else if (v.kind === "tri") { if (!v.gate && !v.senv) continue; v.ph = (v.ph + v.outF * dt) % 1; const s = Math.floor(v.ph * 32); nes += (s < 16 ? 15 - s : s - 16) * 0.00851 * (v.outVol > 0 ? 1 : 0); }
-          else { v.acc += NES_CPU / NES_NOISE[v.period] * dt; while (v.acc >= 1) { const fb = (v.lfsr & 1) ^ ((v.lfsr >> (v.mode ? 6 : 1)) & 1); v.lfsr = (v.lfsr >> 1) | (fb << 14); v.acc--; } nes += (v.lfsr & 1 ? 0 : v.outVol) * 0.00494; }
-        } else if (v.chip === "gb") {
-          if (!v.active) continue;
-          if (v.kind === "pulse") { v.ph = (v.ph + v.outF * dt) % 1; gb += (v.ph < DUTY[v.outDuty] ? v.outVol : 0) * 0.0075; }
-          else if (v.kind === "wave") { v.ph = (v.ph + v.outF * dt) % 1; const s = v.wave[Math.floor(v.ph * 32)]; gb += (v.level && v.outVol > 0 ? s >> (v.level - 1) : 0) * 0.0075; }
-          else { v.acc += 524288 / Math.pow(2, v.period) * dt; while (v.acc >= 1) { const fb = (v.lfsr & 1) ^ ((v.lfsr >> 1) & 1); v.lfsr = (v.lfsr >> 1) | (fb << 14); if (v.mode) v.lfsr = (v.lfsr & ~0x40) | (fb << 6); v.acc--; } gb += (v.lfsr & 1 ? 0 : v.outVol) * 0.0075; }
-        } else {
-          const sus = v.s / 15;
-          if (v.stage === 0) { v.env += dt / SID_ATTACK[v.a]; if (v.env >= 1) { v.env = 1; v.stage = 1; } }
-          else if (v.stage === 1) { v.env -= (v.env - sus) * dt / (SID_DECAY[v.d] / 4.6) + 1e-9; if (v.env <= sus + 1e-3) { v.env = sus; v.stage = 2; } }
-          else if (v.stage === 2) v.env = sus;
-          else if (v.stage === 3) { v.env -= v.env * dt / (SID_DECAY[v.r] / 4.6); if (v.env < 1e-4) { v.env = 0; v.stage = 4; v.active = false; } }
-          if (v.stage === 4) { v.prevWrap = false; continue; }
-          const prev = this.v[k === 8 ? 10 : k - 1];   // ring mod and sync come from the previous voice (voice 1 from voice 3), as on the SID
-          const old = v.ph; v.ph = (v.ph + v.outF * dt) % 1; v.prevWrap = v.ph < old;
-          if (v.sync && prev.prevWrap) v.ph = 0;
-          let w = 0;
-          if (v.w === 1) { w = v.ph < 0.5 ? v.ph * 4 - 1 : 3 - v.ph * 4; if (v.ring && prev.ph >= 0.5) w = -w; }
-          else if (v.w === 2) w = v.ph * 2 - 1;
-          else if (v.w === 4) w = v.ph < v.outPw / 4096 ? 1 : -1;
-          else { const n = Math.floor(v.ph * 16); if (n !== v.nph) { v.nph = n; v.noiseV = Math.random() * 2 - 1; } w = v.noiseV; }
-          const s = w * v.env * 0.06;
-          if (v.filt) sidIn += s; else sidDry += s;
-        }
-      }
-      const S = this.sid;
-      const f = Math.min(0.99, 2 * Math.sin(Math.PI * (30 + S.curCut / 2047 * 12000) / sampleRate)), damp = 1.45 - S.res / 15 * 1.3;
-      const hp = sidIn - S.lp - damp * S.bp; S.bp += f * hp; S.lp += f * S.bp;
-      const filtered = S.mode === 2 ? S.bp : S.mode === 4 ? hp : S.mode === 5 ? S.lp + hp : S.lp;
-      const sid = (sidDry + filtered) * S.vol / 15;
-      const x = nes * this.lv.nes + gb * this.lv.gb + sid * this.lv.sid;
-      const y = x - this.hpx + 0.995 * this.hp; this.hpx = x; this.hp = y;
-      out[i] = y;
-    }
-    return true;
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+// What Fat Chip 64 (v0.20) actually plays. The rest of the definition is the plan.
+const USED = {
+  patch: ["mono", "fatBass", "octSid", "octGb", "lvlGbPulse", "lvlGbWave", "lvlNes"],
+  tone: ["sidWave", "sidPw", "sidPwSpread", "gbDuty1", "gbDuty2", "gbWaveMode", "gbWaveShape", "nesDuty1", "nesDuty2"],
+  env: ["attack", "decay", "sustain", "release", "gbEnv", "gbAttack", "gbDecay", "gbSustain", "gbRelease", "nesEnv", "nesAttack", "nesDecay", "nesSustain", "nesRelease"],
+  detune: ["cents"], vibrato: ["depth", "vibRate", "delay", "shape", "drift"], glide: ["time"], warble: ["amount", "speed"],
+  tremolo: ["depth", "tremRate", "shape"], filter: ["cutoff", "resonance", "envAmount", "lfoDepth", "filtLfoRate"],
+  pwm: ["depth", "pwmRate", "shape"], dutyseq: ["pattern", "stepMs"], repeat: ["time", "repeats", "level"],
+};
+const used = (eid, pid) => (USED[eid] || []).includes(pid);
+const effectUsed = eid => !!USED[eid];
+
+let DEF, LAYOUT, BUILT, fc;
+let mine = store.get("mine", []);              // [{name, fx, ..., notes}]
+let work = null;                               // the patch being edited
+let origin = store.get("origin", { kind: "built", i: 0 });   // where `work` came from
+let locks = store.get("locks", {});             // "fx:vibrato", "p:vibrato.depth", "p:patch.mono"
+let notes = store.get("notes", {});             // patch name -> Reeve's notes
+
+// ====================================================================== the definition: values, dice, blend
+const ALL_CHIPS = ["sid", "gb", "nes"];
+const effOf = id => DEF.effects.find(e => e.id === id);
+const parOf = (eid, pid) => eid === "patch" ? DEF.patch.find(q => q.id === pid) : effOf(eid).params.find(q => q.id === pid);
+function valueOf(p, eid, pid) {
+  if (eid === "patch") return pid in p ? p[pid] : parOf("patch", pid).default;
+  const v = p.fx?.[eid]?.[pid];
+  return v === undefined ? parOf(eid, pid).default : v;
+}
+function setValue(p, eid, pid, v) {
+  if (eid === "patch") { p[pid] = v; return; }
+  (p.fx[eid] ||= {})[pid] = v;
+}
+const isOn = (p, eid) => !!effOf(eid).alwaysOn || eid in (p.fx || {});
+function chipsOf(p, eid) { return p.fx?.[eid]?.on || effOf(eid).chips || ALL_CHIPS; }
+function rand(lo, hi) { return lo + Math.random() * (hi - lo); }
+function rollParam(q) {
+  const t = q.type;
+  if (t === "ms" && q.values) { const [lo, hi] = q.rand || [q.values[0], q.values.at(-1)]; const ok = q.values.filter(v => v >= lo && v <= hi); return ok[Math.floor(Math.random() * ok.length)]; }
+  if (t === "int" || t === "ms") { const [lo, hi] = q.rand || [q.min, q.max]; return q.blend === "log" && lo > 0 ? Math.round(Math.exp(rand(Math.log(lo), Math.log(hi)))) : Math.round(rand(lo, hi + 0.999) - 0.4999); }
+  if (t === "hz") { const [lo, hi] = q.rand || [q.min, q.max]; return +Math.exp(rand(Math.log(lo), Math.log(hi))).toFixed(2); }
+  if (t === "enum") { const [lo, hi] = q.rand || [0, q.values.length - 1]; return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+  if (t === "bool") return Math.random() < 0.5 ? 0 : 1;
+  if (t === "flags") { const [lo, hi] = q.rand || [1, (1 << q.values.length) - 1]; return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+  return q.default;
+}
+function rollEffect(p, eid) {
+  for (const q of effOf(eid).params) {
+    if (locks["p:" + eid + "." + q.id] || !showableForDice(eid, q)) continue;
+    setValue(p, eid, q.id, rollParam(q));
   }
 }
-registerProcessor("chips", Chips);
-`;
-
-// ====================================================================== the sound library (v2: the rules of Fat Chip)
-// A patch says how each kind of channel sounds when it plays this patch ("voice"), which extra jobs it wants and which
-// channels can do them (in order of preference), and its effects as modules (type, rate, depth) that can be adjusted.
-//   Channel kinds: sid (3 SID voices), gbp (GB pulses), gbw (GB wave), nesp (NES pulses), nest (NES triangle).
-// Rules (Reeve, 2026-11-06):
-//   1. every available channel plays: whatever no job claims joins the main sound
-//   2. a job whose channel is gone moves to the next channel kind on its list
-//   3. poly: as many held notes as possible; fewer notes = more stacking (Fat Chip 64's order)
-//   4. "needs" tags are set by Reeve on each card
-//   6. effects are modules, adjustable per patch, so patches can be blended later
-//   7. Fat Bass (a per-patch default, which Reeve can lock on or off) adds a bass job that keeps the lowest note inside a range, folding by octaves
-// voice fields: sid {w 1 tri / 2 saw / 4 pulse / 8 noise, pw, adsr [a,d,s,r] 0–15, filt}, gbp / nesp {duty 0–3, vol 0–15,
-//   senv [a, d, s, r] seconds (sustain 0–1), env [pace, dir] (GB hardware)}, gbw {wave, senv}, nest {senv}.
-// fx modules: vib {rate, depth (semitones), delay}, trem {rate, depth 0–1}, warb {rate, depth}, pwm {rate, depth}
-//   (SID pulse width), duty {rate, seq} (duty cycling on pulses; SID follows with width steps), filt {rate, depth} (SID
-//   filter LFO), glide (s). sidF: SID filter {cut, res, mode, envAmt, envA, envD}.
-const SE = (a, d, s, r) => ({ a, d, s, r });
-const P = [];
-const FB_ON = ["Warble pad", "Electric piano", "Combo organ", "Seasick chorus", "Duty shimmer pad", "Warm SID pad", "Sweep pad", "Chorus pad", "Breathing pad", "Dark pad", "Bright stack pad", "Glide bass", "Wave bass", "Tremolo gate", "Detune beating"];   // sounds that come with Fat Bass on (the rest without)
-const add = (cat, name, desc, demo, def) => P.push({ id: cat.slice(0, 3).toLowerCase() + "-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), cat, name, desc, demo, mode: "poly", jobs: [], fx: {}, fatBass: FB_ON.includes(name), ...def });
-
-// ---------------------------------------------------------------- loved
-add("Leads", "Duty-cycle lead", "Pulses cycling 12.5 → 25 → 50 % every few ms: the shimmering game lead. The SID joins with its pulse width stepping along.", "lead",
-  { mode: "mono", voice: { nesp: { duty: 2, vol: 11 }, gbp: { duty: 2, vol: 10 }, sid: { w: 4, pw: 1024, adsr: [0, 8, 12, 6] }, gbw: { wave: "square" }, nest: {} },
-    fx: { duty: { rate: 30, seq: [0, 1, 2, 1] } } });
-add("Leads", "Whistle", "Soft, breathy lead: SID triangle and GB sine with slow vibrato and a little glide; the pulses add a quiet hollow edge.", "lead",
-  { mode: "mono", voice: { sid: { w: 1, adsr: [3, 8, 12, 7] }, gbw: { wave: "sine", senv: [0.04, 0.2, 0.9, 0.2] }, nest: { senv: [0.04, 0.2, 0.9, 0.2] }, gbp: { duty: 2, vol: 3, senv: [0.08, 0.2, 0.9, 0.2] }, nesp: { duty: 2, vol: 3, senv: [0.08, 0.2, 0.9, 0.2] } },
-    jobs: [{ job: "main tone", on: ["sid", "gbw", "nest"], n: 2 }],
-    fx: { vib: { rate: 4.5, depth: 0.25, delay: 0.4 }, glide: 0.04 } });
-add("Pads", "Warble pad", "PADS with heavy tape warble on every chip: woozy and lo-fi.", "pad",
-  { voice: { sid: { w: 4, pw: 2048, adsr: [8, 11, 14, 11] }, gbp: { duty: 2, vol: 9, senv: [0.6, 0.3, 1, 1] }, nesp: { duty: 2, vol: 8, senv: [0.6, 0.3, 1, 1] }, gbw: { wave: "triangle", senv: [0.6, 0.3, 1, 1] }, nest: { senv: [0.6, 0.3, 1, 1] } },
-    det: 9, fx: { warb: { rate: 1.5, depth: 0.35 } } });
-add("Keys and plucks", "Marimba", "Woody mallet: triangles and sine with a fast decay; the pulses tap in quietly underneath.", "keys",
-  { voice: { sid: { w: 1, adsr: [0, 7, 0, 7] }, gbw: { wave: "sine", senv: [0.001, 0.25, 0, 0.1] }, nest: { senv: [0.001, 0.12, 0, 0.05] }, gbp: { duty: 2, vol: 4, senv: [0.001, 0.08, 0, 0.05] }, nesp: { duty: 2, vol: 4, senv: [0.001, 0.08, 0, 0.05] } },
-    jobs: [{ job: "mallet", on: ["sid", "gbw", "nest"], n: 3 }] });
-add("Keys and plucks", "Electric piano", "Rhodes-style: SID triangles with tremolo wobbling the Game Boy and NES.", "keys",
-  { voice: { sid: { w: 1, adsr: [0, 10, 6, 9] }, gbp: { duty: 2, vol: 8, senv: [0.003, 0.8, 0.3, 0.5] }, nesp: { duty: 2, vol: 7, senv: [0.003, 0.8, 0.3, 0.5] }, gbw: { wave: "sine", senv: [0.003, 0.9, 0.3, 0.5] }, nest: { senv: [0.003, 0.6, 0.2, 0.4] } },
-    det: 4, fx: { trem: { rate: 5, depth: 0.4 } } });
-add("Brass, strings, organ", "Combo organ", "Square waves with fast vibrato, instant on and off, the organ wave on the bottom.", "keys",
-  { voice: { gbp: { duty: 2, vol: 10 }, nesp: { duty: 2, vol: 9 }, sid: { w: 4, pw: 2048, adsr: [0, 0, 15, 1] }, gbw: { wave: "organ" }, nest: {} },
-    jobs: [{ job: "octave up", on: ["nesp", "gbp", "sid"], n: 1, oct: 1, note: "top" }],
-    fx: { vib: { rate: 7, depth: 0.1, delay: 0 } } });
-add("Experimental", "Seasick chorus", "Every chip warbling independently and heavily: the pitch never settles.", "pad",
-  { voice: { sid: { w: 2, adsr: [6, 10, 14, 10] }, gbp: { duty: 2, vol: 9 }, nesp: { duty: 1, vol: 8 }, gbw: { wave: "saw" }, nest: {} },
-    det: 14, fx: { warb: { rate: 1.2, depth: 0.85 } } });
-add("Experimental", "Duty shimmer pad", "Each pulse slowly cycling through all four duties at its own rate; SID widths sweeping slowly.", "pad",
-  { voice: { gbp: { duty: 0, vol: 10 }, nesp: { duty: 0, vol: 9 }, sid: { w: 4, pw: 600, adsr: [6, 10, 14, 10] }, gbw: { wave: "triangle" }, nest: {} },
-    fx: { duty: { rate: 3, seq: [0, 1, 2, 3, 2, 1] }, pwm: { rate: 0.3, depth: 1400 } } });
-
-// ---------------------------------------------------------------- liked
-add("Leads", "Screamer", "Resonant SID saws with the filter opening on each note and fast vibrato; the pulses double the scream.", "lead",
-  { mode: "mono", voice: { sid: { w: 2, adsr: [0, 7, 12, 6], filt: 1 }, gbp: { duty: 1, vol: 8 }, nesp: { duty: 1, vol: 7 }, gbw: { wave: "saw" }, nest: {} },
-    det: 8, sidF: { cut: 400, res: 13, mode: 1, envAmt: 1400, envA: 0.03, envD: 0.4 }, fx: { vib: { rate: 7, depth: 0.35, delay: 0.15 } } });
-add("Pads", "Warm SID pad", "Detuned SID saws through a gentle low-pass with a slow attack; the other chips swell in softly.", "pad",
-  { voice: { sid: { w: 2, adsr: [10, 11, 14, 11], filt: 1 }, gbp: { duty: 2, vol: 6, senv: [1, 0.5, 0.9, 1] }, nesp: { duty: 2, vol: 5, senv: [1.2, 0.5, 0.9, 1] }, gbw: { wave: "sine", senv: [0.8, 0.3, 1, 1] }, nest: { senv: [0.8, 0.3, 1, 1] } },
-    det: 10, sidF: { cut: 600, res: 4, mode: 1 } });
-add("Pads", "Sweep pad", "The SID filter sweeping slowly up and down while the chord holds.", "pad",
-  { voice: { sid: { w: 2, adsr: [8, 10, 14, 11], filt: 1 }, gbp: { duty: 2, vol: 7, senv: [0.8, 0.4, 0.9, 1] }, nesp: { duty: 2, vol: 6, senv: [0.9, 0.4, 0.9, 1] }, gbw: { wave: "triangle", senv: [0.8, 0.4, 0.9, 1] }, nest: { senv: [0.8, 0.4, 0.9, 1] } },
-    det: 9, sidF: { cut: 700, res: 10, mode: 1 }, fx: { filt: { rate: 0.25, depth: 550 } } });
-add("Pads", "Chorus pad", "Everything doubled and detuned across chips, with slow vibrato drifting the voices apart.", "pad",
-  { voice: { sid: { w: 4, pw: 1800, adsr: [7, 10, 13, 10] }, gbp: { duty: 2, vol: 9 }, nesp: { duty: 2, vol: 8 }, gbw: { wave: "triangle" }, nest: {} },
-    det: 12, fx: { vib: { rate: 0.7, depth: 0.1, delay: 0 } } });
-add("Pads", "Breathing pad", "Slow tremolo on the Game Boy and NES, out of step with each other: the pad swells and breathes.", "pad",
-  { voice: { gbp: { duty: 2, vol: 11, senv: [0.6, 0.2, 1, 1] }, nesp: { duty: 1, vol: 10, senv: [0.6, 0.2, 1, 1] }, sid: { w: 4, pw: 2048, adsr: [9, 10, 13, 10] }, gbw: { wave: "sine", senv: [0.6, 0.2, 1, 1] }, nest: { senv: [0.6, 0.2, 1, 1] } },
-    det: 5, fx: { trem: { rate: 0.45, depth: 0.6 } } });
-add("Pads", "Dark pad", "Low SID saws through a closed filter, one octave down; the other chips stay soft and round.", "pad",
-  { voice: { sid: { w: 2, adsr: [10, 11, 14, 12], filt: 1, oct: -1 }, gbw: { wave: "sine" }, nest: {}, gbp: { duty: 2, vol: 5, senv: [1, 0.5, 0.9, 1] }, nesp: { duty: 2, vol: 4, senv: [1, 0.5, 0.9, 1] } },
-    det: 7, sidF: { cut: 300, res: 6, mode: 1 } });
-add("Pads", "Bright stack pad", "Pulses on everything, no filter, the Game Boy an octave up: big and bright.", "pad",
-  { voice: { sid: { w: 4, pw: 1400, adsr: [5, 10, 13, 10] }, gbp: { duty: 1, vol: 10, senv: [0.4, 0.3, 0.9, 0.8] }, nesp: { duty: 2, vol: 9, senv: [0.4, 0.3, 0.9, 0.8] }, gbw: { wave: "square" }, nest: {} },
-    jobs: [{ job: "octave sparkle", on: ["gbp", "nesp", "sid"], n: 2, oct: 1, note: "spread" }], det: 8 });
-add("Bass", "Glide bass", "Mono SID saw bass gliding between notes through a low-pass, triangle underneath.", "bass",
-  { mode: "mono", voice: { sid: { w: 2, adsr: [0, 9, 11, 5], filt: 1 }, nest: {}, gbw: { wave: "soft bass" }, gbp: { duty: 1, vol: 5 }, nesp: { duty: 2, vol: 5 } },
-    jobs: [{ job: "sub", on: ["nest", "gbw", "sid"], n: 1 }], det: 6, sidF: { cut: 500, res: 7, mode: 1 }, fx: { glide: 0.08 } });
-add("Bass", "Wave bass", "The Game Boy 'soft bass' wave with the NES triangle: smooth with a slight edge; pulses add a quiet top.", "bass",
-  { mode: "mono", voice: { gbw: { wave: "soft bass" }, nest: {}, sid: { w: 1, adsr: [0, 9, 12, 6] }, gbp: { duty: 1, vol: 4 }, nesp: { duty: 2, vol: 4 } },
-    jobs: [{ job: "bass body", on: ["gbw", "nest", "sid"], n: 2 }] });
-add("Keys and plucks", "Vibraphone", "Sine-ish tones with slow tremolo and a long ring.", "keys",
-  { voice: { sid: { w: 1, adsr: [0, 11, 3, 11] }, gbw: { wave: "sine", senv: [0.002, 1.5, 0.2, 1] }, nest: { senv: [0.002, 1.2, 0.15, 0.8] }, gbp: { duty: 2, vol: 5, senv: [0.002, 1.2, 0.15, 0.8] }, nesp: { duty: 2, vol: 4, senv: [0.002, 1.2, 0.15, 0.8] } },
-    fx: { trem: { rate: 4.5, depth: 0.5 } } });
-add("Experimental", "Tremolo gate", "Hard 8 Hz tremolo chopping the Game Boy and NES; the SID holds the chord steady.", "pad",
-  { voice: { gbp: { duty: 2, vol: 11 }, nesp: { duty: 2, vol: 10 }, sid: { w: 4, pw: 1600, adsr: [3, 10, 13, 9] }, gbw: { wave: "square" }, nest: {} },
-    fx: { trem: { rate: 8, depth: 1 } } });
-add("Experimental", "Detune beating", "Chips tuned 30 cents apart: slow, wide beating.", "drone",
-  { voice: { gbp: { duty: 2, vol: 11 }, nesp: { duty: 2, vol: 11 }, sid: { w: 4, pw: 2048, adsr: [4, 10, 14, 10] }, gbw: { wave: "square" }, nest: {} },
-    det: 30 });
-
-// ---------------------------------------------------------------- arpeggiator ideas (for Fat Chip 64's arpeggiator, not sounds)
-add("Arpeggiator ideas", "Glitch arp", "A jumble of fast steps across octaves, as an arpeggiator mode.", "fx",
-  { mode: "mono", voice: { nesp: { duty: 1, vol: 11 }, gbp: { duty: 0, vol: 8 }, sid: { w: 4, pw: 900, adsr: [0, 8, 12, 6] }, gbw: { wave: "square" }, nest: {} },
-    fx: { arp: { rate: 33, steps: [0, 19, 7, 24, 12, 3, 31, -5] } } });
-add("Arpeggiator ideas", "Stutter", "The same note ratcheting between octaves, as an arpeggiator mode.", "keys",
-  { mode: "mono", voice: { gbp: { duty: 1, vol: 12, env: [1, 0] }, nesp: { duty: 0, vol: 9, senv: [0.001, 0.25, 0, 0.05] }, sid: { w: 4, pw: 1000, adsr: [0, 7, 0, 6] }, gbw: { wave: "square" }, nest: {} },
-    fx: { arp: { rate: 16, steps: [0, 0, 12, 0] } } });
-add("Arpeggiator ideas", "Sweep arp", "One device climbing from very low to very high, fading in and out, then looping (Reeve's sweep-arpeggio idea).", "drone",
-  { mode: "mono", voice: { gbp: { duty: 1, vol: 12 } }, only: ["gbp"],
-    fx: { arp: { rate: 9, steps: Array.from({ length: 36 }, (_, i) => i * 2 - 24) }, trem: { rate: 0.25, depth: 1 } } });
-
-// ====================================================================== voices: the engine's channels, and Fat Chip 64's pool order
-const CH = { nes1: 0, nes2: 1, nestri: 2, nesnoise: 3, gb1: 4, gb2: 5, gbwave: 6, gbnoise: 7, sid1: 8, sid2: 9, sid3: 10 };
-const GROUP = { sid: ["sid1", "sid2", "sid3"], gbp: ["gb1", "gb2"], nesp: ["nes1", "nes2"], gbw: ["gbwave"], nest: ["nestri"], gbn: ["gbnoise"], nesn: ["nesnoise"] };
-const DEV = { sid: "sid", gbp: "gb", gbw: "gb", gbn: "gb", nesp: "nes", nest: "nes", nesn: "nes" };
-const POOL = ["sid1", "gb1", "nes1", "sid2", "gb2", "nes2", "sid3", "gbwave", "nestri"];   // as in voices.asm
-const groupOf = ch => Object.keys(GROUP).find(g => GROUP[g].includes(ch));
-const WAVES = {
-  sine: i => 7.5 + 7.5 * Math.sin(2 * Math.PI * i / 32), triangle: i => i < 16 ? i : 31 - i, saw: i => i / 2, square: i => i < 16 ? 15 : 0,
-  "soft bass": i => 7.5 + 5 * Math.sin(2 * Math.PI * i / 32) + 2.5 * Math.sin(4 * Math.PI * i / 32),
-  organ: i => 7.5 + 3.5 * Math.sin(2 * Math.PI * i / 32) + 2.5 * Math.sin(6 * Math.PI * i / 32) + 1.5 * Math.sin(10 * Math.PI * i / 32),
-};
-const waveTable = n => Array.from({ length: 32 }, (_, i) => Math.max(0, Math.min(15, Math.round((WAVES[n] || WAVES.sine)(i)))));
-const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
-const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const noteName = m => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
-
-// ====================================================================== audio
-let actx = null, node = null, master = null, analyser = null;
-async function ctx() {
-  if (!actx) {
-    actx = new AudioContext({ latencyHint: "interactive" });
-    await actx.audioWorklet.addModule(URL.createObjectURL(new Blob([ENGINE_SRC], { type: "text/javascript" })));
-    node = new AudioWorkletNode(actx, "chips", { numberOfInputs: 0, outputChannelCount: [1] });
-    master = actx.createGain(); master.gain.value = +$("master").value / 100 * 2;
-    analyser = actx.createAnalyser(); analyser.fftSize = 2048;
-    node.connect(master).connect(analyser).connect(actx.destination);
-    sendLevels(); requestAnimationFrame(scope);
+const OWN_ENV = /^(gb|nes)(Env|Attack|Decay|Sustain|Release)$/;   // the dice leave the chips' own envelopes alone
+const showableForDice = (eid, q) => !OWN_ENV.test(q.id) && ($("showAll").checked || used(eid, q.id));   // ... and hidden settings
+function rollAll(p) {
+  const ch = valueOf(p, "patch", "character");
+  for (const q of DEF.patch) if (q.rand && !locks["p:patch." + q.id] && (used("patch", q.id) || $("showAll").checked)) p[q.id] = rollParam(q);
+  for (const e of DEF.effects) {
+    if (locks["fx:" + e.id]) continue;
+    if (!e.alwaysOn && (effectUsed(e.id) || $("showAll").checked)) {
+      const on = ch.includes(e.id) || Math.random() < (e.randOn ?? 0.3);
+      if (!on) { delete p.fx[e.id]; continue; }
+      p.fx[e.id] ||= {};
+    }
+    if (isOn(p, e.id)) rollEffect(p, e.id);
   }
-  if (actx.state === "suspended") await actx.resume();
 }
-const send = m => node && node.port.postMessage(m);
-function sendLevels() { send({ t: "lv", at: 0, p: { nes: +$("lvNes").value / 100, gb: +$("lvGb").value / 100, sid: +$("lvSid").value / 100 } }); }
-
-// ====================================================================== who plays what: jobs, fallbacks, stacking, Fat Bass
-let devOn = store.get("devOn", { sid: true, gb: true, nes: true });
-let fbMode = store.get("fbMode", "patch"), bassLo = store.get("bassLo", 28), bassHi = store.get("bassHi", 40);   // E1–E2
-let fxOver = store.get("fxOver", {});
-const KIND = ch => groupOf(ch);
-const fold = m => { while (m > bassHi) m -= 12; while (m < bassLo) m += 12; return m; };
-const fatBassOn = patch => fbMode === "patch" ? !!patch.fatBass : fbMode === "on";   // per-patch default, or locked on / off
-function playMode(patch) { const v = $("playAs").value; return v === "patch" ? patch.mode : v; }
-function fxOf(patch) {   // the patch's effect modules, with Reeve's adjustments on top
-  const o = fxOver[patch.id] || {}, out = {};
-  for (const [k, v] of Object.entries(patch.fx || {})) out[k] = typeof v === "object" ? { ...v, ...(o[k] || {}) } : o[k] ?? v;
+// blend: a -> b at t (0-1)
+function mixParam(q, a, b, t) {
+  if (q.blend === "switch" || typeof a !== "number" || typeof b !== "number") return t < 0.5 ? a : b;
+  let v = q.blend === "log" && a > 0 && b > 0 ? Math.exp(Math.log(a) + (Math.log(b) - Math.log(a)) * t) : a + (b - a) * t;
+  if (q.type === "ms" && q.values) return q.values.reduce((x, y) => Math.abs(Math.log(y) - Math.log(v)) < Math.abs(Math.log(x) - Math.log(v)) ? y : x);
+  if (q.type === "hz") return +v.toFixed(2);
+  return Math.round(v);
+}
+function blend(A, B, t) {
+  const out = { name: t < 0.5 ? A.name : B.name, fx: {} };
+  for (const q of DEF.patch) if (q.id !== "name") out[q.id] = mixParam(q, valueOf(A, "patch", q.id), valueOf(B, "patch", q.id), t);
+  for (const e of DEF.effects) {
+    const a = isOn(A, e.id), b = isOn(B, e.id);
+    if (!(t < 0.5 ? a : b)) continue;
+    const both = a && b, src = t < 0.5 ? A : B, vals = {};
+    for (const q of e.params) vals[q.id] = both ? mixParam(q, valueOf(A, e.id, q.id), valueOf(B, e.id, q.id), t) : valueOf(src, e.id, q.id);
+    const on = src.fx?.[e.id]?.on; if (on) vals.on = on;
+    out.fx[e.id] = vals;
+  }
   return out;
 }
-const DET = [0, 0.5, -0.5, 1, -1, 0.25, -0.25, 0.75, -0.75];
-// notes -> [{ch, note, job, oct}]
-function allocate(patch, notes) {
-  notes = [...new Set(notes)].sort((a, b) => a - b); if (!notes.length) return [];
-  if (playMode(patch) === "mono") notes = [notes[notes.length - 1]];
-  const free = POOL.filter(ch => devOn[DEV[KIND(ch)]] && (!patch.only || patch.only.includes(KIND(ch))));
-  const take = (kinds, n) => { const got = []; for (const k of kinds) for (const ch of free.slice()) if (KIND(ch) === k && got.length < n) { got.push(ch); free.splice(free.indexOf(ch), 1); } return got; };
-  // spread notes over channels the Fat Chip 64 way: one each lowest first, leftovers on the lowest two
-  const spread = (chs, ns) => chs.map((ch, i) => ({ ch, note: i < ns.length ? ns[i] : ns[(i - ns.length) % Math.min(2, ns.length)] }));
-  const out = [];
-  if (fatBassOn(patch) && !patch.only) for (const ch of take(["nest", "gbw", "sid"], 2)) out.push({ ch, note: fold(notes[0]), job: "Fat Bass" });
-  for (const J of patch.jobs || []) {
-    const chs = take(J.on, J.n || 1);
-    const ns = J.note === "top" ? [notes[notes.length - 1]] : notes;
-    for (const a of spread(chs, ns)) out.push({ ...a, job: J.job, oct: J.oct || 0 });
-  }
-  // rule 1: everything left plays the main sound
-  const rest = POOL.filter(ch => free.includes(ch) && patch.voice[KIND(ch)]);
-  for (const a of spread(rest, notes)) out.push({ ...a, job: "main" });
-  return out;
+function fmt(q, v) {
+  if (q.type === "enum") return q.values[v] ?? v;
+  if (q.type === "bool") return v ? "ON" : "OFF";
+  if (q.type === "flags") return q.values.filter((_, i) => v >> i & 1).join("+") || "–";
+  if (q.type === "ms") return v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + " s" : v + " ms";
+  if (q.type === "hz") return v + " Hz";
+  if (q.type === "text" || q.type === "effects") return "";
+  return v + (q.unit ? " " + q.unit.replace("semitones", "st").replace("octaves", "oct") : "");
 }
-// what a channel gets: the patch's voice for its kind, its detune, the effect modules
-function payload(patch, a, idx) {
-  const kind = KIND(a.ch), v = patch.voice[kind] || {}, fx = fxOf(patch), bass = a.job === "Fat Bass";
-  const m = a.note + 12 * ((a.oct || 0) + (bass ? 0 : v.oct || 0)) + (bass ? 0 : (patch.det || 0) * DET[idx % DET.length] / 100);
-  const p = { f: midiHz(m) };
-  if (fx.glide) p.glide = fx.glide;
-  if (!bass) {
-    if (fx.vib) p.vib = fx.vib;
-    if (fx.warb) p.warb = fx.warb;
-    if (fx.arp) p.arp = fx.arp;
-    if (fx.trem && kind !== "sid" && kind !== "nest") p.trem = fx.trem;
-    if (fx.duty && (kind === "gbp" || kind === "nesp")) p.dseq = { seq: fx.duty.seq, rate: fx.duty.rate * (1 + 0.23 * (idx % 3)) };   // each pulse at its own pace
+
+// ====================================================================== MIDI: the C64 on the out, a keyboard on the in
+let midi = null, out = null, lastOut = null, inp = null, sent = 0, sendTimer = null, lastSend = 0;
+async function midiAccess() {
+  if (midi) return midi;
+  if (!navigator.requestMIDIAccess) { $("noMidi").hidden = false; return null; }
+  try { midi = await navigator.requestMIDIAccess({ sysex: true }); } catch { $("noMidi").hidden = false; $("noMidi").textContent = "MIDI with SysEx wasn't allowed. Allow it for this page (the site settings in the address bar) and reload."; return null; }
+  midi.onstatechange = fillPorts; fillPorts();
+  return midi;
+}
+function fillPorts() {
+  for (const [id, list, key] of [["midiOut", midi.outputs, "out"], ["midiIn", midi.inputs, "in"]]) {
+    const s = $(id), want = store.get("port." + key, ""), cur = s.value || want;
+    s.innerHTML = key === "out" ? '<option value="">Choose…</option>' : '<option value="">Off</option>';
+    for (const p of list.values()) s.add(new Option(p.name, p.id));
+    if ([...s.options].some(o => o.value === cur)) s.value = cur;
   }
-  if (kind === "sid") {
-    Object.assign(p, { w: v.w || 2, pw: v.pw ?? 2048, filt: v.filt || 0 });
-    [p.a, p.d, p.s, p.r] = v.adsr || [0, 8, 12, 6];
-    if (bass) { p.w = 1; p.filt = 0; }
-    if (!bass && fx.pwm) p.pwm = fx.pwm;
-    if (!bass && fx.duty && p.w === 4) p.pwm = { rate: fx.duty.rate / fx.duty.seq.length, depth: 900 };
-  } else if (kind === "gbw") Object.assign(p, { wave: waveTable(bass ? "sine" : v.wave || "sine"), level: 1, vol: 10 });
-  else if (kind === "nest") p.vol = 10;
-  else { p.duty = v.duty ?? 2; p.vol = bass ? 10 : v.vol ?? 10; if (v.env) { p.envPace = v.env[0]; p.envDir = v.env[1]; } }
-  if (v.senv && !bass) p.senv = SE(...v.senv);
-  else if (v.senv && bass) p.senv = SE(v.senv[0], v.senv[1], Math.max(0.6, v.senv[2]), v.senv[3]);
+  connect();
+}
+function connect() {
+  out = midi && $("midiOut").value ? midi.outputs.get($("midiOut").value) : null;
+  if (inp) inp.onmidimessage = null;
+  inp = midi && $("midiIn").value ? midi.inputs.get($("midiIn").value) : null;
+  if (inp) inp.onmidimessage = e => {   // a keyboard on the Mac plays the C64: channel messages passed on
+    const st = e.data[0]; if (st >= 0xF0 || !out) return;
+    out.send(e.data);
+    const t = st & 0xF0, n = e.data[1]; if (t === 0x90 && e.data[2]) markKey(n, true); else if (t === 0x80 || t === 0x90) markKey(n, false);
+  };
+  state(out ? "Connected: " + (sent ? sent + " sent" : "nothing sent yet") : "Not connected", out ? "ok" : "");
+  if (out && out.id !== lastOut && work) sendNow();   // a C64 newly connected starts out with what's on screen
+  lastOut = out ? out.id : null;
+}
+function state(text, cls) { $("sendState").textContent = text; $("sendDot").className = "dot" + (cls ? " " + cls : ""); }
+function sendNow(p = work) {
+  if (!out) return;
+  try { out.send(fc.sysex(p)); sent++; lastSend = performance.now(); state(`Sent “${p.name}” (${sent})`, "ok"); $("sendDot").classList.add("flash"); setTimeout(() => $("sendDot").classList.remove("flash"), 120); }
+  catch (e) { state("Couldn't send: " + e.message, ""); }
+}
+function changed(p = work) {   // after any edit: send soon (at most every 120 ms), remember the work
+  saveWork();
+  if (!$("autoSend").checked || !out) return;
+  clearTimeout(sendTimer);
+  const wait = Math.max(0, 120 - (performance.now() - lastSend));
+  sendTimer = setTimeout(() => sendNow(p), wait);
+}
+const note = (on, n) => out && out.send(on ? [0x90, n, 100] : [0x80, n, 0]);
+
+// ====================================================================== drawing
+const builtPatch = i => clone(BUILT[i]);
+function saveWork() { store.set("work", work); store.set("origin", origin); store.set("locks", locks); $("curName").textContent = work.name + (dirty() ? " (changed)" : ""); }
+function sourcePatch() { return origin.kind === "built" ? BUILT[origin.i] : mine[origin.i]; }
+const dirty = () => { const s = sourcePatch(); if (!s) return true; const a = clone(s); delete a.notes; return JSON.stringify(a) !== JSON.stringify(stripNotes(work)); };
+const stripNotes = p => { const a = clone(p); delete a.notes; return a; };
+function drawLists() {
+  const mk = (box, list, kind) => {
+    box.innerHTML = "";
+    list.forEach((p, i) => {
+      const b = document.createElement("button"); b.className = "pbtn"; b.textContent = p.name;
+      b.setAttribute("aria-pressed", origin.kind === kind && origin.i === i);
+      b.onclick = () => { origin = { kind, i }; work = clone(p); work.fx ||= {}; drawAll(); changed(); };
+      box.append(b);
+    });
+  };
+  mk($("builtList"), BUILT, "built"); mk($("myList"), mine, "mine");
+  $("myCount").textContent = mine.length ? `(${mine.length})` : "(none yet: Save keeps the one you're editing)";
+  $("delBtn").disabled = origin.kind !== "mine";
+  for (const id of ["blendA", "blendB"]) {
+    const s = $(id), v = s.value; s.innerHTML = "";
+    BUILT.forEach((p, i) => s.add(new Option(p.name, "b" + i)));
+    mine.forEach((p, i) => s.add(new Option("★ " + p.name, "m" + i)));
+    s.value = v || (id === "blendA" ? "b0" : "b1");
+  }
+}
+function control(eid, q, v) {
+  const key = eid + "." + q.id;
+  if (q.type === "enum" || (q.type === "ms" && q.values)) {
+    const opts = q.type === "enum" ? q.values.map((x, i) => `<option value="${i}"${i === v ? " selected" : ""}>${esc(x)}</option>`)
+      : q.values.map(x => `<option value="${x}"${x === v ? " selected" : ""}>${fmt(q, x)}</option>`);
+    return `<select data-k="${key}" aria-label="${esc(q.name)}">${opts.join("")}</select>`;
+  }
+  if (q.type === "bool") return `<button class="sw" role="switch" aria-checked="${!!v}" data-k="${key}" aria-label="${esc(q.name)}"></button>`;
+  if (q.type === "flags") return `<span class="row" style="gap:3px">${q.values.map((x, i) => `<button class="chip" data-k="${key}" data-bit="${i}" aria-pressed="${!!(v >> i & 1)}">${esc(x)}</button>`).join("")}</span>`;
+  if (q.type === "hz") return `<input type="range" data-k="${key}" data-log="1" min="${Math.log(q.min)}" max="${Math.log(q.max)}" step="0.01" value="${Math.log(v)}" aria-label="${esc(q.name)}">`;
+  return `<input type="range" data-k="${key}" min="${q.min}" max="${q.max}" step="1" value="${v}" aria-label="${esc(q.name)}">`;
+}
+function paramRow(eid, q) {
+  const v = valueOf(work, eid, q.id), k = eid + "." + q.id, nc = !used(eid, q.id);
+  const m = eid === "env" && /^(gb|nes)(Attack|Decay|Sustain|Release)$/.exec(q.id);   // a chip's own envelope: shown when it's OWN
+  const hide = (nc && !$("showAll").checked) || (m && !valueOf(work, "env", m[1] + "Env"));
+  return `<div class="prm${nc ? " nc" : ""}${hide ? " hide" : ""}"><span title="${esc(q.doc || q.name)}">${esc(q.name)}</span>${control(eid, q, v)}<output>${esc(fmt(q, v))}</output>
+    <button class="ico tiny" data-dice="${k}" title="Roll ${esc(q.name)}">🎲</button><button class="ico tiny" data-lock="p:${k}" aria-pressed="${!!locks["p:" + k]}" title="Lock ${esc(q.name)}">🔒</button></div>`;
+}
+function drawEditor() {
+  $("pName").value = work.name;
+  // patch settings
+  const sbox = $("settings"); sbox.innerHTML = "";
+  for (const q of DEF.patch) {
+    if (["name", "character"].includes(q.id)) continue;
+    const nc = !used("patch", q.id); if (nc && !$("showAll").checked) continue;
+    const d = document.createElement("div"); d.innerHTML = paramRow("patch", q); sbox.append(d.firstElementChild);
+  }
+  // effects
+  const box = $("fxgrid"); box.innerHTML = ""; const ch = valueOf(work, "patch", "character");
+  for (const e of DEF.effects) {
+    if (!effectUsed(e.id) && !$("showAll").checked) continue;
+    const on = isOn(work, e.id), chips = chipsOf(work, e.id), possible = e.chips || ALL_CHIPS;
+    const c = document.createElement("article"); c.className = "fx" + (on ? "" : " off") + (ch.includes(e.id) ? " char" : ""); c.dataset.e = e.id;
+    c.innerHTML = `<div class="fxh"><button class="sw" role="switch" data-on="${e.id}" aria-checked="${on}" ${e.alwaysOn ? "disabled" : ""} aria-label="${esc(e.name)} on"></button>
+      <h3 title="${esc(e.doc || "")}">${esc(e.name)}${effectUsed(e.id) ? "" : " ·"}</h3>
+      ${e.alwaysOn || possible.length < 2 ? "" : possible.map(x => `<button class="chip" data-chip="${e.id}.${x}" aria-pressed="${chips.includes(x)}">${x.toUpperCase()}</button>`).join("")}
+      <button class="ico" data-char="${e.id}" aria-pressed="${ch.includes(e.id)}" title="Character: this effect makes the patch what it is">★</button>
+      <button class="ico" data-dicefx="${e.id}" title="Roll ${esc(e.name)}">🎲</button><button class="ico" data-lock="fx:${e.id}" aria-pressed="${!!locks["fx:" + e.id]}" title="Lock ${esc(e.name)}">🔒</button></div>
+      <div class="fxbody">${e.params.map(q => paramRow(e.id, q)).join("")}</div>`;
+    box.append(c);
+  }
+  $("noteName").textContent = work.name;
+  $("pNotes").value = notes[work.name] || "";
+  wire($("settings")); wire($("fxgrid"));
+}
+function readControl(el, q, eid) {
+  if (el.dataset.bit != null) return valueOf(work, eid, q.id) ^ (1 << +el.dataset.bit);
+  if (el.classList.contains("sw")) return el.getAttribute("aria-checked") === "true" ? 0 : 1;
+  if (el.dataset.log) return +Math.exp(+el.value).toFixed(2);
+  return +el.value;
+}
+function wire(root) {
+  root.querySelectorAll("[data-k]").forEach(el => {
+    const ev = el.tagName === "INPUT" ? "input" : el.tagName === "SELECT" ? "change" : "click";
+    el.addEventListener(ev, () => {
+      const [eid, pid] = el.dataset.k.split("."), q = parOf(eid, pid), v = readControl(el, q, eid);
+      if (eid !== "patch" && !isOn(work, eid)) work.fx[eid] = {};
+      setValue(work, eid, pid, v);
+      if (el.classList.contains("sw")) el.setAttribute("aria-checked", !!v);
+      if (el.dataset.bit != null) el.setAttribute("aria-pressed", !!(v >> +el.dataset.bit & 1));
+      el.closest(".prm").querySelector("output").textContent = fmt(q, v);
+      if (/^(gb|nes)Env$/.test(pid)) drawEditor();
+      changed();
+    });
+    if (el.tagName === "SELECT") el.addEventListener("change", () => el.blur());
+  });
+  root.querySelectorAll("[data-on]").forEach(b => b.onclick = () => {
+    const id = b.dataset.on; if (isOn(work, id)) delete work.fx[id]; else work.fx[id] = {};
+    b.setAttribute("aria-checked", isOn(work, id)); b.closest(".fx").classList.toggle("off", !isOn(work, id)); changed();
+  });
+  root.querySelectorAll("[data-chip]").forEach(b => b.onclick = () => {
+    const [id, x] = b.dataset.chip.split("."); let cs = chipsOf(work, id).slice();
+    cs = cs.includes(x) ? cs.filter(y => y !== x) : [...cs, x]; if (!cs.length) return;
+    if (!isOn(work, id)) work.fx[id] = {};
+    const all = effOf(id).chips || ALL_CHIPS; if (all.every(y => cs.includes(y))) delete work.fx[id].on; else work.fx[id].on = all.filter(y => cs.includes(y));
+    b.setAttribute("aria-pressed", cs.includes(x)); changed();
+  });
+  root.querySelectorAll("[data-char]").forEach(b => b.onclick = () => {
+    const id = b.dataset.char; let ch = valueOf(work, "patch", "character").slice();
+    ch = ch.includes(id) ? ch.filter(x => x !== id) : [...ch, id]; work.character = ch;
+    b.setAttribute("aria-pressed", ch.includes(id)); b.closest(".fx").classList.toggle("char", ch.includes(id)); saveWork();
+  });
+  root.querySelectorAll("[data-lock]").forEach(b => b.onclick = () => { const k = b.dataset.lock; if (locks[k]) delete locks[k]; else locks[k] = 1; b.setAttribute("aria-pressed", !!locks[k]); saveWork(); });
+  root.querySelectorAll("[data-dice]").forEach(b => b.onclick = () => {
+    const [eid, pid] = b.dataset.dice.split("."), q = parOf(eid, pid);
+    if (eid !== "patch" && !isOn(work, eid)) work.fx[eid] = {};
+    setValue(work, eid, pid, rollParam(q)); drawEditor(); changed();
+  });
+  root.querySelectorAll("[data-dicefx]").forEach(b => b.onclick = () => { const id = b.dataset.dicefx; if (!isOn(work, id)) work.fx[id] = {}; rollEffect(work, id); drawEditor(); changed(); });
+}
+function drawAll() { drawLists(); drawEditor(); saveWork(); }
+
+// ====================================================================== buttons
+$("pName").oninput = () => { work.name = $("pName").value.toUpperCase().replace(/[^ -Z]/g, ""); $("noteName").textContent = work.name; $("pNotes").value = notes[work.name] || ""; changed(); };
+$("pName").onchange = () => { $("pName").value = work.name; };
+$("pNotes").oninput = () => { if ($("pNotes").value) notes[work.name] = $("pNotes").value; else delete notes[work.name]; store.set("notes", notes); };
+$("diceAll").onclick = () => { rollAll(work); drawEditor(); changed(); };
+$("revertBtn").onclick = () => { const s = sourcePatch(); if (s) { work = clone(s); work.fx ||= {}; drawAll(); changed(); } };
+$("saveBtn").onclick = () => {
+  const p = clone(work); p.name ||= "NEW PATCH";
+  if (origin.kind === "mine") mine[origin.i] = p;
+  else { if (mine.some(m => m.name === p.name) || BUILT.some(b => b.name === p.name)) p.name = (p.name.slice(0, 13) + " " + (mine.length + 2)).slice(0, 16); mine.push(p); origin = { kind: "mine", i: mine.length - 1 }; work = clone(p); }
+  store.set("mine", mine); drawAll();
+};
+$("newBtn").onclick = () => {
+  work = { name: "DICE " + Math.floor(Math.random() * 900 + 100), fx: {} }; origin = { kind: "new" };
+  locks = {}; rollAll(work); drawAll(); changed();
+};
+$("delBtn").onclick = () => {
+  if (origin.kind !== "mine") return;
+  if (!confirm(`Delete “${mine[origin.i].name}” from your patches?`)) return;
+  mine.splice(origin.i, 1); store.set("mine", mine); origin = { kind: "new" }; drawAll();
+};
+$("showAll").checked = store.get("showAll", false);
+$("showAll").onchange = () => { store.set("showAll", $("showAll").checked); drawEditor(); };
+$("sendBtn").onclick = () => sendNow();
+$("panicBtn").onclick = () => { if (!out) return; for (let ch = 0; ch < 11; ch++) out.send([0xB0 | ch, 123, 0]); for (let n = 0; n < 128; n++) out.send([0x80, n, 0]); };
+$("autoSend").checked = store.get("autoSend", true);
+$("autoSend").onchange = () => store.set("autoSend", $("autoSend").checked);
+for (const [id, key] of [["midiOut", "out"], ["midiIn", "in"]]) {
+  $(id).addEventListener("pointerdown", () => midiAccess(), { once: true });
+  $(id).addEventListener("focus", () => midiAccess(), { once: true });
+  $(id).onchange = () => { store.set("port." + key, $(id).value); connect(); $(id).blur(); };
+}
+// blend
+const pick = v => v[0] === "b" ? BUILT[+v.slice(1)] : mine[+v.slice(1)];
+function blendNow() {
+  const t = +$("blendT").value / 100; $("blendOut").textContent = $("blendT").value + " %";
+  const A = pick($("blendA").value), B = pick($("blendB").value); if (!A || !B) return null;
+  const p = blend(A, B, t); p.name = (t < 0.5 ? A.name : B.name).slice(0, 12) + " " + Math.round(t * 100) + "%";
   return p;
 }
-function sidFilter(patch) {
-  const fx = fxOf(patch);
-  return { cut: 2047, res: 0, mode: 1, envAmt: 0, envA: 0.01, envD: 0.5, lfoRate: 0, lfoDepth: 0, ...(patch.sidF || {}), ...(fx.filt ? { lfoRate: fx.filt.rate, lfoDepth: fx.filt.depth } : {}) };
-}
-// MIDI cost: messages per second Fat Chip would send to the GB and NES for this sound's effects (one held note)
-function midiCost(patch) {
-  const fx = fxOf(patch); let n = 0;
-  for (const a of allocate(patch, [60])) {
-    const k = KIND(a.ch); if (k === "sid" || a.job === "Fat Bass") continue;
-    if (fx.vib) n += Math.max(40, fx.vib.rate * 16);
-    if (fx.warb) n += 25;
-    if (fx.arp) n += fx.arp.rate;
-    if (fx.trem && k !== "nest") n += fx.trem.rate * 2 * Math.round(fx.trem.depth * (patch.voice[k]?.vol || 10));
-    if (fx.duty && (k === "gbp" || k === "nesp")) n += fx.duty.rate;
-  }
-  return Math.round(n);
-}
-
-// ====================================================================== playing: demo phrases and the keyboard
-// demo phrases, in beats: [start, notes, length]
-const DEMOS = {
-  lead: { bpm: 100, ev: [[0, [67], 1], [1, [70], 0.5], [1.5, [72], 1.5], [3, [75], 0.5], [3.5, [74], 0.5], [4, [72], 1], [5, [70], 0.5], [5.5, [67], 0.5], [6, [65], 1], [7, [67], 1.5]] },
-  pad: { bpm: 80, ev: [[0, [48, 55, 64, 71], 4], [4, [45, 52, 60, 67], 4], [8, [41, 48, 57, 64], 4]] },
-  bass: { bpm: 110, ev: [[0, [36], 0.75], [1, [36], 0.5], [1.5, [48], 0.5], [2, [43], 0.75], [3, [46], 0.5], [3.5, [41], 0.5], [4, [36], 0.75], [5, [39], 0.5], [5.5, [41], 0.5], [6, [43], 1], [7, [34], 0.75]] },
-  arp: { bpm: 112, ev: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(i => [i / 2, [[60, 64, 67, 72, 76, 72, 67, 64][i % 8] - (i >= 8 ? 3 : 0)], 0.4]) },
-  keys: { bpm: 96, ev: [[0, [60, 64, 67], 0.5], [1, [60, 64, 67], 0.5], [1.5, [62, 65, 69], 1], [3, [59, 62, 67], 0.5], [3.5, [60, 64, 67], 1.5], [5, [72], 0.5], [5.5, [74], 0.5], [6, [76], 1]] },
-  fx: { bpm: 90, ev: [[0, [60], 1.5], [2, [65], 1.5], [4, [55], 2]] },
-  drone: { bpm: 60, ev: [[0, [48, 55], 8]] },
+$("blendT").oninput = () => { const p = blendNow(); if (p && out && $("autoSend").checked) { clearTimeout(sendTimer); sendTimer = setTimeout(() => sendNow(p), Math.max(0, 120 - (performance.now() - lastSend))); } };
+for (const id of ["blendA", "blendB"]) $(id).onchange = () => { $("blendT").oninput(); $(id).blur(); };
+$("blendKeep").onclick = () => { const p = blendNow(); if (!p) return; work = p; origin = { kind: "new" }; drawAll(); changed(); window.scrollTo({ top: $("fxgrid").offsetTop - 200, behavior: "smooth" }); };
+$("exportBtn").onclick = () => {
+  const data = { app: "fatchip-chiplab", version: 3, exported: new Date().toISOString(), definition: DEF.version, patches: mine, editing: work, notes };
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+  a.download = `chiplab-patches-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
-let playing = null;   // {timers, until}
-async function playDemo(patch, card) {
-  await ctx(); stopAll();
-  const D = DEMOS[patch.demo] || DEMOS.lead, beat = 60 / D.bpm, t0 = actx.currentTime + 0.05, mono = playMode(patch) === "mono";
-  const ev = D.ev.map(([s, n, l]) => ({ t: t0 + s * beat, n, end: t0 + (s + l) * beat }));
-  const msgs = [];
-  ev.forEach((e, i) => {
-    const next = ev[i + 1], legato = mono && next && next.t <= e.end + 1e-6;
-    msgs.push({ t: "sidf", at: e.t, p: sidFilter(patch), trig: true });
-    const a = allocate(patch, e.n);
-    a.forEach((x, idx) => {
-      const ch = x.ch, p = payload(patch, x, idx), d = 0;
-      msgs.push({ t: "on", v: CH[ch], at: e.t + d, p });
-      if (!legato) msgs.push({ t: "off", v: CH[ch], at: (next && !mono && next.t <= e.end ? e.end - 0.003 : e.end) + d });
-    });
-  });
-  send(msgs);
-  const end = ev[ev.length - 1].end + 1.5;
-  card?.classList.add("playing");
-  playing = { patch, card, timer: setTimeout(() => { card?.classList.remove("playing"); playing = null; }, (end - actx.currentTime) * 1000) };
-}
-function stopAll() { send([{ t: "allOff", at: 0 }, { t: "fxClear", at: 0 }]); if (playing) { clearTimeout(playing.timer); playing.card?.classList.remove("playing"); playing = null; } held.clear(); keyAlloc = []; document.querySelectorAll(".key.down").forEach(k => k.classList.remove("down")); }
-// keyboard: the selected patch, re-stacked whenever the held notes change (like Fat Chip)
-let held = new Set(), keyAlloc = [], current = store.get("current", P[0].id), octave = store.get("octave", 4);
-const curPatch = () => P.find(p => p.id === current) || P[0];
-async function restack() {
-  await ctx();
-  const patch = curPatch(), notes = [...held], at = actx.currentTime + 0.005;
-  const next = allocate(patch, notes);
-  const msgs = [];
-  if (next.length && !keyAlloc.length) msgs.push({ t: "sidf", at, p: sidFilter(patch), trig: true });
-  for (const o of keyAlloc) if (!next.some(n => n.ch === o.ch)) msgs.push({ t: "off", v: CH[o.ch], at });
-  next.forEach((n, idx) => { const o = keyAlloc.find(x => x.ch === n.ch); if (!o || o.note !== n.note || o.job !== n.job) msgs.push({ t: "on", v: CH[n.ch], at, p: payload(patch, n, idx) }); });
-  keyAlloc = next; send(msgs);
-}
-function keyDown(m) { if (held.has(m)) return; held.delete(m); held.add(m); markKey(m, true); restack(); }
-function keyUp(m) { if (!held.delete(m)) return; markKey(m, false); restack(); }
+
+// ====================================================================== keys: notes to the C64 on channel 1
+let octave = store.get("octave", 4); const held = new Set();
+const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], noteName = m => NAMES[m % 12] + (Math.floor(m / 12) - 1);
+function keyDown(m) { if (held.has(m)) return; held.add(m); markKey(m, true); note(true, m); }
+function keyUp(m) { if (!held.delete(m)) return; markKey(m, false); note(false, m); }
 function markKey(m, on) { const k = document.querySelector(`.key[data-m="${m}"]`); if (k) k.classList.toggle("down", on); }
 function drawKeys() {
-  const box = $("keys"); box.innerHTML = "";
-  const lo = 12 * (octave + 1);
+  const box = $("keys"); box.innerHTML = ""; const lo = 12 * (octave + 1);
   for (let m = lo; m < lo + 25; m++) {
     const black = [1, 3, 6, 8, 10].includes(m % 12), k = document.createElement("button");
     k.className = "key" + (black ? " black" : ""); k.dataset.m = m; k.setAttribute("aria-label", noteName(m)); if (m % 12 === 0) k.textContent = noteName(m);
@@ -578,173 +511,31 @@ function drawKeys() {
     box.append(k);
   }
   $("octOut").textContent = `C${octave}–C${octave + 2}`;
-  $("curName").textContent = $("curName2").textContent = curPatch().name;
 }
 const KEYMAP = "awsedftgyhujkolp;'";
 document.addEventListener("keydown", e => {
   if (e.repeat || e.target.closest?.("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
   const i = KEYMAP.indexOf(e.key.toLowerCase());
   if (i >= 0) { e.preventDefault(); keyDown(12 * (octave + 1) + i); return; }
-  if (e.key === "z") { octave = Math.max(0, octave - 1); store.set("octave", octave); drawKeys(); }
-  if (e.key === "x") { octave = Math.min(7, octave + 1); store.set("octave", octave); drawKeys(); }
-  if (e.key === "Escape") stopAll();
+  if (e.key === "z" || e.key === "x") { [...held].forEach(keyUp); octave = Math.max(0, Math.min(7, octave + (e.key === "x" ? 1 : -1))); store.set("octave", octave); drawKeys(); }
 });
 document.addEventListener("keyup", e => { const i = KEYMAP.indexOf(e.key.toLowerCase()); if (i >= 0) keyUp(12 * (octave + 1) + i); });
-let midi = null;
-$("midiIn").addEventListener("pointerdown", async () => {
-  if (midi || !navigator.requestMIDIAccess) return;
-  try { midi = await navigator.requestMIDIAccess(); } catch { return; }
-  const fill = () => { const s = $("midiIn"), v = s.value; s.innerHTML = '<option value="">Off</option>'; for (const i of midi.inputs.values()) s.add(new Option(i.name, i.id)); s.value = v; };
-  midi.onstatechange = fill; fill();
-}, { once: true });
-$("midiIn").onchange = () => {
-  if (!midi) return;
-  for (const i of midi.inputs.values()) i.onmidimessage = null;
-  const inp = midi.inputs.get($("midiIn").value); if (inp) inp.onmidimessage = e => { const [st, a, b] = e.data, t = st & 0xF0; if (t === 0x90 && b) keyDown(a); else if (t === 0x80 || (t === 0x90 && !b)) keyUp(a); };
-  $("midiIn").blur();
-};
+window.addEventListener("blur", () => [...held].forEach(keyUp));
 
-// ====================================================================== the library: rate, note, needs
-let ratings = store.get("ratings", {});   // id -> {r: "yes" | "maybe" | "no", note, needs: ["sid", ...]}
-const RLABEL = { yes: "Yes", maybe: "Maybe", no: "No" };
-const rate = id => ratings[id] || (ratings[id] = { r: "", note: "", needs: [] });
-const saveRatings = () => { store.set("ratings", ratings); drawCounts(); };
-const usesDev = (p, d) => Object.keys(p.voice || {}).some(g => DEV[g] === d);
-function drawCounts() {
-  const all = P.length, c = { yes: 0, maybe: 0, no: 0 }; for (const p of P) { const r = ratings[p.id]?.r; if (r) c[r]++; }
-  $("counts").textContent = `${all} sounds · ${c.yes} yes · ${c.maybe} maybe · ${c.no} no · ${all - c.yes - c.maybe - c.no} to go`;
-}
-function drawLib() {
-  const box = $("lib"), f = $("filter").value; box.innerHTML = "";
-  let cat = null, grid = null;
-  for (const p of P) {
-    const R = ratings[p.id] || {};
-    if (f === "unrated" && R.r) continue; if (["yes", "maybe", "no"].includes(f) && R.r !== f) continue;
-    if (p.cat !== cat) { cat = p.cat; const h = document.createElement("h3"); h.className = "cat"; h.textContent = cat; box.append(h); grid = document.createElement("div"); grid.className = "lib"; box.append(grid); }
-    const devs = ["sid", "gb", "nes"].filter(d => usesDev(p, d));
-    const c = document.createElement("article"); c.className = "snd" + (p.id === current ? " current" : "") + (R.r ? " r-" + R.r : ""); c.dataset.id = p.id;
-    c.innerHTML = `<div class="sh"><button class="playbtn" aria-label="Play the ${p.name} demo">▶</button><div><h4>${p.name}</h4><p class="uses">${devs.map(d => `<span class="dv d-${d}${devOn[d] ? "" : " off"}">${d.toUpperCase()}</span>`).join("")}${p.mode === "mono" ? '<span class="dv">mono</span>' : ""}${p.fatBass ? '<span class="dv" title="Comes with Fat Bass on">fat bass</span>' : ""}${costTag(p)}</p></div></div>
-      <p class="sdesc">${p.desc}</p>
-      <div class="rate" role="group" aria-label="Rating">${["yes", "maybe", "no"].map(r => `<button data-r="${r}" aria-pressed="${R.r === r}">${RLABEL[r]}</button>`).join("")}
-</div>
-      <div class="needs"><span>Needs</span>${["sid", "gb", "nes"].map(d => `<button data-n="${d}" aria-pressed="${(R.needs || []).includes(d)}">${d.toUpperCase()}</button>`).join("")}</div>
-      ${fxPanel(p)}
-      <textarea placeholder="Notes for Claude…" rows="1" aria-label="Notes on ${p.name}">${R.note || ""}</textarea>`;
-    c.querySelectorAll("[data-fx]").forEach(inp => {
-      inp.addEventListener("input", () => {
-        const [mod, key] = inp.dataset.fx.split("."), o = fxOver[p.id] ||= {};
-        if (key) (o[mod] ||= {})[key] = +inp.value; else o[mod] = +inp.value;
-        store.set("fxOver", fxOver); inp.nextElementSibling.textContent = inp.value;
-        c.querySelector("[data-fxreset]").hidden = false; c.querySelector(".fxchanged").hidden = false;
-        liveFx(p);
-        c.querySelector(".cost")?.replaceWith(htmlEl(costTag(p)));
-      });
-      inp.addEventListener("change", () => inp.blur());
-    });
-    const rs = c.querySelector("[data-fxreset]"); if (rs) rs.onclick = () => {   // back to the patch as designed, this card only
-      delete fxOver[p.id]; store.set("fxOver", fxOver);
-      const fx = fxOf(p);
-      c.querySelectorAll("[data-fx]").forEach(inp => { const [mod, key] = inp.dataset.fx.split("."), v = key ? fx[mod][key] ?? 0 : fx[mod]; inp.value = v; inp.nextElementSibling.textContent = v; });
-      rs.hidden = true; c.querySelector(".fxchanged").hidden = true; c.querySelector(".cost")?.replaceWith(htmlEl(costTag(p)));
-      liveFx(p);
-    };
-    // clicking a card (or its ▶) makes it the sound on the keys and MIDI in
-    const select = () => { if (current === p.id) return; current = p.id; store.set("current", current); document.querySelectorAll(".snd.current").forEach(x => x.classList.remove("current")); c.classList.add("current"); $("curName").textContent = $("curName2").textContent = p.name; held.clear(); keyAlloc = []; send({ t: "allOff", at: 0 }); };
-    c.addEventListener("click", e => { if (!e.target.closest("button, textarea, details, input")) select(); });
-    c.querySelector(".playbtn").onclick = () => { select(); playDemo(p, c); };
-    c.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { const x = rate(p.id); x.r = x.r === b.dataset.r ? "" : b.dataset.r; saveRatings(); c.className = "snd" + (p.id === current ? " current" : "") + (x.r ? " r-" + x.r : ""); c.querySelectorAll("[data-r]").forEach(y => y.setAttribute("aria-pressed", x.r === y.dataset.r)); });
-    c.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { const x = rate(p.id), d = b.dataset.n; x.needs = x.needs.includes(d) ? x.needs.filter(y => y !== d) : [...x.needs, d]; saveRatings(); b.setAttribute("aria-pressed", x.needs.includes(d)); });
-    const ta = c.querySelector("textarea");
-    ta.oninput = () => { rate(p.id).note = ta.value; ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; clearTimeout(ta._t); ta._t = setTimeout(saveRatings, 400); };
-    grid.append(c);
-    if (R.note) setTimeout(() => { ta.style.height = ta.scrollHeight + "px"; });
-  }
-  drawCounts();
-}
-$("filter").onchange = () => { store.set("filter", $("filter").value); drawLib(); $("filter").blur(); };
-$("filter").value = store.get("filter", "all");
-for (const d of ["sid", "gb", "nes"]) {
-  const b = $("dev-" + d); b.setAttribute("aria-pressed", devOn[d]);
-  b.onclick = () => { devOn[d] = !devOn[d]; store.set("devOn", devOn); b.setAttribute("aria-pressed", devOn[d]); stopAll(); drawLib(); };
-}
-// effect modules on each card, adjustable (saved per sound); the MIDI cost tag
-const FX_KNOBS = { vib: [["rate", "Vibrato rate", 0.2, 10, 0.1], ["depth", "Vibrato depth", 0, 1, 0.01], ["delay", "Vibrato delay", 0, 1.5, 0.05]], trem: [["rate", "Tremolo rate", 0.1, 12, 0.05], ["depth", "Tremolo depth", 0, 1, 0.05]],
-  warb: [["rate", "Warble speed", 0.2, 6, 0.1], ["depth", "Warble depth", 0, 1.5, 0.05]], pwm: [["rate", "Width sweep rate", 0.05, 6, 0.05], ["depth", "Width sweep depth", 0, 2000, 50]],
-  duty: [["rate", "Duty cycling rate", 0.5, 60, 0.5]], filt: [["rate", "Filter sweep rate", 0.05, 4, 0.05], ["depth", "Filter sweep depth", 0, 1000, 25]], arp: [["rate", "Step rate", 2, 60, 1]], glide: [[null, "Glide time", 0, 0.5, 0.01]] };
-function fxPanel(p) {
-  const fx = fxOf(p), rows = [];
-  for (const [mod, knobs] of Object.entries(FX_KNOBS)) {
-    if (fx[mod] == null) continue;
-    for (const [key, label, min, max, step] of knobs) {
-      const val = key ? fx[mod][key] ?? 0 : fx[mod];
-      rows.push(`<label class="fxk"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${val}" data-fx="${mod}${key ? "." + key : ""}"><output>${val}</output></label>`);
-    }
-  }
-  if (!rows.length) return "";
-  const changed = !!fxOver[p.id];
-  return `<details class="fxd"${changed ? " open" : ""}><summary>Effects<span class="fxchanged"${changed ? "" : " hidden"}> · changed</span></summary>${rows.join("")}</details>
-    <button class="btn small fxreset" data-fxreset${changed ? "" : " hidden"}>Reset effects to Claude's defaults</button>`;
-}
-function costTag(p) {
-  const n = midiCost(p); if (!n) return "";
-  const lvl = n < 150 ? "light" : n < 500 ? "medium" : "heavy";
-  return `<span class="dv cost c-${lvl}" title="About ${n} MIDI messages a second to the Game Boy and NES for this sound's effects. Fat Chip has roughly 1,000 a second for everything; Fat Chip GB could run its effects on the Game Boy itself instead.">MIDI ${lvl}</span>`;
-}
-// moving a slider while this sound is playing changes it right away: every channel that plays the main sound or a
-// job gets the new modules (Fat Bass stays steady), and the SID filter sweep follows
-const FX_KEYS = ["vib", "trem", "warb", "pwm", "dseq", "glide", "arp"];
-function liveFx(p) {
-  if (!node || !(playing?.patch === p || (current === p.id && keyAlloc.length))) return;
-  const msgs = [];
-  allocate(p, [48, 52, 55, 59, 62, 65, 69]).forEach((a, idx) => {
-    if (a.job === "Fat Bass") return;
-    const full = payload(p, a, idx), sub = {};
-    for (const k of FX_KEYS) sub[k] = full[k] ?? (k === "glide" ? 0 : null);
-    msgs.push({ t: "fx", v: CH[a.ch], at: 0, p: sub });
-  });
-  const F = sidFilter(p); msgs.push({ t: "sidLive", at: 0, p: { lfoRate: F.lfoRate, lfoDepth: F.lfoDepth } });
-  send(msgs);
-}
-const htmlEl = h => { const t = document.createElement("template"); t.innerHTML = h || "<span></span>"; return t.content.firstElementChild; };
-// play-as and Fat Bass
-$("playAs").value = store.get("playAs", "patch");
-$("playAs").onchange = () => { store.set("playAs", $("playAs").value); stopAll(); drawLib(); $("playAs").blur(); };
-const NOTE_OPTS = Array.from({ length: 37 }, (_, i) => 24 + i);
-for (const id of ["bassLo", "bassHi"]) for (const m of NOTE_OPTS) $(id).add(new Option(noteName(m), m));
-$("bassLo").value = bassLo; $("bassHi").value = bassHi;
-$("bassLo").onchange = () => { bassLo = Math.min(+$("bassLo").value, bassHi - 11); $("bassLo").value = bassLo; store.set("bassLo", bassLo); $("bassLo").blur(); };
-$("bassHi").onchange = () => { bassHi = Math.max(+$("bassHi").value, bassLo + 11); $("bassHi").value = bassHi; store.set("bassHi", bassHi); $("bassHi").blur(); };
-$("fbMode").value = fbMode;
-$("fbMode").onchange = () => { fbMode = $("fbMode").value; store.set("fbMode", fbMode); stopAll(); drawLib(); $("fbMode").blur(); };
-$("exportBtn").onclick = () => {
-  const out = P.map(p => ({ id: p.id, cat: p.cat, name: p.name, ...(ratings[p.id] || {}) })).filter(x => x.r || x.note || (x.needs || []).length);
-  const data = { app: "fatchip-chiplab", version: 2, exported: new Date().toISOString(), library: "2026-11-06b", settings: { devOn, playAs: $("playAs").value, fatBass: fbMode, bassLo, bassHi }, ratings: out, effects: fxOver };
-  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
-  a.download = `chiplab-ratings-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-};
-$("stopBtn").onclick = stopAll;
-
-// ====================================================================== mix and scope
-function scope() {
-  const cv = $("scope"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-  if (r.width) {
-    if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
-    const g = cv.getContext("2d"), d = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(d);
-    let z = 0; for (let i = 1; i < d.length / 2; i++) if (d[i - 1] < 0 && d[i] >= 0) { z = i; break; }
-    g.clearRect(0, 0, cv.width, cv.height); g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent"); g.lineWidth = 1.5 * dpr; g.beginPath();
-    const n = d.length / 2;
-    for (let i = 0; i < n; i++) { const x = i / n * cv.width, y = cv.height / 2 - d[z + i] * cv.height * 1.2; i ? g.lineTo(x, y) : g.moveTo(x, y); }
-    g.stroke();
-  }
-  requestAnimationFrame(scope);
-}
-for (const id of ["lvNes", "lvGb", "lvSid", "master"]) {
-  $(id).value = store.get(id, +$(id).value); $(id + "Out").textContent = $(id).value;
-  $(id).oninput = () => { $(id + "Out").textContent = $(id).value; store.set(id, +$(id).value); if (!actx) return; if (id === "master") master.gain.value = +$(id).value / 100 * 2; else sendLevels(); };
-  $(id).onchange = () => $(id).blur();
-}
-document.addEventListener("pointerdown", () => ctx(), { once: true });
-drawLib(); drawKeys();
+// ====================================================================== start
+(async () => {
+  try {
+    const get = async f => { const r = await fetch(f, { cache: "no-cache" }); if (!r.ok) throw new Error(f + ": " + r.status); return r.json(); };
+    [DEF, LAYOUT] = await Promise.all([get("effects.json"), get("c64-layout.json")]);
+    BUILT = (await get("patches.json")).patches.map(p => ({ ...clone(p), fx: p.fx || {} }));
+    fc = FatChipPatch.make(DEF, LAYOUT);
+  } catch (e) { $("loadErr").hidden = false; $("loadErr").textContent = "Couldn't load the patch files (" + e.message + "). Chip Lab needs effects.json, patches.json and c64-layout.json next to this page."; return; }
+  work = store.get("work", null);
+  if (!work || !work.fx) { origin = { kind: "built", i: 0 }; work = builtPatch(0); }
+  drawAll(); drawKeys();
+  if (navigator.requestMIDIAccess && store.get("port.out", "")) midiAccess();   // reconnect to the C64 as last time
+  else if (!navigator.requestMIDIAccess) $("noMidi").hidden = false;
+})();
 </script>
 </body>
 </html>

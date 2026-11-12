@@ -1,0 +1,144 @@
+{
+ "format": "fat-chip-patches",
+ "version": 1,
+ "doc": "Fat Chip's built-in patches, in the units of effects.json. An effect is on when listed; \"on\" limits it to some chips; anything left out takes its default.",
+ "patches": [
+  {"name": "FAT", "mono": 0, "fatBass": 1, "character": ["detune", "warble"], "fx": {
+   "tone": {"sidWave": 1, "gbWaveMode": 2},
+   "env": {"attack": 8, "decay": 750, "sustain": 12, "release": 750},
+   "detune": {"cents": 7},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "PADS", "mono": 0, "fatBass": 1, "character": ["filter", "pwm"], "fx": {
+   "tone": {"sidWave": 2, "sidPw": 768, "gbWaveMode": 2},
+   "env": {"attack": 500, "decay": 6, "sustain": 15, "release": 2400},
+   "detune": {"cents": 7},
+   "glide": {"time": 2, "on": ["gb"]},
+   "filter": {"cutoff": 16, "resonance": 7, "lfoDepth": 96, "filtLfoRate": 0.122},
+   "pwm": {"depth": 50, "pwmRate": 0.49, "on": ["sid"]},
+   "warble": {"amount": 19, "on": ["gb"]}
+  }},
+  {"name": "RAW", "mono": 0, "fatBass": 1, "character": ["tone"], "fx": {
+   "tone": {"sidWave": 2, "sidPwSpread": 1, "gbDuty2": 1, "nesDuty2": 1, "gbWaveMode": 1},
+   "env": {"attack": 2, "decay": 6, "sustain": 15, "release": 6},
+   "detune": {"cents": 7}
+  }},
+  {"name": "DUTY LEAD", "mono": 1, "fatBass": 0, "lvlGbPulse": 10, "lvlGbWave": 12, "lvlNes": 11, "character": ["dutyseq", "pwm"], "fx": {
+   "tone": {"sidWave": 2, "sidPw": 1024, "gbDuty1": 1, "gbDuty2": 1, "gbWaveMode": 1},
+   "env": {"attack": 2, "decay": 300, "sustain": 12, "release": 204},
+   "detune": {"cents": 7},
+   "pwm": {"depth": 32, "pwmRate": 7.96, "on": ["gb"]},
+   "dutyseq": {"pattern": 0, "stepMs": 30, "on": ["sid", "nes"]},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "WHISTLE", "mono": 1, "fatBass": 0, "lvlGbPulse": 3, "lvlNes": 6, "character": ["vibrato", "glide"], "fx": {
+   "tone": {"sidWave": 0, "gbWaveMode": 2},
+   "env": {"attack": 24, "decay": 300, "sustain": 12, "release": 240},
+   "detune": {"cents": 4},
+   "glide": {"time": 0},
+   "vibrato": {"depth": 25, "vibRate": 4.5, "delay": 400},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "SCREAMER", "mono": 1, "fatBass": 0, "lvlGbPulse": 8, "lvlGbWave": 12, "lvlNes": 9, "character": ["filter", "vibrato"], "fx": {
+   "tone": {"sidWave": 1, "gbDuty1": 1, "gbDuty2": 1, "nesDuty1": 1, "nesDuty2": 1, "gbWaveMode": 0, "gbWaveShape": 1},
+   "env": {"attack": 2, "decay": 240, "sustain": 12, "release": 204},
+   "detune": {"cents": 8},
+   "filter": {"cutoff": 20, "resonance": 13, "envAmount": 64},
+   "vibrato": {"depth": 35, "vibRate": 7, "delay": 150},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "WARBLE PAD", "mono": 0, "fatBass": 1, "lvlGbPulse": 9, "lvlNes": 8, "character": ["warble", "vibrato"], "fx": {
+   "tone": {"sidWave": 2, "gbWaveMode": 2},
+   "env": {"attack": 100, "decay": 2400, "sustain": 14, "release": 2400},
+   "detune": {"cents": 10},
+   "vibrato": {"depth": 20, "vibRate": 1.5, "delay": 0, "drift": 30, "on": ["sid", "nes"]},
+   "warble": {"amount": 39, "on": ["gb"], "speed": 30}
+  }},
+  {"name": "DUTY SHIMMER PAD", "mono": 0, "fatBass": 1, "lvlGbPulse": 10, "lvlNes": 9, "character": ["pwm", "dutyseq"], "fx": {
+   "tone": {"sidWave": 2, "sidPw": 600, "gbDuty1": 1, "gbDuty2": 1, "nesDuty1": 0, "nesDuty2": 0, "gbWaveMode": 2},
+   "env": {"attack": 68, "decay": 1500, "sustain": 14, "release": 1500},
+   "detune": {"cents": 7},
+   "pwm": {"depth": 69, "pwmRate": 0.3, "on": ["sid", "gb"]},
+   "dutyseq": {"pattern": 1, "stepMs": 333, "on": ["nes"]},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "WARM SID PAD", "mono": 0, "fatBass": 1, "lvlGbPulse": 6, "lvlGbWave": 10, "lvlNes": 7, "character": ["filter", "detune"], "fx": {
+   "tone": {"sidWave": 1, "gbWaveMode": 2},
+   "env": {"attack": 500, "decay": 2400, "sustain": 14, "release": 2400},
+   "detune": {"cents": 10},
+   "filter": {"cutoff": 28, "resonance": 4},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "BREATHING PAD", "mono": 0, "fatBass": 1, "lvlGbPulse": 11, "lvlNes": 11, "character": ["tremolo"], "fx": {
+   "tone": {"sidWave": 2, "nesDuty1": 1, "nesDuty2": 1, "gbWaveMode": 2},
+   "env": {"attack": 250, "decay": 1500, "sustain": 13, "release": 1500},
+   "detune": {"cents": 5},
+   "warble": {"amount": 9, "on": ["gb"]},
+   "tremolo": {"depth": 60, "tremRate": 0.45, "shape": 0}
+  }},
+  {"name": "ELECTRIC PIANO", "mono": 0, "fatBass": 1, "lvlGbPulse": 8, "lvlNes": 9, "character": ["tremolo"], "fx": {
+   "tone": {"sidWave": 0, "gbWaveMode": 2},
+   "env": {"attack": 2, "decay": 1500, "sustain": 6, "release": 750},
+   "detune": {"cents": 4},
+   "warble": {"amount": 9, "on": ["gb"]},
+   "tremolo": {"depth": 53, "tremRate": 5, "shape": 0}
+  }},
+  {"name": "COMBO ORGAN", "mono": 0, "fatBass": 1, "lvlGbPulse": 10, "lvlNes": 10, "character": ["vibrato"], "fx": {
+   "tone": {"sidWave": 2, "gbWaveMode": 0, "gbWaveShape": 5},
+   "env": {"attack": 2, "decay": 6, "sustain": 15, "release": 24},
+   "detune": {"cents": 7},
+   "vibrato": {"depth": 10, "vibRate": 7, "delay": 0},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "VIBRAPHONE", "mono": 0, "fatBass": 0, "lvlGbPulse": 5, "lvlNes": 8, "character": ["tremolo"], "fx": {
+   "tone": {"sidWave": 0, "gbWaveMode": 2},
+   "env": {"attack": 2, "decay": 2400, "sustain": 3, "release": 2400},
+   "detune": {"cents": 4},
+   "warble": {"amount": 9, "on": ["gb"]},
+   "tremolo": {"depth": 53, "tremRate": 4.5, "shape": 0}
+  }},
+  {"name": "GLIDE BASS", "mono": 1, "fatBass": 1, "lvlGbPulse": 5, "lvlNes": 6, "character": ["glide", "filter"], "fx": {
+   "tone": {"sidWave": 1, "gbDuty1": 1, "gbDuty2": 1, "gbWaveMode": 2},
+   "env": {"attack": 2, "decay": 750, "sustain": 11, "release": 168},
+   "detune": {"cents": 6},
+   "glide": {"time": 1},
+   "filter": {"cutoff": 26, "resonance": 7},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "WAVE BASS", "mono": 1, "fatBass": 1, "lvlGbPulse": 4, "lvlNes": 6, "character": ["tone"], "fx": {
+   "tone": {"sidWave": 0, "gbDuty1": 1, "gbDuty2": 1, "gbWaveMode": 2},
+   "env": {"attack": 2, "decay": 750, "sustain": 12, "release": 204},
+   "detune": {"cents": 4},
+   "warble": {"amount": 9, "on": ["gb"]}
+  }},
+  {"name": "SEASICK CHORUS", "mono": 0, "fatBass": 1, "lvlGbPulse": 9, "lvlGbWave": 12, "lvlNes": 8, "character": ["detune", "vibrato", "warble"], "fx": {
+   "tone": {"sidWave": 1, "nesDuty1": 1, "nesDuty2": 1, "gbWaveMode": 0, "gbWaveShape": 1},
+   "env": {"attack": 68, "decay": 1500, "sustain": 14, "release": 1500},
+   "detune": {"cents": 14},
+   "vibrato": {"depth": 30, "vibRate": 1.2, "delay": 0, "drift": 30, "on": ["sid", "nes"]},
+   "warble": {"amount": 27, "on": ["gb"], "speed": 25}
+  }},
+  {"name": "REPEAT LEAD", "mono": 1, "fatBass": 0, "lvlGbPulse": 11, "lvlGbWave": 12, "lvlNes": 11, "character": ["repeat", "vibrato"], "fx": {
+   "tone": {"sidWave": 2, "sidPw": 1536, "gbDuty1": 1, "gbDuty2": 1, "nesDuty1": 1, "nesDuty2": 1, "gbWaveMode": 1},
+   "env": {"attack": 2, "decay": 300, "sustain": 12, "release": 204},
+   "detune": {"cents": 7},
+   "vibrato": {"depth": 15, "vibRate": 5.5, "delay": 300, "on": ["sid", "nes"]},
+   "warble": {"amount": 9, "on": ["gb"]},
+   "repeat": {"time": 2, "repeats": 3, "level": 100}
+  }},
+  {"name": "ECHO PLUCK", "mono": 0, "fatBass": 1, "lvlGbPulse": 11, "lvlNes": 11, "character": ["repeat"], "fx": {
+   "tone": {"sidWave": 2, "sidPw": 1024, "gbWaveMode": 2},
+   "env": {"attack": 2, "decay": 750, "sustain": 0, "release": 750},
+   "detune": {"cents": 5},
+   "warble": {"amount": 9, "on": ["gb"]},
+   "repeat": {"time": 1, "repeats": 5, "level": 70}
+  }},
+  {"name": "TREMOLO GATE", "mono": 0, "fatBass": 1, "lvlGbPulse": 11, "lvlNes": 10, "character": ["tremolo"], "fx": {
+   "tone": {"sidWave": 2, "sidPw": 1600, "gbWaveMode": 1},
+   "env": {"attack": 24, "decay": 1500, "sustain": 13, "release": 750},
+   "detune": {"cents": 7},
+   "warble": {"amount": 9, "on": ["gb"]},
+   "tremolo": {"depth": 100, "tremRate": 8, "shape": 4}
+  }}
+ ]
+}

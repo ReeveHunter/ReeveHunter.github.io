@@ -1,0 +1,164 @@
+{
+ "format": "fat-chip-effects",
+ "version": 1,
+ "doc": "The shared definition of a Fat Chip patch: a TONE (always on) plus effects, each with an on/off and parameters. Fat Chip 64, Fat Chip GB and Chip Lab all build from this file. Units are musical (ms, Hz, cents, semitones, percent); 'map' says what each chip does with a parameter (missing = that chip ignores it). 'blend' says how two patches mix: lerp (straight), log (for times and rates), switch (taken from the nearer patch). 'rand' is the musical range the dice use (inclusive). A patch turns an effect on by listing it, and may limit it to some chips (\"on\": [\"gb\"], say): the effect then runs only there. The built-in patches are in patches.json.",
+ "lists": {
+  "shapes": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"],
+  "tempoDivisions": ["1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"],
+  "sidAttackMs": [2, 8, 16, 24, 38, 56, 68, 80, 100, 250, 500, 800, 1000, 3000, 5000, 8000],
+  "sidDecayReleaseMs": [6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000],
+  "gbWaveShapes": ["PULSE", "SAW LP", "SQR LP", "ACID", "FOLD", "ORGAN", "SYNC", "FM 1:1", "FM 1:2", "VOX", "PHASE", "RING", "CRUSH", "NOISE", "MORPH", "HARM"]
+ },
+ "patch": [
+  {"id": "name", "name": "NAME", "type": "text", "default": "NEW PATCH", "blend": "switch", "maxLen": 16},
+  {"id": "mono", "name": "MONO/POLY", "type": "enum", "default": 0, "blend": "switch", "values": ["POLY", "MONO"], "doc": "MONO: the last key pressed, legato"},
+  {"id": "fatBass", "name": "FAT BASS", "type": "bool", "default": 1, "blend": "switch", "doc": "the bass voices fold an octave down"},
+  {"id": "chips", "name": "CHIPS", "type": "flags", "default": 7, "blend": "switch", "values": ["SID", "GB", "NES"], "doc": "which chips play the patch", "rand": [7, 7]},
+  {"id": "octSid", "name": "SID OCTAVE", "type": "int", "default": 0, "blend": "switch", "min": -2, "max": 2, "unit": "octaves", "rand": [-1, 1]},
+  {"id": "octGb", "name": "GB OCTAVE", "type": "int", "default": 0, "blend": "switch", "min": -2, "max": 2, "unit": "octaves", "doc": "the pulses; the wave channel follows Fat Bass", "rand": [-1, 1]},
+  {"id": "octNes", "name": "NES OCTAVE", "type": "int", "default": 0, "blend": "switch", "min": -2, "max": 2, "unit": "octaves", "rand": [-1, 1]},
+  {"id": "lvlSid", "name": "SID LEVEL", "type": "int", "default": 15, "blend": "lerp", "min": 0, "max": 15, "rand": [10, 15], "map": {"sid": "master volume"}},
+  {"id": "lvlGbPulse", "name": "GB PULSE LEVEL", "type": "int", "default": 15, "blend": "lerp", "min": 0, "max": 15, "rand": [6, 15], "map": {"gb": "pulse level (P_LEVEL)"}},
+  {"id": "lvlGbWave", "name": "GB WAVE LEVEL", "type": "int", "default": 15, "blend": "lerp", "min": 0, "max": 15, "rand": [8, 15], "map": {"gb": "wave level (P_LEVEL)"}},
+  {"id": "lvlNes", "name": "NES LEVEL", "type": "int", "default": 15, "blend": "lerp", "min": 0, "max": 15, "rand": [6, 15], "map": {"nes": "the loudest level (peak)"}},
+  {"id": "character", "name": "CHARACTER", "type": "effects", "default": [], "blend": "switch", "doc": "the effects that make the patch what it is: kept first when voices, the C64 or the MIDI link run short; the dice leave them on, blends lean toward them, the menu lists them first. Ties go by the order of 'effects' below."}
+ ],
+ "effects": [
+  {"id": "tone", "name": "TONE", "alwaysOn": true, "voices": 0, "params": [
+   {"id": "sidWave", "name": "SID WAVE", "type": "enum", "default": 1, "blend": "switch", "values": ["TRI", "SAW", "PULSE", "NOISE", "SAW+TRI", "PULSE+TRI", "PULSE+SAW", "PULSE+SAW+TRI"], "rand": [0, 7], "map": {"sid": "control register waveform bits"}},
+   {"id": "sidPw", "name": "SID PULSE WIDTH", "type": "int", "default": 2048, "blend": "lerp", "min": 0, "max": 4095, "rand": [300, 3800], "map": {"sid": "pulse width (12 bits)"}},
+   {"id": "sidPwSpread", "name": "SID WIDTHS", "type": "enum", "default": 0, "blend": "switch", "values": ["SAME", "50/25/12.5%"], "doc": "50/25/12.5%: each SID voice its own pulse width (RAW)", "map": {"sid": "voice 1 50 %, voice 2 25 %, voice 3 12.5 %"}},
+   {"id": "sidMod", "name": "SID RING/SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["OFF", "RING", "SYNC", "RING+SYNC"], "voicesNote": "when not OFF, each SID note uses two SID voices", "rand": [0, 3], "map": {"sid": "voice 2 ringed and/or synced from voice 1: two SID voices a note"}},
+   {"id": "sidModInterval", "name": "SID MOD INTERVAL", "type": "int", "default": 7, "blend": "lerp", "min": -24, "max": 24, "unit": "semitones", "doc": "with RING or SYNC: sets the metallic colour", "rand": [-12, 19], "map": {"sid": "the modulating voice's pitch from the note"}},
+   {"id": "gbDuty1", "name": "GB PULSE 1 DUTY", "type": "enum", "default": 2, "blend": "switch", "values": ["12.5%", "25%", "50%", "75%"], "map": {"gb": "pulse 1 duty"}},
+   {"id": "gbDuty2", "name": "GB PULSE 2 DUTY", "type": "enum", "default": 2, "blend": "switch", "values": ["12.5%", "25%", "50%", "75%"], "map": {"gb": "pulse 2 duty"}},
+   {"id": "gbWaveMode", "name": "GB WAVE MODE", "type": "enum", "default": 2, "blend": "switch", "values": ["SYNTH", "PULSE", "TRI", "DUAL", "DRUMS", "SPEECH", "SING"], "rand": [0, 3], "map": {"gb": "wave channel mode (P_MODE)"}},
+   {"id": "gbWaveShape", "name": "GB WAVE SHAPE", "type": "enum", "default": 1, "blend": "switch", "values": ["PULSE", "SAW LP", "SQR LP", "ACID", "FOLD", "ORGAN", "SYNC", "FM 1:1", "FM 1:2", "VOX", "PHASE", "RING", "CRUSH", "NOISE", "MORPH", "HARM"], "map": {"gb": "wave shape (P_SHAPE), in SYNTH mode"}},
+   {"id": "gbWaveTimbre", "name": "GB WAVE TIMBRE", "type": "int", "default": 8, "blend": "lerp", "min": 0, "max": 15, "doc": "for the filtered shapes (SAW LP, SQR LP, ACID) this is the filter; WAVE FILTER can move it", "map": {"gb": "the shape's step (P_TIMBRE)"}},
+   {"id": "nesDuty1", "name": "NES PULSE 1 DUTY", "type": "enum", "default": 2, "blend": "switch", "values": ["12.5%", "25%", "50%", "75%"], "map": {"nes": "pulse 1 duty"}},
+   {"id": "nesDuty2", "name": "NES PULSE 2 DUTY", "type": "enum", "default": 2, "blend": "switch", "values": ["12.5%", "25%", "50%", "75%"], "map": {"nes": "pulse 2 duty"}}
+  ]},
+  {"id": "env", "name": "ENVELOPE", "alwaysOn": true, "voices": 0, "doc": "one envelope in ms for every chip; each chip takes the nearest it can do", "params": [
+   {"id": "attack", "name": "ATTACK", "type": "ms", "default": 2, "blend": "log", "values": [2, 8, 16, 24, 38, 56, 68, 80, 100, 250, 500, 800, 1000, 3000, 5000, 8000], "rand": [2, 1000], "map": {"sid": "attack (nearest of its 16)", "gb": "hardware envelope rising: steps of n/64 s (n 1-7, 0 = instant)", "nes": "software envelope"}},
+   {"id": "decay", "name": "DECAY", "type": "ms", "default": 750, "blend": "log", "values": [6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000], "rand": [48, 3000], "map": {"sid": "decay", "gb": "hardware envelope falling", "nes": "software envelope"}},
+   {"id": "sustain", "name": "SUSTAIN", "type": "int", "default": 15, "blend": "lerp", "min": 0, "max": 15, "rand": [4, 15], "map": {"sid": "sustain level", "gb": "new in Fat Chip GB: fall to this level", "nes": "software envelope (level / 15)"}},
+   {"id": "release", "name": "RELEASE", "type": "ms", "default": 240, "blend": "log", "values": [6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000], "rand": [24, 3000], "map": {"sid": "release", "gb": "hardware envelope falling after note-off", "nes": "software envelope"}},
+   {"id": "nesTriDrop", "name": "NES TRIANGLE DROP", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 24, "unit": "semitones", "rand": [0, 24], "map": {"nes": "the triangle bends down this far as it releases"}},
+   {"id": "nesTriDropMs", "name": "NES DROP TIME", "type": "int", "default": 300, "blend": "log", "min": 50, "max": 1000, "unit": "ms", "map": {"nes": "over this long"}},
+   {"id": "gbEnv", "name": "GB ENVELOPE", "type": "enum", "default": 0, "blend": "switch", "values": ["MAIN", "OWN"], "doc": "MAIN: follow the envelope above (the usual). OWN: for a patch whose character needs this chip to behave differently", "map": {"gb": "OWN: the Game Boy uses the four settings below instead of the main envelope"}},
+   {"id": "gbAttack", "name": "GB ATTACK", "type": "ms", "default": 2, "blend": "log", "values": [2, 8, 16, 24, 38, 56, 68, 80, 100, 250, 500, 800, 1000, 3000, 5000, 8000], "map": {"gb": "with OWN"}},
+   {"id": "gbDecay", "name": "GB DECAY", "type": "ms", "default": 750, "blend": "log", "values": [6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000], "map": {"gb": "with OWN"}},
+   {"id": "gbSustain", "name": "GB SUSTAIN", "type": "int", "default": 15, "blend": "lerp", "min": 0, "max": 15, "map": {"gb": "with OWN"}},
+   {"id": "gbRelease", "name": "GB RELEASE", "type": "ms", "default": 240, "blend": "log", "values": [6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000], "map": {"gb": "with OWN"}},
+   {"id": "nesEnv", "name": "NES ENVELOPE", "type": "enum", "default": 0, "blend": "switch", "values": ["MAIN", "OWN"], "doc": "MAIN: follow the envelope above (the usual). OWN: for a patch whose character needs this chip to behave differently", "map": {"nes": "OWN: the NES uses the four settings below instead of the main envelope"}},
+   {"id": "nesAttack", "name": "NES ATTACK", "type": "ms", "default": 2, "blend": "log", "values": [2, 8, 16, 24, 38, 56, 68, 80, 100, 250, 500, 800, 1000, 3000, 5000, 8000], "map": {"nes": "with OWN"}},
+   {"id": "nesDecay", "name": "NES DECAY", "type": "ms", "default": 750, "blend": "log", "values": [6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000], "map": {"nes": "with OWN"}},
+   {"id": "nesSustain", "name": "NES SUSTAIN", "type": "int", "default": 15, "blend": "lerp", "min": 0, "max": 15, "map": {"nes": "with OWN"}},
+   {"id": "nesRelease", "name": "NES RELEASE", "type": "ms", "default": 240, "blend": "log", "values": [6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000], "map": {"nes": "with OWN"}}
+  ]},
+  {"id": "detune", "name": "DETUNE", "voices": 0, "randOn": 0.6, "params": [
+   {"id": "cents", "name": "AMOUNT", "type": "int", "default": 7, "blend": "lerp", "min": 0, "max": 50, "unit": "cents", "rand": [3, 25], "map": {"sid": "voices 2 sharp, 3 flat", "gb": "pulse 1 flat, pulse 2 sharp (CC 94)", "nes": "pulse 1 flat, pulse 2 sharp (bend)"}},
+   {"id": "wander", "name": "WANDER", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 50], "doc": "each voice's detune creeps slowly at random (a few seconds per move); at 100 it roams up to AMOUNT either side", "map": {"sid": "voice frequency offsets", "gb": "pitch bend per channel", "nes": "pitch bend per channel"}}
+  ]},
+  {"id": "vibrato", "name": "VIBRATO", "voices": 0, "randOn": 0.35, "params": [
+   {"id": "depth", "name": "DEPTH", "type": "int", "default": 25, "blend": "lerp", "min": 0, "max": 50, "unit": "cents", "rand": [5, 40], "map": {"sid": "frequency LFO", "gb": "LFO to pitch", "nes": "pulses, by bend"}},
+   {"id": "vibRate", "name": "VIBRATO RATE", "type": "hz", "default": 5.5, "blend": "log", "min": 0.05, "max": 20, "rand": [3, 8]},
+   {"id": "vibSync", "name": "VIBRATO SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "doc": "FREE uses the rate in Hz; a division locks it to the tempo"},
+   {"id": "delay", "name": "DELAY", "type": "int", "default": 0, "blend": "log", "min": 0, "max": 2000, "unit": "ms", "rand": [0, 800]},
+   {"id": "shape", "name": "SHAPE", "type": "enum", "default": 1, "blend": "switch", "values": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"], "rand": [0, 5]},
+   {"id": "drift", "name": "DRIFT", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 60], "doc": "each voice a little faster or slower, fanned evenly (up to +-25 % at 100), so they slide in and out of step; fixed, so a patch sounds the same every load. With a SYNC division the rates stay locked and the voices start apart instead", "map": {"sid": "each voice its own LFO step", "gb": "each channel its own LFO rate, sent once", "nes": "each channel its own bend LFO"}}
+  ]},
+  {"id": "glide", "name": "GLIDE", "voices": 0, "randOn": 0.25, "params": [
+   {"id": "time", "name": "TIME", "type": "enum", "default": 1, "blend": "switch", "values": ["30 MS", "60 MS", "120 MS", "250 MS", "500 MS"], "map": {"sid": "1/2^k of the way per 4 ms, k 3-7", "gb": "glide (CC 5)", "nes": "by bend"}},
+   {"id": "mode", "name": "MODE", "type": "enum", "default": 0, "blend": "switch", "values": ["ALWAYS", "LEGATO"], "doc": "LEGATO: only when keys overlap"}
+  ]},
+  {"id": "penv", "name": "PITCH ENVELOPE", "voices": 0, "randOn": 0.15, "params": [
+   {"id": "amount", "name": "AMOUNT", "type": "int", "default": 12, "blend": "lerp", "min": -24, "max": 24, "unit": "semitones", "rand": [-12, 24], "map": {"sid": "frequency", "gb": "P_PENV_AMT", "nes": "by bend (down: no lower than the channel's bottom note)"}},
+   {"id": "time", "name": "TIME", "type": "int", "default": 80, "blend": "log", "min": 5, "max": 1000, "unit": "ms", "rand": [10, 300], "map": {"gb": "P_PENV_TIME"}}
+  ]},
+  {"id": "warble", "name": "WARBLE", "voices": 0, "randOn": 0.3, "params": [
+   {"id": "amount", "name": "AMOUNT", "type": "int", "default": 10, "blend": "lerp", "min": 0, "max": 50, "unit": "cents", "rand": [4, 40], "map": {"sid": "new: slow random drift", "gb": "warble (CC 104)", "nes": "new: slow random drift, by bend"}},
+   {"id": "speed", "name": "SPEED", "type": "int", "default": 40, "blend": "lerp", "min": 0, "max": 127, "rand": [10, 90], "map": {"gb": "warble speed (CC 105)"}},
+   {"id": "drift", "name": "DRIFT", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 60], "doc": "each voice a little faster or slower, fanned evenly (up to +-25 % at 100), so they slide in and out of step; fixed, so a patch sounds the same every load. With a SYNC division the rates stay locked and the voices start apart instead", "map": {"sid": "each voice its own LFO step", "gb": "each channel its own LFO rate, sent once"}}
+  ]},
+  {"id": "tremolo", "name": "TREMOLO", "voices": 0, "randOn": 0.2, "params": [
+   {"id": "depth", "name": "DEPTH", "type": "int", "default": 50, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [20, 90], "map": {"sid": "master volume (all three voices)", "gb": "new in Fat Chip GB (may click)", "nes": "per channel (CC 7)"}},
+   {"id": "tremRate", "name": "TREMOLO RATE", "type": "hz", "default": 6, "blend": "log", "min": 0.05, "max": 20, "rand": [2, 10]},
+   {"id": "tremSync", "name": "TREMOLO SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "doc": "FREE uses the rate in Hz; a division locks it to the tempo"},
+   {"id": "shape", "name": "SHAPE", "type": "enum", "default": 1, "blend": "switch", "values": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"], "rand": [0, 5]},
+   {"id": "drift", "name": "DRIFT", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 60], "doc": "each voice a little faster or slower, fanned evenly (up to +-25 % at 100), so they slide in and out of step; fixed, so a patch sounds the same every load. With a SYNC division the rates stay locked and the voices start apart instead", "map": {"sid": "each voice its own LFO step", "gb": "each channel its own LFO rate, sent once", "nes": "each channel its own bend LFO"}}
+  ]},
+  {"id": "pan", "name": "PAN", "voices": 0, "randOn": 0.3, "chips": ["gb"], "params": [
+   {"id": "gbPulse1", "name": "PULSE 1", "type": "enum", "default": 1, "blend": "switch", "values": ["LEFT", "CENTRE", "RIGHT"], "map": {"gb": "CC 10"}},
+   {"id": "gbPulse2", "name": "PULSE 2", "type": "enum", "default": 1, "blend": "switch", "values": ["LEFT", "CENTRE", "RIGHT"], "map": {"gb": "CC 10"}},
+   {"id": "gbWave", "name": "WAVE", "type": "enum", "default": 1, "blend": "switch", "values": ["LEFT", "CENTRE", "RIGHT"], "map": {"gb": "CC 10"}}
+  ]},
+  {"id": "autopan", "name": "AUTO-PAN", "voices": 0, "randOn": 0.1, "chips": ["gb"], "params": [
+   {"id": "panRate", "name": "AUTO-PAN RATE", "type": "hz", "default": 2, "blend": "log", "min": 0.05, "max": 20, "rand": [0.5, 6]},
+   {"id": "panSync", "name": "AUTO-PAN SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "doc": "FREE uses the rate in Hz; a division locks it to the tempo"},
+   {"id": "shape", "name": "SHAPE", "type": "enum", "default": 4, "blend": "switch", "values": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"], "doc": "SQUARE and RANDOM suit three positions best", "rand": [4, 5]},
+   {"id": "channels", "name": "CHANNELS", "type": "flags", "default": 3, "blend": "switch", "values": ["PULSE 1", "PULSE 2", "WAVE"]},
+   {"id": "drift", "name": "DRIFT", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 60], "doc": "each voice a little faster or slower, fanned evenly (up to +-25 % at 100), so they slide in and out of step; fixed, so a patch sounds the same every load. With a SYNC division the rates stay locked and the voices start apart instead", "map": {"gb": "each channel its own LFO rate, sent once"}}
+  ]},
+  {"id": "wide", "name": "WIDE", "voices": 0, "randOn": 0.15, "params": [
+   {"id": "amount", "name": "AMOUNT", "type": "int", "default": 50, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [30, 100], "map": {"sid": "more detune", "gb": "more detune, pulses panned apart", "nes": "more detune"}}
+  ]},
+  {"id": "filter", "name": "FILTER", "voices": 0, "randOn": 0.4, "chips": ["sid"], "doc": "the SID's filter (one for all three SID voices). The Game Boy's is WAVE FILTER: it sounds different, so it has its own settings", "params": [
+   {"id": "type", "name": "TYPE", "type": "enum", "default": 0, "blend": "switch", "values": ["LOW", "BAND", "HIGH", "NOTCH"], "rand": [0, 2], "map": {"sid": "filter mode"}},
+   {"id": "cutoff", "name": "CUTOFF", "type": "int", "default": 128, "blend": "lerp", "min": 0, "max": 255, "rand": [20, 220], "map": {"sid": "cutoff (high byte)"}},
+   {"id": "resonance", "name": "RESONANCE", "type": "int", "default": 6, "blend": "lerp", "min": 0, "max": 15, "rand": [0, 14], "map": {"sid": "resonance"}},
+   {"id": "keyTrack", "name": "KEY TRACK", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "doc": "the cutoff follows the note", "rand": [0, 100]},
+   {"id": "envAmount", "name": "ENV AMOUNT", "type": "int", "default": 0, "blend": "lerp", "min": -127, "max": 127, "rand": [-60, 127]},
+   {"id": "envAttack", "name": "ENV ATTACK", "type": "int", "default": 5, "blend": "log", "min": 0, "max": 2000, "unit": "ms", "rand": [0, 500]},
+   {"id": "envDecay", "name": "ENV DECAY", "type": "int", "default": 300, "blend": "log", "min": 10, "max": 4000, "unit": "ms", "rand": [50, 2000]},
+   {"id": "lfoDepth", "name": "LFO DEPTH", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 127, "rand": [0, 100]},
+   {"id": "filtLfoRate", "name": "LFO RATE", "type": "hz", "default": 0.5, "blend": "log", "min": 0.05, "max": 20, "rand": [0.1, 6]},
+   {"id": "filtLfoSync", "name": "LFO SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "doc": "FREE uses the rate in Hz; a division locks it to the tempo"},
+   {"id": "lfoShape", "name": "LFO SHAPE", "type": "enum", "default": 0, "blend": "switch", "values": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"], "rand": [0, 5]}
+  ]},
+  {"id": "wavefilter", "name": "WAVE FILTER", "voices": 0, "randOn": 0.3, "chips": ["gb"], "doc": "the Game Boy wave channel's filter sweeps (LSDJ style): Fat Chip GB steps the wave through a filtered shape. Separate from the SID's FILTER because it sounds different; FOLLOW SID ties the two together", "params": [
+   {"id": "shape", "name": "SHAPE", "type": "enum", "default": 0, "blend": "switch", "values": ["SAW LP", "SQR LP", "ACID"], "rand": [0, 2], "map": {"gb": "the wave channel plays this filtered shape (SYNTH mode)"}},
+   {"id": "cutoff", "name": "CUTOFF", "type": "int", "default": 8, "blend": "lerp", "min": 0, "max": 15, "rand": [2, 13], "map": {"gb": "the shape's step (P_TIMBRE): 16 steps, dark to bright"}},
+   {"id": "envAmount", "name": "ENV AMOUNT", "type": "int", "default": 0, "blend": "lerp", "min": -15, "max": 15, "unit": "steps", "rand": [-8, 15], "doc": "each note opens (or closes) the filter by this many steps"},
+   {"id": "envDecay", "name": "ENV DECAY", "type": "int", "default": 300, "blend": "log", "min": 10, "max": 4000, "unit": "ms", "rand": [50, 2000]},
+   {"id": "lfoDepth", "name": "LFO DEPTH", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 15, "unit": "steps", "rand": [0, 10]},
+   {"id": "lfoRate", "name": "LFO RATE", "type": "hz", "default": 0.5, "blend": "log", "min": 0.05, "max": 20, "rand": [0.1, 6]},
+   {"id": "lfoSync", "name": "LFO SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "doc": "FREE uses LFO RATE"},
+   {"id": "lfoShape", "name": "LFO SHAPE", "type": "enum", "default": 0, "blend": "switch", "values": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"], "rand": [0, 5]},
+   {"id": "follow", "name": "FOLLOW SID", "type": "bool", "default": 0, "blend": "switch", "doc": "on: the wave filter moves with the SID's FILTER instead of its own envelope and LFO (CUTOFF still sets where it sits)"}
+  ]},
+  {"id": "pwm", "name": "PWM", "voices": 0, "randOn": 0.3, "params": [
+   {"id": "depth", "name": "DEPTH", "type": "int", "default": 40, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [10, 80], "map": {"sid": "pulse width", "gb": "LFO to duty (four steps)"}},
+   {"id": "pwmRate", "name": "PWM RATE", "type": "hz", "default": 0.5, "blend": "log", "min": 0.05, "max": 20, "rand": [0.1, 4]},
+   {"id": "pwmSync", "name": "PWM SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "doc": "FREE uses the rate in Hz; a division locks it to the tempo"},
+   {"id": "shape", "name": "SHAPE", "type": "enum", "default": 0, "blend": "switch", "values": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"], "rand": [0, 5]},
+   {"id": "drift", "name": "DRIFT", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 60], "doc": "each voice a little faster or slower, fanned evenly (up to +-25 % at 100), so they slide in and out of step; fixed, so a patch sounds the same every load. With a SYNC division the rates stay locked and the voices start apart instead", "map": {"sid": "each voice its own LFO step", "gb": "each channel its own LFO rate, sent once", "nes": "duty steps per pulse channel"}}
+  ]},
+  {"id": "dutyseq", "name": "DUTY SEQUENCE", "voices": 0, "randOn": 0.1, "params": [
+   {"id": "pattern", "name": "PATTERN", "type": "enum", "default": 0, "blend": "switch", "values": ["3 WIDTHS", "4 WIDTHS"], "doc": "steps up and back down through 3 widths (12.5, 25, 50 %) or 4 (and 75 %)", "map": {"sid": "pulse width steps", "nes": "duty steps (the NES always takes part)"}},
+   {"id": "stepMs", "name": "STEP", "type": "int", "default": 60, "blend": "log", "min": 10, "max": 1000, "unit": "ms", "rand": [20, 400]},
+   {"id": "stepSync", "name": "STEP SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"]}
+  ]},
+  {"id": "repeat", "name": "REPEAT", "voices": 2, "randOn": 0.15, "doc": "echoes on at most two voices (GB pulse 2, NES pulse 2, then the pulse 1s); held notes come first", "params": [
+   {"id": "time", "name": "TIME", "type": "enum", "default": 3, "blend": "switch", "values": ["1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "80 MS", "100 MS", "125 MS", "150 MS", "200 MS", "250 MS", "300 MS", "400 MS", "500 MS"]},
+   {"id": "repeats", "name": "REPEATS", "type": "int", "default": 3, "blend": "lerp", "min": 1, "max": 8, "rand": [1, 6]},
+   {"id": "level", "name": "LEVEL", "type": "int", "default": 70, "blend": "lerp", "min": 50, "max": 100, "unit": "%", "doc": "each echo this loud as the one before", "rand": [50, 90]},
+   {"id": "shift", "name": "PITCH SHIFT", "type": "int", "default": 0, "blend": "lerp", "min": -12, "max": 12, "unit": "semitones", "doc": "each echo moved by this", "rand": [-12, 12]},
+   {"id": "chips", "name": "ECHO ON", "type": "flags", "default": 3, "blend": "switch", "values": ["GB", "NES"]}
+  ]},
+  {"id": "stack", "name": "STACK", "voices": "rest", "randOn": 0.9, "doc": "what the spare voices do: today's smart stacking (more voices on each note), made a setting", "params": [
+   {"id": "mode", "name": "MODE", "type": "enum", "default": 0, "blend": "switch", "values": ["UNISON", "OCTAVES", "ACROSS CHIPS"], "doc": "UNISON: spare voices double notes; OCTAVES: an octave up or down; ACROSS CHIPS: each note on every chip"}
+  ]}
+ ],
+ "session": [
+  {"id": "nesPulseCap", "name": "NES PULSE CAP", "type": "int", "default": 50, "blend": "switch", "min": 0, "max": 100, "unit": "%", "map": {"nes": "pulses never louder than this"}},
+  {"id": "nesNoiseCap", "name": "NES NOISE CAP", "type": "int", "default": 75, "blend": "switch", "min": 0, "max": 100, "unit": "%", "doc": "the default is a guess: set by ear", "map": {"nes": "noise never louder than this"}},
+  {"id": "paddle1", "name": "PADDLE 1", "type": "enum", "default": 0, "blend": "switch", "values": ["TEMPO", "PITCH BEND", "BEND UP", "BEND DOWN", "FILTER CUTOFF", "BLEND", "OFF"]},
+  {"id": "paddle2", "name": "PADDLE 2", "type": "enum", "default": 1, "blend": "switch", "values": ["TEMPO", "PITCH BEND", "BEND UP", "BEND DOWN", "FILTER CUTOFF", "BLEND", "OFF"]},
+  {"id": "blendPartner", "name": "BLEND PARTNER", "type": "patch", "default": 0, "blend": "switch", "doc": "the patch BLEND moves toward"},
+  {"id": "gbSave", "name": "GB SAVE TO SRAM", "type": "bool", "default": 0, "blend": "switch", "map": {"gb": "off by default: SRAM is never written unless this is on"}}
+ ],
+ "play": [
+  {"id": "chordInterval", "name": "CHORD INTERVAL", "type": "int", "default": 7, "blend": "switch", "min": 1, "max": 12, "unit": "semitones", "doc": "the note CHORD mode adds (a fifth by default)"}
+ ]
+}
