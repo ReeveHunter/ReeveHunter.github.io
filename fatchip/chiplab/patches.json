@@ -1,7 +1,14 @@
 {
  "format": "fat-chip-patches",
  "version": 1,
- "doc": "Fat Chip's built-in patches, in the units of effects.json. An effect is on when listed; \"on\" limits it to some chips; anything left out takes its default.",
+ "doc": "Fat Chip's built-in patches, in the units of effects.json. An effect is on when listed; \"on\" limits it to some chips; anything left out takes its default. The banks are Fat Chip 64's A S D F G keys, their slots Z X C V B (null: empty).",
+ "banks": [
+  {"name": "FAT", "slots": ["FAT", "RAW", "COMBO ORGAN", null, null]},
+  {"name": "PADS", "slots": ["PADS", "WARM SID PAD", "BREATHING PAD", "DUTY SHIMMER PAD", "TREMOLO GATE"]},
+  {"name": "LEADS", "slots": ["DUTY LEAD", "WHISTLE", "SCREAMER", "REPEAT LEAD", null]},
+  {"name": "BASS", "slots": ["GLIDE BASS", "WAVE BASS", null, null, null]},
+  {"name": "FX", "slots": ["ECHO PLUCK", "ELECTRIC PIANO", "VIBRAPHONE", "WARBLE PAD", "SEASICK CHORUS"]}
+ ],
  "patches": [
   {"name": "FAT", "mono": 0, "fatBass": 1, "character": ["detune", "warble"], "fx": {
    "tone": {"sidWave": 1, "gbWaveMode": 2},
