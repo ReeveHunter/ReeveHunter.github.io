@@ -40,6 +40,15 @@
     for (let d = 1; d < 32; d++) if (Math.abs(GB_LFO_DEPTH[d] * 100 / 16 - cents) < Math.abs(GB_LFO_DEPTH[best] * 100 / 16 - cents)) best = d;
     return best;
   }
+  const BLIP_STEPS = [3, 4, 5, 8, 10];
+  const GB_PENV = [131, 156, 178, 195, 209, 221, 229, 236, 241, 245, 248, 250, 251, 253, 253, 254];
+  const bendK = ms => Math.max(1, Math.min(9, pyRound(Math.log2(ms / 12))));
+  function gbPenvT(ms) {
+    const e = i => Math.abs(Math.log(3000 / GB_TICK_HZ / Math.log(256 / GB_PENV[i])) - Math.log(ms));
+    let best = 0;
+    for (let i = 1; i < 16; i++) if (e(i) < e(best)) best = i;
+    return best;
+  }
   function nesEnv(a, d, s, r, peak) {
     const sus = s > 0 ? Math.max(1, pyRound(peak * s)) : 0;
     const atk = a < 0.015 ? 0 : Math.max(1, Math.min(255, pyRound(peak * 256 / (a * 100))));
@@ -164,6 +173,24 @@
       r = t ? pyRound(t.tremRate * 65536 / 100) : 0;
       f.nesTremRL = r & 255; f.nesTremRH = r >> 8;
       f.nesTremSq = t && DEF.lists.shapes[t.shape] === "SQUARE" ? 1 : 0;
+      // v0.30
+      f.nesTremSync = t ? t.tremSync : 0;
+      f.nesTremMode = t ? t.mode : 0;
+      f.sndRpShift = rp ? rp.shift & 255 : 0;
+      f.sndRpMode = rp ? (rp.shiftIn | rp.hop << 1) : 0;
+      const at = has("attack", "sid") ? on.attack : null;
+      f.sndBlip = at ? at.blip : 0;
+      f.sndBlipT = at ? BLIP_STEPS[at.blipMs] : 5;
+      f.sndClick = at ? at.click : 0;
+      const pe = has("penv", "sid") || has("penv", "nes") ? on.penv : null;
+      f.sndPenv = pe ? pe.amount & 255 : 0;
+      f.sndPenvK = pe ? bendK(pe.time) : 0;
+      const pg = has("penv", "gb") ? on.penv : null;
+      f.gbPenvA = ccv(pg ? pg.amount + 24 : 24, 48);
+      f.gbPenvT = ccv(pg ? gbPenvT(pg.time) : 0, 15);
+      const rd = has("rdrop", "sid") ? on.rdrop : null;
+      f.sndRdrop = rd ? rd.amount : 0;
+      f.sndRdropK = rd ? bendK(rd.time) : 0;
       return f;
     }
 

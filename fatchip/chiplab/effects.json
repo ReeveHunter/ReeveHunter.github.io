@@ -72,9 +72,18 @@
    {"id": "time", "name": "TIME", "type": "enum", "default": 1, "blend": "switch", "values": ["30 MS", "60 MS", "120 MS", "250 MS", "500 MS"], "map": {"sid": "1/2^k of the way per 4 ms, k 3-7", "gb": "glide (CC 5)", "nes": "by bend"}},
    {"id": "mode", "name": "MODE", "type": "enum", "default": 0, "blend": "switch", "values": ["ALWAYS", "LEGATO"], "doc": "LEGATO: only when keys overlap"}
   ]},
-  {"id": "penv", "name": "PITCH ENVELOPE", "voices": 0, "randOn": 0.15, "params": [
+  {"id": "penv", "name": "BEND IN", "voices": 0, "randOn": 0.15, "doc": "each note starts AMOUNT away and bends to its pitch over TIME: from above (a drop, like a tom or a pluck) or from below (a scoop)", "params": [
    {"id": "amount", "name": "AMOUNT", "type": "int", "default": 12, "blend": "lerp", "min": -24, "max": 24, "unit": "semitones", "rand": [-12, 24], "map": {"sid": "frequency", "gb": "P_PENV_AMT", "nes": "by bend (down: no lower than the channel's bottom note)"}},
    {"id": "time", "name": "TIME", "type": "int", "default": 80, "blend": "log", "min": 5, "max": 1000, "unit": "ms", "rand": [10, 300], "map": {"gb": "P_PENV_TIME"}}
+  ]},
+  {"id": "rdrop", "name": "BEND OUT", "voices": 0, "randOn": 0.1, "chips": ["sid"], "doc": "a note let go sags in pitch as it fades: a little tape stop on every note", "params": [
+   {"id": "amount", "name": "AMOUNT", "type": "int", "default": 5, "blend": "lerp", "min": 1, "max": 24, "unit": "semitones", "rand": [1, 12], "doc": "how far down", "map": {"sid": "frequency, while the release rings"}},
+   {"id": "time", "name": "TIME", "type": "int", "default": 300, "blend": "log", "min": 20, "max": 2000, "unit": "ms", "rand": [80, 1000]}
+  ]},
+  {"id": "attack", "name": "ATTACK", "voices": 0, "randOn": 0.15, "chips": ["sid"], "doc": "a chip-tune start to each note: a quick octave BLIP and / or a CLICK of noise, then the patch's own sound", "params": [
+   {"id": "blip", "name": "BLIP", "type": "enum", "default": 1, "blend": "switch", "values": ["OFF", "OCTAVE", "OCTAVE + 5TH", "2 OCTAVES"], "doc": "OCTAVE: an octave up, then the note; OCTAVE + 5TH: up an octave, then a fifth, then the note; 2 OCTAVES: two up, one up, the note", "rand": [1, 3]},
+   {"id": "blipMs", "name": "BLIP STEP", "type": "enum", "default": 2, "blend": "switch", "values": ["10 MS", "15 MS", "20 MS", "30 MS", "40 MS"]},
+   {"id": "click", "name": "CLICK", "type": "enum", "default": 0, "blend": "switch", "values": ["OFF", "ON"], "doc": "the first 20 ms of each note as noise (the classic C64 snap)", "rand": [0, 1]}
   ]},
   {"id": "warble", "name": "WARBLE", "voices": 0, "randOn": 0.3, "params": [
    {"id": "amount", "name": "AMOUNT", "type": "int", "default": 10, "blend": "lerp", "min": 0, "max": 50, "unit": "cents", "rand": [4, 40], "map": {"sid": "new: slow random drift", "gb": "warble (CC 104)", "nes": "new: slow random drift, by bend"}},
@@ -86,7 +95,8 @@
    {"id": "tremRate", "name": "TREMOLO RATE", "type": "hz", "default": 6, "blend": "log", "min": 0.05, "max": 20, "rand": [2, 10]},
    {"id": "tremSync", "name": "TREMOLO SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "doc": "FREE uses the rate in Hz; a division locks it to the tempo"},
    {"id": "shape", "name": "SHAPE", "type": "enum", "default": 1, "blend": "switch", "values": ["TRI", "SINE", "SAW UP", "SAW DOWN", "SQUARE", "RANDOM"], "rand": [0, 5]},
-   {"id": "drift", "name": "DRIFT", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 60], "doc": "each voice a little faster or slower, fanned evenly (up to +-25 % at 100), so they slide in and out of step; fixed, so a patch sounds the same every load. With a SYNC division the rates stay locked and the voices start apart instead", "map": {"sid": "each voice its own LFO step", "gb": "each channel its own LFO rate, sent once", "nes": "each channel its own bend LFO"}}
+   {"id": "drift", "name": "DRIFT", "type": "int", "default": 0, "blend": "lerp", "min": 0, "max": 100, "unit": "%", "rand": [0, 60], "doc": "each voice a little faster or slower, fanned evenly (up to +-25 % at 100), so they slide in and out of step; fixed, so a patch sounds the same every load. With a SYNC division the rates stay locked and the voices start apart instead", "map": {"sid": "each voice its own LFO step", "gb": "each channel its own LFO rate, sent once", "nes": "each channel its own bend LFO"}},
+   {"id": "mode", "name": "MODE", "type": "enum", "default": 0, "blend": "switch", "values": ["LFO", "PUMP", "GATE X.X.XX.X", "GATE XX.XX.X.", "GATE X..X..X."], "doc": "LFO: the SHAPE; PUMP: ducks at the start of each cycle and swells back (SYNC 1/4: on every beat); GATE: hard on / off in that rhythm, eight steps a cycle (SYNC 1 BAR: eighth notes)"}
   ]},
   {"id": "pan", "name": "PAN", "voices": 0, "randOn": 0.3, "chips": ["gb"], "params": [
    {"id": "gbPulse1", "name": "PULSE 1", "type": "enum", "default": 1, "blend": "switch", "values": ["LEFT", "CENTRE", "RIGHT"], "map": {"gb": "CC 10"}},
@@ -139,12 +149,14 @@
    {"id": "stepMs", "name": "STEP", "type": "int", "default": 60, "blend": "log", "min": 10, "max": 1000, "unit": "ms", "rand": [20, 400]},
    {"id": "stepSync", "name": "STEP SYNC", "type": "enum", "default": 0, "blend": "switch", "values": ["FREE", "1 BAR", "1/2", "1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "1/32"]}
   ]},
-  {"id": "repeat", "name": "REPEAT", "voices": 2, "randOn": 0.15, "doc": "echoes on at most two voices (GB pulse 2, NES pulse 2, then the pulse 1s); held notes come first", "params": [
+  {"id": "repeat", "name": "REPEAT", "voices": 2, "randOn": 0.15, "doc": "echoes on at most two voices (GB pulse 2, NES pulse 2, then the pulse 1s; ALL CHIPS adds SID 3); held notes come first", "params": [
    {"id": "time", "name": "TIME", "type": "enum", "default": 3, "blend": "switch", "values": ["1/4", "1/8 DOTTED", "1/8", "1/8T", "1/16", "1/16T", "80 MS", "100 MS", "125 MS", "150 MS", "200 MS", "250 MS", "300 MS", "400 MS", "500 MS"]},
    {"id": "repeats", "name": "REPEATS", "type": "int", "default": 3, "blend": "lerp", "min": 1, "max": 8, "rand": [1, 6]},
    {"id": "level", "name": "LEVEL", "type": "int", "default": 70, "blend": "lerp", "min": 50, "max": 100, "unit": "%", "doc": "each echo this loud as the one before", "rand": [50, 90]},
    {"id": "shift", "name": "PITCH SHIFT", "type": "int", "default": 0, "blend": "lerp", "min": -12, "max": 12, "unit": "semitones", "doc": "each echo moved by this", "rand": [-12, 12]},
-   {"id": "chips", "name": "ECHO ON", "type": "flags", "default": 3, "blend": "switch", "values": ["GB", "NES"]}
+   {"id": "chips", "name": "ECHO ON", "type": "flags", "default": 3, "blend": "switch", "values": ["GB", "NES"]},
+   {"id": "shiftIn", "name": "SHIFT IN", "type": "enum", "default": 0, "blend": "switch", "values": ["SEMITONES", "SCALE STEPS"], "doc": "SCALE STEPS: PITCH SHIFT counts notes of the key's scale, so the echoes climb (or fall) in the key"},
+   {"id": "hop", "name": "ECHOES", "type": "enum", "default": 0, "blend": "switch", "values": ["GB + NES", "ALL CHIPS", "ONE CHIP"], "doc": "GB + NES: the echoes take turns on the Game Boy and NES; ALL CHIPS: the SID joins in (SID 3); ONE CHIP: every echo on one voice"}
   ]},
   {"id": "stack", "name": "STACK", "voices": "rest", "randOn": 0.9, "doc": "what the spare voices do: today's smart stacking (more voices on each note), made a setting", "params": [
    {"id": "mode", "name": "MODE", "type": "enum", "default": 0, "blend": "switch", "values": ["UNISON", "OCTAVES", "ACROSS CHIPS"], "doc": "UNISON: spare voices double notes; OCTAVES: an octave up or down; ACROSS CHIPS: each note on every chip"}
