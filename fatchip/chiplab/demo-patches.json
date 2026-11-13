@@ -1,0 +1,984 @@
+{
+ "format": "fat-chip-patches",
+ "version": 1,
+ "doc": "Chip Lab's demo patches (Fat Chip 64 v0.30 / v0.31 effects: ATTACK, BEND IN / OUT, climbing and chip-hopping echoes, tempo PUMP and GATE). Not built into Fat Chip 64: sort the ones you like into banks. 'suggest' is a starting guess at each one's bank.",
+ "suggest": {
+  "BLIP LEAD": "LEADS",
+  "CHIP ARP STAB": "LEADS",
+  "SCOOP LEAD": "LEADS",
+  "DIVE BOMB": "LEADS",
+  "TAPE STOP LEAD": "LEADS",
+  "CLIMB ECHO": "LEADS",
+  "SCALE CASCADE": "LEADS",
+  "FIFTH ECHO": "LEADS",
+  "CHIP PING PONG": "LEADS",
+  "SLAPBACK": "LEADS",
+  "PUMP PAD": "PADS",
+  "SLOW PUMP": "PADS",
+  "GATE PAD": "PADS",
+  "TRANCE GATE": "PADS",
+  "DOTTED GATE": "PADS",
+  "SYNC WOBBLE": "PADS",
+  "SIGH PAD": "PADS",
+  "PLUCK BASS DROP": "BASS",
+  "SCOOP BASS": "BASS",
+  "BLIP BASS": "BASS",
+  "808 DROP": "BASS",
+  "FALL BASS": "BASS",
+  "LASER": "FX",
+  "ZAP CLICK": "FX",
+  "COIN BLIP": "FX",
+  "POWER DOWN": "FX",
+  "RAIN DROPS": "FX",
+  "UFO": "FX",
+  "FAT CLICK": "FAT",
+  "FAT SCOOP": "FAT",
+  "FAT TAPE": "FAT",
+  "BIG SCOOP": "FAT"
+ },
+ "patches": [
+  {
+   "name": "BLIP LEAD",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 1024,
+     "gbDuty1": 1,
+     "gbDuty2": 1,
+     "nesDuty1": 1,
+     "nesDuty2": 1,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 10,
+     "release": 240
+    },
+    "detune": {
+     "cents": 6
+    },
+    "attack": {
+     "blip": 1,
+     "blipMs": 2
+    },
+    "vibrato": {
+     "depth": 15,
+     "vibRate": 5.5,
+     "delay": 250
+    }
+   }
+  },
+  {
+   "name": "CHIP ARP STAB",
+   "character": [
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 2048,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 240,
+     "sustain": 6,
+     "release": 168
+    },
+    "detune": {
+     "cents": 5
+    },
+    "attack": {
+     "blip": 3,
+     "blipMs": 1
+    }
+   }
+  },
+  {
+   "name": "SCOOP LEAD",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "penv"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbDuty1": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 12,
+     "release": 300
+    },
+    "detune": {
+     "cents": 8
+    },
+    "penv": {
+     "amount": -3,
+     "time": 80
+    },
+    "vibrato": {
+     "depth": 20,
+     "vibRate": 5.8,
+     "delay": 300
+    }
+   }
+  },
+  {
+   "name": "DIVE BOMB",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "penv"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 1600,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 13,
+     "release": 240
+    },
+    "detune": {
+     "cents": 6
+    },
+    "penv": {
+     "amount": 24,
+     "time": 300
+    }
+   }
+  },
+  {
+   "name": "TAPE STOP LEAD",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "rdrop"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 12,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 7
+    },
+    "rdrop": {
+     "amount": 12,
+     "time": 800
+    }
+   }
+  },
+  {
+   "name": "CLIMB ECHO",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 1024,
+     "gbDuty1": 1,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 8,
+     "release": 240
+    },
+    "detune": {
+     "cents": 5
+    },
+    "repeat": {
+     "time": 2,
+     "repeats": 4,
+     "level": 80,
+     "shift": 12,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "SCALE CASCADE",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbDuty1": 2,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 6,
+     "release": 300
+    },
+    "detune": {
+     "cents": 4
+    },
+    "repeat": {
+     "time": 4,
+     "repeats": 7,
+     "level": 85,
+     "shift": -1,
+     "shiftIn": 1,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "FIFTH ECHO",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 10,
+     "release": 240
+    },
+    "detune": {
+     "cents": 6
+    },
+    "repeat": {
+     "time": 2,
+     "repeats": 3,
+     "level": 75,
+     "shift": 7
+    }
+   }
+  },
+  {
+   "name": "CHIP PING PONG",
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 2048,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 240,
+     "sustain": 4,
+     "release": 168
+    },
+    "detune": {
+     "cents": 5
+    },
+    "repeat": {
+     "time": 1,
+     "repeats": 5,
+     "level": 85,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "SLAPBACK",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 12,
+     "release": 240
+    },
+    "detune": {
+     "cents": 7
+    },
+    "repeat": {
+     "time": 6,
+     "repeats": 2,
+     "level": 70,
+     "hop": 2
+    }
+   }
+  },
+  {
+   "name": "PUMP PAD",
+   "character": [
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 250,
+     "decay": 750,
+     "sustain": 15,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 9
+    },
+    "tremolo": {
+     "depth": 90,
+     "tremSync": 3,
+     "mode": 1
+    },
+    "warble": {
+     "amount": 9,
+     "on": [
+      "gb"
+     ]
+    }
+   }
+  },
+  {
+   "name": "SLOW PUMP",
+   "character": [
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "sidPw": 1024,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 500,
+     "decay": 750,
+     "sustain": 15,
+     "release": 2400
+    },
+    "detune": {
+     "cents": 7
+    },
+    "tremolo": {
+     "depth": 65,
+     "tremSync": 2,
+     "mode": 1
+    }
+   }
+  },
+  {
+   "name": "GATE PAD",
+   "character": [
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 80,
+     "decay": 750,
+     "sustain": 15,
+     "release": 750
+    },
+    "detune": {
+     "cents": 8
+    },
+    "tremolo": {
+     "depth": 100,
+     "tremSync": 7,
+     "mode": 2
+    }
+   }
+  },
+  {
+   "name": "TRANCE GATE",
+   "character": [
+    "tremolo",
+    "pwm"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 1600,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 24,
+     "decay": 750,
+     "sustain": 15,
+     "release": 300
+    },
+    "detune": {
+     "cents": 10
+    },
+    "tremolo": {
+     "depth": 100,
+     "tremSync": 7,
+     "mode": 3
+    },
+    "pwm": {
+     "depth": 40,
+     "pwmRate": 0.4
+    }
+   }
+  },
+  {
+   "name": "DOTTED GATE",
+   "character": [
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "sidPw": 2048,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 16,
+     "decay": 750,
+     "sustain": 15,
+     "release": 240
+    },
+    "detune": {
+     "cents": 6
+    },
+    "tremolo": {
+     "depth": 100,
+     "tremSync": 7,
+     "mode": 4
+    }
+   }
+  },
+  {
+   "name": "SYNC WOBBLE",
+   "character": [
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 100,
+     "decay": 750,
+     "sustain": 15,
+     "release": 750
+    },
+    "detune": {
+     "cents": 7
+    },
+    "tremolo": {
+     "depth": 60,
+     "tremSync": 6,
+     "shape": 1
+    }
+   }
+  },
+  {
+   "name": "SIGH PAD",
+   "character": [
+    "rdrop",
+    "filter"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 500,
+     "decay": 750,
+     "sustain": 15,
+     "release": 2400
+    },
+    "detune": {
+     "cents": 8
+    },
+    "rdrop": {
+     "amount": 2,
+     "time": 1500
+    },
+    "filter": {
+     "cutoff": 90,
+     "resonance": 6,
+     "lfoDepth": 40,
+     "filtLfoRate": 0.2
+    }
+   }
+  },
+  {
+   "name": "PLUCK BASS DROP",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "rdrop",
+    "filter"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 240,
+     "sustain": 4,
+     "release": 168
+    },
+    "detune": {
+     "cents": 5
+    },
+    "rdrop": {
+     "amount": 5,
+     "time": 200
+    },
+    "filter": {
+     "cutoff": 60,
+     "resonance": 9,
+     "envAmount": 80
+    }
+   }
+  },
+  {
+   "name": "SCOOP BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "penv",
+    "glide"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 1024,
+     "gbDuty1": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 12,
+     "release": 168
+    },
+    "detune": {
+     "cents": 4
+    },
+    "penv": {
+     "amount": -5,
+     "time": 40
+    },
+    "glide": {
+     "time": 1
+    }
+   }
+  },
+  {
+   "name": "BLIP BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 1600,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 10,
+     "release": 168
+    },
+    "detune": {
+     "cents": 4
+    },
+    "attack": {
+     "blip": 1,
+     "blipMs": 1
+    }
+   }
+  },
+  {
+   "name": "808 DROP",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "penv"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 1500,
+     "sustain": 0,
+     "release": 750
+    },
+    "detune": {
+     "cents": 3
+    },
+    "penv": {
+     "amount": 12,
+     "time": 150
+    }
+   }
+  },
+  {
+   "name": "FALL BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "rdrop"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 12,
+     "release": 300
+    },
+    "detune": {
+     "cents": 5
+    },
+    "rdrop": {
+     "amount": 12,
+     "time": 300
+    }
+   }
+  },
+  {
+   "name": "LASER",
+   "character": [
+    "penv"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 512,
+     "gbDuty1": 0,
+     "gbDuty2": 0,
+     "nesDuty1": 0,
+     "nesDuty2": 0,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 240,
+     "sustain": 0,
+     "release": 168
+    },
+    "detune": {
+     "cents": 4
+    },
+    "penv": {
+     "amount": 24,
+     "time": 40
+    }
+   }
+  },
+  {
+   "name": "ZAP CLICK",
+   "character": [
+    "penv",
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 168,
+     "sustain": 0,
+     "release": 114
+    },
+    "detune": {
+     "cents": 6
+    },
+    "attack": {
+     "blip": 0,
+     "click": 1
+    },
+    "penv": {
+     "amount": 24,
+     "time": 20
+    }
+   }
+  },
+  {
+   "name": "COIN BLIP",
+   "character": [
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 2048,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 0,
+     "release": 240
+    },
+    "detune": {
+     "cents": 3
+    },
+    "attack": {
+     "blip": 2,
+     "blipMs": 4
+    }
+   }
+  },
+  {
+   "name": "POWER DOWN",
+   "character": [
+    "rdrop"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "sidPw": 1024,
+     "gbWaveMode": 1
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 15,
+     "release": 3000
+    },
+    "detune": {
+     "cents": 6
+    },
+    "rdrop": {
+     "amount": 24,
+     "time": 2000
+    }
+   }
+  },
+  {
+   "name": "RAIN DROPS",
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbDuty1": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 168,
+     "sustain": 0,
+     "release": 168
+    },
+    "detune": {
+     "cents": 4
+    },
+    "repeat": {
+     "time": 5,
+     "repeats": 8,
+     "level": 70,
+     "shift": 2,
+     "shiftIn": 1,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "UFO",
+   "character": [
+    "vibrato",
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 80,
+     "decay": 750,
+     "sustain": 15,
+     "release": 750
+    },
+    "detune": {
+     "cents": 10
+    },
+    "vibrato": {
+     "depth": 50,
+     "vibRate": 9
+    },
+    "tremolo": {
+     "depth": 50,
+     "tremRate": 3.5
+    }
+   }
+  },
+  {
+   "name": "FAT CLICK",
+   "character": [
+    "detune",
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 12,
+     "release": 750
+    },
+    "detune": {
+     "cents": 9
+    },
+    "attack": {
+     "blip": 0,
+     "click": 1
+    },
+    "warble": {
+     "amount": 9,
+     "on": [
+      "gb"
+     ]
+    }
+   }
+  },
+  {
+   "name": "FAT SCOOP",
+   "character": [
+    "detune",
+    "penv"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 12,
+     "release": 750
+    },
+    "detune": {
+     "cents": 7
+    },
+    "penv": {
+     "amount": -2,
+     "time": 40
+    },
+    "warble": {
+     "amount": 9,
+     "on": [
+      "gb"
+     ]
+    }
+   }
+  },
+  {
+   "name": "FAT TAPE",
+   "character": [
+    "detune",
+    "rdrop",
+    "warble"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 12,
+     "release": 750
+    },
+    "detune": {
+     "cents": 7
+    },
+    "rdrop": {
+     "amount": 3,
+     "time": 400
+    },
+    "warble": {
+     "amount": 15
+    }
+   }
+  },
+  {
+   "name": "BIG SCOOP",
+   "character": [
+    "detune",
+    "penv"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 13,
+     "release": 750
+    },
+    "detune": {
+     "cents": 20
+    },
+    "penv": {
+     "amount": -7,
+     "time": 200
+    }
+   }
+  }
+ ]
+}

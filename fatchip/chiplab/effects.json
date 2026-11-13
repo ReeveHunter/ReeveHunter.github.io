@@ -76,9 +76,9 @@
    {"id": "amount", "name": "AMOUNT", "type": "int", "default": 12, "blend": "lerp", "min": -24, "max": 24, "unit": "semitones", "rand": [-12, 24], "map": {"sid": "frequency", "gb": "P_PENV_AMT", "nes": "by bend (down: no lower than the channel's bottom note)"}},
    {"id": "time", "name": "TIME", "type": "int", "default": 80, "blend": "log", "min": 5, "max": 1000, "unit": "ms", "rand": [10, 300], "map": {"gb": "P_PENV_TIME"}}
   ]},
-  {"id": "rdrop", "name": "BEND OUT", "voices": 0, "randOn": 0.1, "chips": ["sid"], "doc": "a note let go sags in pitch as it fades: a little tape stop on every note", "params": [
-   {"id": "amount", "name": "AMOUNT", "type": "int", "default": 5, "blend": "lerp", "min": 1, "max": 24, "unit": "semitones", "rand": [1, 12], "doc": "how far down", "map": {"sid": "frequency, while the release rings"}},
-   {"id": "time", "name": "TIME", "type": "int", "default": 300, "blend": "log", "min": 20, "max": 2000, "unit": "ms", "rand": [80, 1000]}
+  {"id": "rdrop", "name": "BEND OUT", "voices": 0, "randOn": 0.1, "doc": "a note let go sags in pitch as it fades: a little tape stop on every note. The NES bends while its envelope fades; with no NES envelope its notes hold on for TIME as they fall, then stop", "params": [
+   {"id": "amount", "name": "AMOUNT", "type": "int", "default": 5, "blend": "lerp", "min": 1, "max": 24, "unit": "semitones", "rand": [1, 12], "doc": "how far down", "map": {"sid": "frequency, while the release rings", "gb": "Fat Chip GB's release drop (CC 87)", "nes": "pitch bends while it fades (or a fall-off)"}},
+   {"id": "time", "name": "TIME", "type": "int", "default": 300, "blend": "log", "min": 20, "max": 2000, "unit": "ms", "rand": [80, 1000], "map": {"gb": "CC 88: the nearest of Fat Chip GB's 16 times"}}
   ]},
   {"id": "attack", "name": "ATTACK", "voices": 0, "randOn": 0.15, "chips": ["sid"], "doc": "a chip-tune start to each note: a quick octave BLIP and / or a CLICK of noise, then the patch's own sound", "params": [
    {"id": "blip", "name": "BLIP", "type": "enum", "default": 1, "blend": "switch", "values": ["OFF", "OCTAVE", "OCTAVE + 5TH", "2 OCTAVES"], "doc": "OCTAVE: an octave up, then the note; OCTAVE + 5TH: up an octave, then a fifth, then the note; 2 OCTAVES: two up, one up, the note", "rand": [1, 3]},

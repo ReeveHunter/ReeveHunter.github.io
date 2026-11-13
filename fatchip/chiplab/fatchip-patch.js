@@ -190,7 +190,15 @@
       f.gbPenvT = ccv(pg ? gbPenvT(pg.time) : 0, 15);
       const rd = has("rdrop", "sid") ? on.rdrop : null;
       f.sndRdrop = rd ? rd.amount : 0;
-      f.sndRdropK = rd ? bendK(rd.time) : 0;
+      const ra = on.rdrop;
+      f.sndRdropK = ra ? bendK(ra.time) : 0;
+      // v0.31: BEND OUT on the NES (a bend while it fades, or a fall-off) and the Game Boy (CC 87 / 88)
+      const rn = has("rdrop", "nes") ? ra : null;
+      f.nesRdrop = rn ? rn.amount : 0;
+      f.sndRdropT = rn ? Math.min(255, pyRound(rn.time / 10)) : 0;
+      const rg = has("rdrop", "gb") ? ra : null;
+      f.gbRdA = rg ? rg.amount : 0;
+      f.gbRdT = rg ? gbPenvT(rg.time) * 8 : 0;
       return f;
     }
 

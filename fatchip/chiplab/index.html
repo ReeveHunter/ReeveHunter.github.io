@@ -71,6 +71,30 @@ select:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-
 .pbtn { font: 600 12.5px/1 var(--mono); padding: 7px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
 .pbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .plabel { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
+/* banks: drag the tags into Fat Chip 64's banks */
+.pool { display: grid; gap: 4px; }
+.pool .plabel { margin: 8px 0 4px; }
+.zone { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; min-height: 34px; padding: 4px; border-radius: 8px; }
+.pool .zone { min-height: 30px; padding: 0; }
+.tag { font: 600 12px/1 var(--mono); padding: 7px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag.demo { border-style: dashed; }
+.tag.mine::before { content: "★ "; color: var(--accent-strong); }
+.tag[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tag.dragging { opacity: 0.3; }
+.tag.ghost { position: fixed; z-index: 50; pointer-events: none; box-shadow: 0 6px 18px rgba(0,0,0,.25); cursor: grabbing; }
+.ph { width: 46px; height: 27px; border-radius: 999px; border: 2px dashed var(--accent); flex: none; }
+.banks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+@media (max-width: 900px) { .banks { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); } }
+.bank { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 8px 8px 6px; min-width: 0; }
+.bank h3 { font: 700 14px/1.2 var(--display); letter-spacing: 0.06em; margin: 2px 4px 4px; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.bank h3 small { font: 600 11px var(--mono); color: var(--muted); letter-spacing: 0; }
+.bank h3 small.over { color: var(--warn); }
+.tier { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 2px; }
+.tier:first-of-type { border-top: 0; }
+.tlabel { font: 700 10.5px/1 var(--mono); letter-spacing: 0.12em; color: var(--muted); margin: 6px 4px 2px; }
+.tier.keep .tlabel { color: var(--ok); }
+.zone.hot { background: var(--surface); outline: 1px dashed var(--accent); }
+.zone:empty::after { content: attr(data-empty); font-size: 11.5px; color: var(--muted); align-self: center; padding: 0 4px; }
 /* editor */
 .top-edit { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
 @media (max-width: 760px) { .top-edit { grid-template-columns: 1fr 1fr; } }
@@ -133,7 +157,7 @@ textarea { width: 100%; resize: vertical; font: 14px/1.4 "Inter", system-ui, san
 <header class="top">
   <p class="crumb"><a href="../../tools/">Tools</a> / <a href="../">Fat Chip</a> /</p>
   <h1>Chip Lab</h1>
-  <p class="sub">Build Fat Chip patches from the shared effect list, roll the dice, blend two patches, and hear them on the real C64: Chip Lab sends each change to Fat Chip 64 (v0.20 or later) over MIDI. The older emulated sound library is <a href="library.html">here</a>.</p>
+  <p class="sub">Build Fat Chip patches from the shared effect list, roll the dice, blend two patches, sort the ones you like into Fat Chip's banks, and hear them on the real C64: Chip Lab sends each change to Fat Chip 64 over MIDI (v0.31 plays every setting shown). The older emulated sound library is <a href="library.html">here</a>.</p>
 </header>
 <main>
   <div class="banner" id="noMidi" hidden>This browser can't send MIDI. Use Chrome or Edge on the Mac, and allow MIDI (with SysEx) when it asks.</div>
@@ -143,8 +167,13 @@ textarea { width: 100%; resize: vertical; font: 14px/1.4 "Inter", system-ui, san
     <div class="card-head"><h2>Patches</h2>
       <div class="row"><button class="btn small" id="saveBtn">Save to my patches</button><button class="btn small" id="newBtn">New from the dice</button><button class="btn small" id="delBtn">Delete</button></div>
     </div>
-    <div class="plabel">Built in (Fat Chip 64's V list)</div><div class="plist" id="builtList"></div>
-    <div class="plabel">My patches <span id="myCount"></span></div><div class="plist" id="myList"></div>
+    <div class="pool" id="pool">
+      <div class="plabel">Built in (Fat Chip 64's V list)</div><div class="zone" data-zone="pool" data-src="b" data-empty="All sorted into banks"></div>
+      <div class="plabel">Demo patches (v0.30–0.31: blips, bends, climbing echoes, pump and gate)</div><div class="zone" data-zone="pool" data-src="d" data-empty="All sorted into banks"></div>
+      <div class="plabel">My patches <span id="myCount"></span></div><div class="zone" data-zone="pool" data-src="m" data-empty="None here"></div>
+    </div>
+    <div class="banks" id="banks"></div>
+    <p class="hint">Click a patch to hear it (it goes to the C64 and opens below). Drag the ones you want in Fat Chip into a bank, under <b>KEEP</b>, <b>GOOD</b> or <b>MAYBE</b>, and drag them about to put them in order; drag one back up to take it out. The C64 has 5 slots a bank (Z X C V B), so KEEP shows how many of the 5 you've used. Dashed tags are the demo patches. <button class="btn small" id="banksReset" style="margin-left:6px">Empty the banks</button></p>
   </section>
 
   <section class="card">
@@ -171,7 +200,7 @@ textarea { width: 100%; resize: vertical; font: 14px/1.4 "Inter", system-ui, san
   </section>
 
   <section class="card">
-    <div class="card-head"><h2>Keys and notes</h2><button class="btn small primary" id="exportBtn">Export my patches for Claude</button></div>
+    <div class="card-head"><h2>Keys and notes</h2><button class="btn small primary" id="exportBtn">Export my patches and banks for Claude</button></div>
     <div class="keys" id="keys"></div>
     <p class="hint" style="margin-top:6px">Click or use <b>A W S E D F T G Y H U J K</b>; <b>Z / X</b> change octave (<span id="octOut"></span>). The notes go to the C64 on MIDI channel 1, like a keyboard on its MIDI in.</p>
     <label class="field" style="margin-top:12px"><span>Notes on <b id="noteName"></b> (saved with the patch, exported for Claude)</span><textarea id="pNotes" placeholder="What works, what doesn't…"></textarea></label>
@@ -188,19 +217,29 @@ const store = {
 const clone = o => JSON.parse(JSON.stringify(o));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
-// What Fat Chip 64 (v0.20) actually plays. The rest of the definition is the plan.
+// What Fat Chip 64 (v0.31) actually plays. The rest of the definition is the plan.
 const USED = {
   patch: ["mono", "fatBass", "octSid", "octGb", "lvlGbPulse", "lvlGbWave", "lvlNes"],
   tone: ["sidWave", "sidPw", "sidPwSpread", "gbDuty1", "gbDuty2", "gbWaveMode", "gbWaveShape", "nesDuty1", "nesDuty2"],
   env: ["attack", "decay", "sustain", "release", "gbEnv", "gbAttack", "gbDecay", "gbSustain", "gbRelease", "nesEnv", "nesAttack", "nesDecay", "nesSustain", "nesRelease"],
   detune: ["cents"], vibrato: ["depth", "vibRate", "delay", "shape", "drift"], glide: ["time"], warble: ["amount", "speed"],
   tremolo: ["depth", "tremRate", "shape"], filter: ["cutoff", "resonance", "envAmount", "lfoDepth", "filtLfoRate"],
-  pwm: ["depth", "pwmRate", "shape"], dutyseq: ["pattern", "stepMs"], repeat: ["time", "repeats", "level"],
+  pwm: ["depth", "pwmRate", "shape"], dutyseq: ["pattern", "stepMs"], repeat: ["time", "repeats", "level", "shift", "shiftIn", "hop"],
+  // v0.30 / v0.31
+  attack: ["blip", "blipMs", "click"], penv: ["amount", "time"], rdrop: ["amount", "time"],
 };
+USED.tremolo.push("tremSync", "mode");
 const used = (eid, pid) => (USED[eid] || []).includes(pid);
 const effectUsed = eid => !!USED[eid];
 
-let DEF, LAYOUT, BUILT, fc;
+let DEF, LAYOUT, BUILT, fc, DEMO = [], SUGGEST = {};
+const BANK_NAMES = ["FAT", "PADS", "LEADS", "BASS", "FX"], TIERS = ["keep", "good", "maybe"], SLOTS = 5;
+let banks = store.get("banks", null);           // {FAT: {keep: [key], good: [], maybe: []}, ...}; key "b:NAME" / "d:NAME" / "m:NAME"
+function fixBanks() {
+  if (!banks || typeof banks !== "object") banks = {};
+  for (const b of BANK_NAMES) { banks[b] ||= {}; for (const t of TIERS) if (!Array.isArray(banks[b][t])) banks[b][t] = []; }
+}
+fixBanks();
 let mine = store.get("mine", []);              // [{name, fx, ..., notes}]
 let work = null;                               // the patch being edited
 let origin = store.get("origin", { kind: "built", i: 0 });   // where `work` came from
@@ -349,29 +388,122 @@ drawChips();
 // ====================================================================== drawing
 const builtPatch = i => clone(BUILT[i]);
 function saveWork() { store.set("work", work); store.set("origin", origin); store.set("locks", locks); $("curName").textContent = work.name + (dirty() ? " (changed)" : ""); }
-function sourcePatch() { return origin.kind === "built" ? BUILT[origin.i] : mine[origin.i]; }
+function sourcePatch() { return origin.kind === "built" ? BUILT[origin.i] : origin.kind === "demo" ? DEMO[origin.i] : origin.kind === "mine" ? mine[origin.i] : null; }
 const dirty = () => { const s = sourcePatch(); if (!s) return true; const a = clone(s); delete a.notes; return JSON.stringify(a) !== JSON.stringify(stripNotes(work)); };
 const stripNotes = p => { const a = clone(p); delete a.notes; return a; };
+// ====================================================================== the patches and the banks (drag to sort)
+const SRC = { b: () => BUILT, d: () => DEMO, m: () => mine }, KIND = { b: "built", d: "demo", m: "mine" };
+const keyOf = (src, p) => src + ":" + p.name;
+function byKey(key) {
+  const src = key[0], name = key.slice(2), list = SRC[src] ? SRC[src]() : [];
+  const i = list.findIndex(p => p.name === name);
+  return i < 0 ? null : { src, i, p: list[i] };
+}
+function placed() { const s = new Set(); for (const b of BANK_NAMES) for (const t of TIERS) banks[b][t].forEach(k => s.add(k)); return s; }
+function cleanBanks() {   // drop keys whose patch is gone
+  for (const b of BANK_NAMES) for (const t of TIERS) banks[b][t] = banks[b][t].filter(k => byKey(k));
+}
+function saveBanks() { store.set("banks", banks); }
+function tagEl(key) {
+  const f = byKey(key), b = document.createElement("button");
+  b.type = "button"; b.className = "tag" + (f.src === "d" ? " demo" : f.src === "m" ? " mine" : ""); b.dataset.key = key; b.textContent = f.p.name;
+  b.setAttribute("aria-pressed", origin.kind === KIND[f.src] && origin.i === f.i);
+  b.title = (f.src === "d" && SUGGEST[f.p.name] ? "Demo patch (a guess: " + SUGGEST[f.p.name] + "). " : "") + "Click to hear it; drag it into a bank";
+  return b;
+}
 function drawLists() {
-  const mk = (box, list, kind) => {
-    box.innerHTML = "";
-    list.forEach((p, i) => {
-      const b = document.createElement("button"); b.className = "pbtn"; b.textContent = p.name;
-      b.setAttribute("aria-pressed", origin.kind === kind && origin.i === i);
-      b.onclick = () => { origin = { kind, i }; work = clone(p); work.fx ||= {}; drawAll(); changed(); };
-      box.append(b);
-    });
-  };
-  mk($("builtList"), BUILT, "built"); mk($("myList"), mine, "mine");
-  $("myCount").textContent = mine.length ? `(${mine.length})` : "(none yet: Save keeps the one you're editing)";
+  cleanBanks();
+  const used = placed();
+  document.querySelectorAll('#pool .zone').forEach(z => {
+    z.innerHTML = ""; const src = z.dataset.src;
+    SRC[src]().forEach(p => { const k = keyOf(src, p); if (!used.has(k)) z.append(tagEl(k)); });
+  });
+  const box = $("banks"); box.innerHTML = "";
+  for (const b of BANK_NAMES) {
+    const col = document.createElement("div"); col.className = "bank";
+    const n = banks[b].keep.length;
+    col.innerHTML = `<h3>${b}<small class="${n > SLOTS ? "over" : ""}" title="Fat Chip 64 has ${SLOTS} slots in a bank">${n}/${SLOTS}</small></h3>` +
+      TIERS.map(t => `<div class="tier ${t}"><div class="tlabel">${t.toUpperCase()}</div><div class="zone" data-zone="${b}.${t}" data-empty="drop here"></div></div>`).join("");
+    for (const t of TIERS) { const z = col.querySelector(`[data-zone="${b}.${t}"]`); banks[b][t].forEach(k => z.append(tagEl(k))); }
+    box.append(col);
+  }
+  $("myCount").textContent = mine.length ? `(${mine.length})` : "(Save keeps the one you're editing)";
   $("delBtn").disabled = origin.kind !== "mine";
   for (const id of ["blendA", "blendB"]) {
     const s = $(id), v = s.value; s.innerHTML = "";
     BUILT.forEach((p, i) => s.add(new Option(p.name, "b" + i)));
+    DEMO.forEach((p, i) => s.add(new Option("◇ " + p.name, "d" + i)));
     mine.forEach((p, i) => s.add(new Option("★ " + p.name, "m" + i)));
     s.value = v || (id === "blendA" ? "b0" : "b1");
   }
 }
+function audition(key) {
+  const f = byKey(key); if (!f) return;
+  origin = { kind: KIND[f.src], i: f.i }; work = clone(f.p); work.fx ||= {};
+  drawAll(); changed();
+}
+// dragging: pointer events (mouse, pen and touch alike); a press that doesn't move is a click
+let drag = null;
+function dropTarget(x, y) {
+  const el = document.elementFromPoint(x, y), z = el && el.closest("[data-zone]");
+  if (!z) return null;
+  if (z.dataset.zone === "pool") return { zone: z, before: null };
+  let before = null;
+  for (const t of z.querySelectorAll(".tag:not(.dragging)")) {
+    const r = t.getBoundingClientRect();
+    if (y < r.top || (y <= r.bottom && x < r.left + r.width / 2)) { before = t; break; }
+  }
+  return { zone: z, before };
+}
+function endDrag(commit) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  document.querySelectorAll(".zone.hot").forEach(z => z.classList.remove("hot"));
+  if (!d.started) { if (commit) audition(d.key); return; }
+  d.ghost.remove(); d.el.classList.remove("dragging");
+  if (commit && d.target) {
+    for (const b of BANK_NAMES) for (const t of TIERS) banks[b][t] = banks[b][t].filter(k => k !== d.key);
+    if (d.target.zone.dataset.zone !== "pool") {
+      const [b, t] = d.target.zone.dataset.zone.split(".");
+      const list = banks[b][t];
+      const i = d.target.before ? list.indexOf(d.target.before.dataset.key) : -1;
+      if (i < 0) list.push(d.key); else list.splice(i, 0, d.key);
+    }
+    saveBanks();
+  }
+  d.ph?.remove();
+  drawLists();
+}
+document.addEventListener("pointerdown", e => {
+  const t = e.target.closest(".tag"); if (!t || e.button !== 0) return;
+  e.preventDefault();
+  drag = { key: t.dataset.key, el: t, x: e.clientX, y: e.clientY, started: false, target: null };
+});
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
+    drag.started = true;
+    const r = drag.el.getBoundingClientRect();
+    drag.dx = drag.x - r.left; drag.dy = drag.y - r.top;
+    drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add("ghost"); drag.ghost.style.width = r.width + "px";
+    document.body.append(drag.ghost); drag.el.classList.add("dragging");
+    drag.ph = document.createElement("span"); drag.ph.className = "ph";
+  }
+  drag.ghost.style.left = e.clientX - drag.dx + "px"; drag.ghost.style.top = e.clientY - drag.dy + "px";
+  const tg = dropTarget(e.clientX, e.clientY);
+  document.querySelectorAll(".zone.hot").forEach(z => z !== tg?.zone && z.classList.remove("hot"));
+  drag.target = tg;
+  if (!tg) { drag.ph.remove(); return; }
+  tg.zone.classList.add("hot");
+  if (tg.zone.dataset.zone === "pool") { drag.ph.remove(); return; }
+  if (tg.before) tg.zone.insertBefore(drag.ph, tg.before); else tg.zone.append(drag.ph);
+});
+document.addEventListener("pointerup", () => endDrag(true));
+document.addEventListener("pointercancel", () => endDrag(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) endDrag(false); });
+// a tag focused with the keyboard: Enter / Space hears it
+document.addEventListener("click", e => { const t = e.target.closest(".tag"); if (t && e.detail === 0) audition(t.dataset.key); });
 function control(eid, q, v) {
   const key = eid + "." + q.id;
   if (q.type === "enum" || (q.type === "ms" && q.values)) {
@@ -473,8 +605,12 @@ $("diceAll").onclick = () => { rollAll(work); drawEditor(); changed(); };
 $("revertBtn").onclick = () => { const s = sourcePatch(); if (s) { work = clone(s); work.fx ||= {}; drawAll(); changed(); } };
 $("saveBtn").onclick = () => {
   const p = clone(work); p.name ||= "NEW PATCH";
-  if (origin.kind === "mine") mine[origin.i] = p;
-  else { if (mine.some(m => m.name === p.name) || BUILT.some(b => b.name === p.name)) p.name = (p.name.slice(0, 13) + " " + (mine.length + 2)).slice(0, 16); mine.push(p); origin = { kind: "mine", i: mine.length - 1 }; work = clone(p); }
+  if (origin.kind === "mine") {
+    const oldKey = "m:" + mine[origin.i].name, newKey = "m:" + p.name;
+    if (oldKey !== newKey) { for (const b of BANK_NAMES) for (const t of TIERS) banks[b][t] = banks[b][t].map(k => k === oldKey ? newKey : k); saveBanks(); }
+    mine[origin.i] = p;
+  }
+  else { if (mine.some(m => m.name === p.name) || BUILT.some(b => b.name === p.name) || DEMO.some(b => b.name === p.name)) p.name = (p.name.slice(0, 13) + " " + (mine.length + 2)).slice(0, 16); mine.push(p); origin = { kind: "mine", i: mine.length - 1 }; work = clone(p); }
   store.set("mine", mine); drawAll();
 };
 $("newBtn").onclick = () => {
@@ -484,7 +620,11 @@ $("newBtn").onclick = () => {
 $("delBtn").onclick = () => {
   if (origin.kind !== "mine") return;
   if (!confirm(`Delete “${mine[origin.i].name}” from your patches?`)) return;
-  mine.splice(origin.i, 1); store.set("mine", mine); origin = { kind: "new" }; drawAll();
+  mine.splice(origin.i, 1); store.set("mine", mine); origin = { kind: "new" }; cleanBanks(); saveBanks(); drawAll();
+};
+$("banksReset").onclick = () => {
+  if (!confirm("Take every patch out of the banks?")) return;
+  banks = {}; fixBanks(); saveBanks(); drawLists();
 };
 $("showAll").checked = store.get("showAll", false);
 $("showAll").onchange = () => { store.set("showAll", $("showAll").checked); drawEditor(); };
@@ -498,7 +638,7 @@ for (const [id, key] of [["midiOut", "out"], ["midiIn", "in"]]) {
   $(id).onchange = () => { store.set("port." + key, $(id).value); connect(); $(id).blur(); };
 }
 // blend
-const pick = v => v[0] === "b" ? BUILT[+v.slice(1)] : mine[+v.slice(1)];
+const pick = v => (v[0] === "b" ? BUILT : v[0] === "d" ? DEMO : mine)[+v.slice(1)];
 function blendNow() {
   const t = +$("blendT").value / 100; $("blendOut").textContent = $("blendT").value + " %";
   const A = pick($("blendA").value), B = pick($("blendB").value); if (!A || !B) return null;
@@ -509,7 +649,9 @@ $("blendT").oninput = () => { const p = blendNow(); if (p) queueSend(p); };
 for (const id of ["blendA", "blendB"]) $(id).onchange = () => { $("blendT").oninput(); $(id).blur(); };
 $("blendKeep").onclick = () => { const p = blendNow(); if (!p) return; work = p; origin = { kind: "new" }; drawAll(); changed(); window.scrollTo({ top: $("fxgrid").offsetTop - 200, behavior: "smooth" }); };
 $("exportBtn").onclick = () => {
-  const data = { app: "fatchip-chiplab", version: 3, exported: new Date().toISOString(), definition: DEF.version, patches: mine, editing: work, notes };
+  const bankList = Object.fromEntries(BANK_NAMES.map(b => [b, Object.fromEntries(TIERS.map(t => [t, banks[b][t].map(k => { const f = byKey(k); return { name: f.p.name, from: KIND[f.src] }; })]))]));
+  const demoUsed = DEMO.filter(p => placed().has("d:" + p.name));
+  const data = { app: "fatchip-chiplab", version: 4, exported: new Date().toISOString(), definition: DEF.version, patches: mine, banks: bankList, demoPatches: demoUsed, editing: work, notes };
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
   a.download = `chiplab-patches-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
@@ -548,6 +690,7 @@ window.addEventListener("blur", () => [...held].forEach(keyUp));
     const get = async f => { const r = await fetch(f, { cache: "no-cache" }); if (!r.ok) throw new Error(f + ": " + r.status); return r.json(); };
     [DEF, LAYOUT] = await Promise.all([get("effects.json"), get("c64-layout.json")]);
     BUILT = (await get("patches.json")).patches.map(p => ({ ...clone(p), fx: p.fx || {} }));
+    try { const d = await get("demo-patches.json"); DEMO = d.patches.map(p => ({ ...clone(p), fx: p.fx || {} })); SUGGEST = d.suggest || {}; } catch { DEMO = []; }
     fc = FatChipPatch.make(DEF, LAYOUT);
   } catch (e) { $("loadErr").hidden = false; $("loadErr").textContent = "Couldn't load the patch files (" + e.message + "). Chip Lab needs effects.json, patches.json and c64-layout.json next to this page."; return; }
   work = store.get("work", null);
