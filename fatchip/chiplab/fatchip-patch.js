@@ -168,7 +168,7 @@
       f.nesRel = flat ? 0 : rr;
       f.nesDuty1 = tone.nesDuty1 * 32;
       f.nesDuty2 = tone.nesDuty2 * 32;
-      const t = has("tremolo", "nes") ? on.tremolo : null;
+      const t = has("tremolo", "nes") || has("tremolo", "sid") ? on.tremolo : null;
       f.nesTrem = t ? pyRound(t.depth * 15 / 100) : 0;
       r = t ? pyRound(t.tremRate * 65536 / 100) : 0;
       f.nesTremRL = r & 255; f.nesTremRH = r >> 8;
@@ -199,6 +199,8 @@
       const rg = has("rdrop", "gb") ? ra : null;
       f.gbRdA = rg ? rg.amount : 0;
       f.gbRdT = rg ? gbPenvT(rg.time) * 8 : 0;
+      // v0.33: the patch's tremolo on the SID too (its master volume): bit 0 the NES, bit 1 the SID
+      f.tremChips = (has("tremolo", "nes") ? 1 : 0) | (has("tremolo", "sid") ? 2 : 0);
       return f;
     }
 
