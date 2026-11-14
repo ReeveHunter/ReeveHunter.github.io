@@ -172,7 +172,7 @@
       f.nesTrem = t ? pyRound(t.depth * 15 / 100) : 0;
       r = t ? pyRound(t.tremRate * 65536 / 100) : 0;
       f.nesTremRL = r & 255; f.nesTremRH = r >> 8;
-      f.nesTremSq = t && DEF.lists.shapes[t.shape] === "SQUARE" ? 1 : 0;
+      f.nesTremShp = t ? t.shape : 0;      // v0.34: every SHAPE (was 1 = SQUARE)
       // v0.30
       f.nesTremSync = t ? t.tremSync : 0;
       f.nesTremMode = t ? t.mode : 0;
