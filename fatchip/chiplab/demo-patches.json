@@ -1,7 +1,7 @@
 {
  "format": "fat-chip-patches",
  "version": 1,
- "doc": "Chip Lab's demo patches (Fat Chip 64 v0.30 / v0.31 effects: ATTACK, BEND IN / OUT, climbing and chip-hopping echoes, tempo PUMP and GATE). Not built into Fat Chip 64: sort the ones you like into banks. 'suggest' is a starting guess at each one's bank.",
+ "doc": "Chip Lab's demo patches: batch 1 (Fat Chip 64 v0.30 / v0.31 effects: ATTACK, BEND IN / OUT, climbing and chip-hopping echoes, tempo PUMP and GATE) and batch 2 (v0.39: the envelope, delayed vibrato, echoes and tremolo, with more space). Not built into Fat Chip 64: sort the ones you like into banks. 'suggest' is a starting guess at each one's bank.",
  "suggest": {
   "BLIP LEAD": "LEADS",
   "CHIP ARP STAB": "LEADS",
@@ -34,7 +34,50 @@
   "FAT CLICK": "FAT",
   "FAT SCOOP": "FAT",
   "FAT TAPE": "FAT",
-  "BIG SCOOP": "FAT"
+  "BIG SCOOP": "FAT",
+  "SOFT HORN": "LEADS",
+  "FLUTEY": "LEADS",
+  "CRY LEAD": "LEADS",
+  "WHISTLE ECHO": "LEADS",
+  "BELL LEAD": "LEADS",
+  "GLIDE SINGER": "LEADS",
+  "PLUCK ECHO LEAD": "LEADS",
+  "FALLING LEAD": "LEADS",
+  "SQUARE SOLO": "LEADS",
+  "OCTAVE ECHO": "LEADS",
+  "SWELL PAD": "PADS",
+  "BLOOM TREMOLO": "PADS",
+  "GLASS PAD": "PADS",
+  "SLOW STRINGS": "PADS",
+  "BREATH IN": "PADS",
+  "CHOIR-ISH": "PADS",
+  "ECHO PAD": "PADS",
+  "WAVE PAD": "PADS",
+  "SHIMMER": "PADS",
+  "ORGAN SWELL": "PADS",
+  "SAW UP GATE": "PADS",
+  "MUSIC BOX": "FX",
+  "SOFT PIANO": "LEADS",
+  "HARP": "PADS",
+  "CLAV": "LEADS",
+  "MARIMBA": "FX",
+  "KALIMBA ECHO": "FX",
+  "DREAM KEYS": "PADS",
+  "ROUND BASS": "BASS",
+  "PICK BASS": "BASS",
+  "SLOW BASS": "BASS",
+  "WOBBLE BASS": "BASS",
+  "ECHO BASS": "BASS",
+  "SUB SWELL": "BASS",
+  "FAT SWELL": "FAT",
+  "FAT PLUCK": "FAT",
+  "FAT VIBES": "FAT",
+  "FAT ECHO": "FAT",
+  "FAT TREMOLO": "FAT",
+  "SIGH": "FX",
+  "RISER": "FX",
+  "RAINBOW ECHO": "FX",
+  "SONAR": "FX"
  },
  "patches": [
   {
@@ -977,6 +1020,1237 @@
     "penv": {
      "amount": -7,
      "time": 200
+    }
+   }
+  },
+  {
+   "name": "SOFT HORN",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "env",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 56,
+     "decay": 750,
+     "sustain": 12,
+     "release": 300
+    },
+    "detune": {
+     "cents": 7
+    },
+    "vibrato": {
+     "depth": 18,
+     "vibRate": 5.2,
+     "delay": 400
+    }
+   }
+  },
+  {
+   "name": "FLUTEY",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "env",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2,
+     "gbDuty1": 2
+    },
+    "env": {
+     "attack": 80,
+     "decay": 750,
+     "sustain": 13,
+     "release": 240
+    },
+    "detune": {
+     "cents": 4
+    },
+    "vibrato": {
+     "depth": 22,
+     "vibRate": 5.0,
+     "delay": 500
+    }
+   }
+  },
+  {
+   "name": "CRY LEAD",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "penv",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "gbWaveMode": 1,
+     "sidPw": 900,
+     "gbDuty1": 1
+    },
+    "env": {
+     "attack": 16,
+     "decay": 750,
+     "sustain": 12,
+     "release": 300
+    },
+    "detune": {
+     "cents": 6
+    },
+    "penv": {
+     "amount": -2,
+     "time": 150
+    },
+    "vibrato": {
+     "depth": 30,
+     "vibRate": 6.0,
+     "delay": 350
+    }
+   }
+  },
+  {
+   "name": "WHISTLE ECHO",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "vibrato",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 24,
+     "decay": 750,
+     "sustain": 11,
+     "release": 240
+    },
+    "detune": {
+     "cents": 3
+    },
+    "vibrato": {
+     "depth": 15,
+     "vibRate": 5.5,
+     "delay": 450
+    },
+    "repeat": {
+     "time": 1,
+     "repeats": 3,
+     "level": 65
+    }
+   }
+  },
+  {
+   "name": "BELL LEAD",
+   "fatBass": 0,
+   "character": [
+    "env",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "gbWaveMode": 2,
+     "sidPw": 1200
+    },
+    "env": {
+     "attack": 2,
+     "decay": 1500,
+     "sustain": 0,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 5
+    },
+    "repeat": {
+     "time": 2,
+     "repeats": 2,
+     "level": 60,
+     "shift": 12
+    }
+   }
+  },
+  {
+   "name": "GLIDE SINGER",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "glide",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 38,
+     "decay": 750,
+     "sustain": 12,
+     "release": 300
+    },
+    "detune": {
+     "cents": 6
+    },
+    "glide": {
+     "time": 2,
+     "mode": 1
+    },
+    "vibrato": {
+     "depth": 20,
+     "vibRate": 5.0,
+     "delay": 300
+    }
+   }
+  },
+  {
+   "name": "PLUCK ECHO LEAD",
+   "fatBass": 0,
+   "character": [
+    "env",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "gbWaveMode": 1,
+     "sidPw": 1400
+    },
+    "env": {
+     "attack": 2,
+     "decay": 240,
+     "sustain": 0,
+     "release": 240
+    },
+    "detune": {
+     "cents": 5
+    },
+    "repeat": {
+     "time": 2,
+     "repeats": 5,
+     "level": 75,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "FALLING LEAD",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "rdrop",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 16,
+     "decay": 750,
+     "sustain": 12,
+     "release": 750
+    },
+    "detune": {
+     "cents": 6
+    },
+    "rdrop": {
+     "amount": 2,
+     "time": 500
+    },
+    "vibrato": {
+     "depth": 16,
+     "vibRate": 5.5,
+     "delay": 350
+    }
+   }
+  },
+  {
+   "name": "SQUARE SOLO",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "vibrato",
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "gbWaveMode": 1,
+     "sidPw": 2048,
+     "gbDuty1": 2,
+     "nesDuty1": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 12,
+     "release": 168
+    },
+    "detune": {
+     "cents": 5
+    },
+    "attack": {
+     "blip": 1,
+     "blipMs": 0
+    },
+    "vibrato": {
+     "depth": 14,
+     "vibRate": 6.0,
+     "delay": 250
+    }
+   }
+  },
+  {
+   "name": "OCTAVE ECHO",
+   "mono": 1,
+   "fatBass": 0,
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "gbWaveMode": 1,
+     "sidPw": 1000
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 8,
+     "release": 240
+    },
+    "detune": {
+     "cents": 5
+    },
+    "repeat": {
+     "time": 0,
+     "repeats": 2,
+     "level": 70,
+     "shift": 12,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "SWELL PAD",
+   "character": [
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 1000,
+     "decay": 750,
+     "sustain": 15,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 9
+    },
+    "warble": {
+     "amount": 8,
+     "on": [
+      "gb"
+     ]
+    }
+   }
+  },
+  {
+   "name": "BLOOM TREMOLO",
+   "character": [
+    "env",
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "gbWaveMode": 2,
+     "sidPw": 1600
+    },
+    "env": {
+     "attack": 800,
+     "decay": 750,
+     "sustain": 15,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 8
+    },
+    "tremolo": {
+     "depth": 55,
+     "tremSync": 5,
+     "shape": 1
+    }
+   }
+  },
+  {
+   "name": "GLASS PAD",
+   "character": [
+    "env",
+    "pwm"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "gbWaveMode": 1,
+     "sidPw": 1200
+    },
+    "env": {
+     "attack": 500,
+     "decay": 1500,
+     "sustain": 13,
+     "release": 2400
+    },
+    "detune": {
+     "cents": 6
+    },
+    "pwm": {
+     "depth": 50,
+     "pwmRate": 0.3
+    }
+   }
+  },
+  {
+   "name": "SLOW STRINGS",
+   "character": [
+    "env",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 800,
+     "decay": 750,
+     "sustain": 14,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 12
+    },
+    "vibrato": {
+     "depth": 10,
+     "vibRate": 4.5,
+     "delay": 800
+    }
+   }
+  },
+  {
+   "name": "BREATH IN",
+   "character": [
+    "env",
+    "filter"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 1000,
+     "decay": 750,
+     "sustain": 15,
+     "release": 750
+    },
+    "detune": {
+     "cents": 8
+    },
+    "filter": {
+     "cutoff": 70,
+     "resonance": 6,
+     "envAmount": 90,
+     "envAttack": 1000,
+     "envDecay": 2000
+    }
+   }
+  },
+  {
+   "name": "CHOIR-ISH",
+   "character": [
+    "env",
+    "vibrato",
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 500,
+     "decay": 750,
+     "sustain": 15,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 10
+    },
+    "vibrato": {
+     "depth": 12,
+     "vibRate": 5.0,
+     "delay": 600
+    },
+    "tremolo": {
+     "depth": 25,
+     "tremRate": 4.5
+    }
+   }
+  },
+  {
+   "name": "ECHO PAD",
+   "character": [
+    "env",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "gbWaveMode": 2,
+     "sidPw": 2048
+    },
+    "env": {
+     "attack": 250,
+     "decay": 750,
+     "sustain": 13,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 7
+    },
+    "repeat": {
+     "time": 0,
+     "repeats": 3,
+     "level": 60
+    }
+   }
+  },
+  {
+   "name": "WAVE PAD",
+   "character": [
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 500,
+     "decay": 750,
+     "sustain": 15,
+     "release": 2400
+    },
+    "detune": {
+     "cents": 9
+    },
+    "tremolo": {
+     "depth": 70,
+     "tremSync": 1,
+     "shape": 1
+    }
+   }
+  },
+  {
+   "name": "SHIMMER",
+   "character": [
+    "env",
+    "repeat",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 250,
+     "decay": 750,
+     "sustain": 14,
+     "release": 2400
+    },
+    "detune": {
+     "cents": 6
+    },
+    "repeat": {
+     "time": 4,
+     "repeats": 4,
+     "level": 55,
+     "shift": 12,
+     "hop": 1
+    },
+    "vibrato": {
+     "depth": 8,
+     "vibRate": 6.5,
+     "delay": 500
+    }
+   }
+  },
+  {
+   "name": "ORGAN SWELL",
+   "character": [
+    "env",
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "gbWaveMode": 2,
+     "sidPw": 2048
+    },
+    "env": {
+     "attack": 250,
+     "decay": 750,
+     "sustain": 15,
+     "release": 300
+    },
+    "detune": {
+     "cents": 4
+    },
+    "tremolo": {
+     "depth": 30,
+     "tremRate": 6.5
+    }
+   }
+  },
+  {
+   "name": "SAW UP GATE",
+   "character": [
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 56,
+     "decay": 750,
+     "sustain": 15,
+     "release": 750
+    },
+    "detune": {
+     "cents": 8
+    },
+    "tremolo": {
+     "depth": 90,
+     "tremSync": 5,
+     "shape": 2
+    }
+   }
+  },
+  {
+   "name": "MUSIC BOX",
+   "octSid": 1,
+   "character": [
+    "env",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2,
+     "gbDuty1": 0
+    },
+    "env": {
+     "attack": 2,
+     "decay": 1500,
+     "sustain": 0,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 3
+    },
+    "repeat": {
+     "time": 2,
+     "repeats": 3,
+     "level": 55
+    }
+   }
+  },
+  {
+   "name": "SOFT PIANO",
+   "character": [
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "gbWaveMode": 2,
+     "sidPw": 1800
+    },
+    "env": {
+     "attack": 2,
+     "decay": 1500,
+     "sustain": 4,
+     "release": 750
+    },
+    "detune": {
+     "cents": 5
+    }
+   }
+  },
+  {
+   "name": "HARP",
+   "character": [
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 0,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 4
+    }
+   }
+  },
+  {
+   "name": "CLAV",
+   "character": [
+    "env",
+    "filter"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "gbWaveMode": 1,
+     "sidPw": 600
+    },
+    "env": {
+     "attack": 2,
+     "decay": 168,
+     "sustain": 0,
+     "release": 72
+    },
+    "detune": {
+     "cents": 3
+    },
+    "filter": {
+     "cutoff": 120,
+     "resonance": 9,
+     "envAmount": 60,
+     "envDecay": 150
+    }
+   }
+  },
+  {
+   "name": "MARIMBA",
+   "character": [
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2,
+     "gbDuty1": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 0,
+     "release": 300
+    },
+    "detune": {
+     "cents": 2
+    }
+   }
+  },
+  {
+   "name": "KALIMBA ECHO",
+   "character": [
+    "env",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 0,
+     "release": 300
+    },
+    "detune": {
+     "cents": 3
+    },
+    "repeat": {
+     "time": 1,
+     "repeats": 3,
+     "level": 60,
+     "shift": 7,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "DREAM KEYS",
+   "character": [
+    "env",
+    "vibrato",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 5,
+     "gbWaveMode": 2,
+     "sidPw": 1400
+    },
+    "env": {
+     "attack": 16,
+     "decay": 1500,
+     "sustain": 6,
+     "release": 2400
+    },
+    "detune": {
+     "cents": 7
+    },
+    "vibrato": {
+     "depth": 10,
+     "vibRate": 5.0,
+     "delay": 600
+    },
+    "repeat": {
+     "time": 0,
+     "repeats": 2,
+     "level": 55
+    }
+   }
+  },
+  {
+   "name": "ROUND BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 10,
+     "release": 168
+    },
+    "detune": {
+     "cents": 3
+    }
+   }
+  },
+  {
+   "name": "PICK BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "env",
+    "attack"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 6,
+     "release": 114
+    },
+    "detune": {
+     "cents": 4
+    },
+    "attack": {
+     "click": 1
+    }
+   }
+  },
+  {
+   "name": "SLOW BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "env",
+    "glide"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 56,
+     "decay": 750,
+     "sustain": 13,
+     "release": 300
+    },
+    "detune": {
+     "cents": 5
+    },
+    "glide": {
+     "time": 1,
+     "mode": 1
+    }
+   }
+  },
+  {
+   "name": "WOBBLE BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "tremolo",
+    "filter"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 14,
+     "release": 168
+    },
+    "detune": {
+     "cents": 5
+    },
+    "tremolo": {
+     "depth": 60,
+     "tremSync": 5,
+     "shape": 0
+    },
+    "filter": {
+     "cutoff": 110,
+     "resonance": 10,
+     "lfoDepth": 60,
+     "filtLfoSync": 5
+    }
+   }
+  },
+  {
+   "name": "ECHO BASS",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 2,
+     "gbWaveMode": 1,
+     "sidPw": 1400
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 4,
+     "release": 168
+    },
+    "detune": {
+     "cents": 4
+    },
+    "repeat": {
+     "time": 2,
+     "repeats": 2,
+     "level": 60,
+     "shift": 12
+    }
+   }
+  },
+  {
+   "name": "SUB SWELL",
+   "mono": 1,
+   "octSid": -1,
+   "character": [
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 250,
+     "decay": 750,
+     "sustain": 15,
+     "release": 750
+    },
+    "detune": {
+     "cents": 2
+    }
+   }
+  },
+  {
+   "name": "FAT SWELL",
+   "character": [
+    "detune",
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 500,
+     "decay": 750,
+     "sustain": 14,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 9
+    },
+    "warble": {
+     "amount": 9,
+     "on": [
+      "gb"
+     ]
+    }
+   }
+  },
+  {
+   "name": "FAT PLUCK",
+   "character": [
+    "detune",
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 750,
+     "sustain": 4,
+     "release": 750
+    },
+    "detune": {
+     "cents": 9
+    },
+    "warble": {
+     "amount": 9,
+     "on": [
+      "gb"
+     ]
+    }
+   }
+  },
+  {
+   "name": "FAT VIBES",
+   "character": [
+    "detune",
+    "vibrato"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 16,
+     "decay": 750,
+     "sustain": 12,
+     "release": 750
+    },
+    "detune": {
+     "cents": 8
+    },
+    "vibrato": {
+     "depth": 15,
+     "vibRate": 5.0,
+     "delay": 500
+    }
+   }
+  },
+  {
+   "name": "FAT ECHO",
+   "character": [
+    "detune",
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 8,
+     "decay": 750,
+     "sustain": 10,
+     "release": 750
+    },
+    "detune": {
+     "cents": 8
+    },
+    "repeat": {
+     "time": 0,
+     "repeats": 2,
+     "level": 60
+    }
+   }
+  },
+  {
+   "name": "FAT TREMOLO",
+   "character": [
+    "detune",
+    "tremolo"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 24,
+     "decay": 750,
+     "sustain": 13,
+     "release": 750
+    },
+    "detune": {
+     "cents": 8
+    },
+    "tremolo": {
+     "depth": 45,
+     "tremSync": 5,
+     "shape": 1
+    }
+   }
+  },
+  {
+   "name": "SIGH",
+   "character": [
+    "env",
+    "rdrop"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 250,
+     "decay": 750,
+     "sustain": 13,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 6
+    },
+    "rdrop": {
+     "amount": 5,
+     "time": 1000
+    }
+   }
+  },
+  {
+   "name": "RISER",
+   "character": [
+    "penv",
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 1,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 1000,
+     "decay": 750,
+     "sustain": 15,
+     "release": 750
+    },
+    "detune": {
+     "cents": 10
+    },
+    "penv": {
+     "amount": -12,
+     "time": 1000
+    }
+   }
+  },
+  {
+   "name": "RAINBOW ECHO",
+   "character": [
+    "repeat"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 300,
+     "sustain": 0,
+     "release": 240
+    },
+    "detune": {
+     "cents": 4
+    },
+    "repeat": {
+     "time": 4,
+     "repeats": 8,
+     "level": 85,
+     "shift": 1,
+     "shiftIn": 1,
+     "hop": 1
+    }
+   }
+  },
+  {
+   "name": "SONAR",
+   "octSid": 1,
+   "character": [
+    "repeat",
+    "env"
+   ],
+   "fx": {
+    "tone": {
+     "sidWave": 0,
+     "gbWaveMode": 2
+    },
+    "env": {
+     "attack": 2,
+     "decay": 1500,
+     "sustain": 0,
+     "release": 1500
+    },
+    "detune": {
+     "cents": 3
+    },
+    "repeat": {
+     "time": 11,
+     "repeats": 5,
+     "level": 70
     }
    }
   }
