@@ -85,7 +85,7 @@
    "mono": 1,
    "fatBass": 0,
    "character": [
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -106,21 +106,23 @@
     "detune": {
      "cents": 6
     },
-    "attack": {
-     "blip": 1,
-     "blipMs": 2
-    },
     "vibrato": {
      "depth": 15,
      "vibRate": 5.5,
      "delay": 250
+    },
+    "penv": {
+     "amount": 12,
+     "time": 20,
+     "shape": 1,
+     "click": 0
     }
    }
   },
   {
    "name": "CHIP ARP STAB",
    "character": [
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -137,9 +139,11 @@
     "detune": {
      "cents": 5
     },
-    "attack": {
-     "blip": 3,
-     "blipMs": 1
+    "penv": {
+     "amount": 24,
+     "time": 30,
+     "shape": 1,
+     "click": 0
     }
    }
   },
@@ -654,7 +658,7 @@
    "mono": 1,
    "octSid": -1,
    "character": [
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -671,9 +675,11 @@
     "detune": {
      "cents": 4
     },
-    "attack": {
-     "blip": 1,
-     "blipMs": 1
+    "penv": {
+     "amount": 12,
+     "time": 15,
+     "shape": 1,
+     "click": 0
     }
    }
   },
@@ -764,8 +770,7 @@
   {
    "name": "ZAP CLICK",
    "character": [
-    "penv",
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -781,20 +786,17 @@
     "detune": {
      "cents": 6
     },
-    "attack": {
-     "blip": 0,
-     "click": 1
-    },
     "penv": {
      "amount": 24,
-     "time": 20
+     "time": 20,
+     "click": 1
     }
    }
   },
   {
    "name": "COIN BLIP",
    "character": [
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -811,9 +813,11 @@
     "detune": {
      "cents": 3
     },
-    "attack": {
-     "blip": 2,
-     "blipMs": 4
+    "penv": {
+     "amount": 12,
+     "time": 80,
+     "shape": 1,
+     "click": 0
     }
    }
   },
@@ -907,7 +911,7 @@
    "name": "FAT CLICK",
    "character": [
     "detune",
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -923,15 +927,16 @@
     "detune": {
      "cents": 9
     },
-    "attack": {
-     "blip": 0,
-     "click": 1
-    },
     "warble": {
      "amount": 9,
      "on": [
       "gb"
      ]
+    },
+    "penv": {
+     "amount": 0,
+     "time": 20,
+     "click": 1
     }
    }
   },
@@ -1283,7 +1288,7 @@
    "fatBass": 0,
    "character": [
     "vibrato",
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -1302,14 +1307,16 @@
     "detune": {
      "cents": 5
     },
-    "attack": {
-     "blip": 1,
-     "blipMs": 0
-    },
     "vibrato": {
      "depth": 14,
      "vibRate": 6.0,
      "delay": 250
+    },
+    "penv": {
+     "amount": 12,
+     "time": 10,
+     "shape": 1,
+     "click": 0
     }
    }
   },
@@ -1871,7 +1878,7 @@
    "octSid": -1,
    "character": [
     "env",
-    "attack"
+    "penv"
    ],
    "fx": {
     "tone": {
@@ -1887,7 +1894,10 @@
     "detune": {
      "cents": 4
     },
-    "attack": {
+    "penv": {
+     "amount": 12,
+     "time": 20,
+     "shape": 1,
      "click": 1
     }
    }

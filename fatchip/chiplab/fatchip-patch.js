@@ -40,7 +40,6 @@
     for (let d = 1; d < 32; d++) if (Math.abs(GB_LFO_DEPTH[d] * 100 / 16 - cents) < Math.abs(GB_LFO_DEPTH[best] * 100 / 16 - cents)) best = d;
     return best;
   }
-  const BLIP_STEPS = [3, 4, 5, 8, 10];
   const GB_PENV = [131, 156, 178, 195, 209, 221, 229, 236, 241, 245, 248, 250, 251, 253, 253, 254];
   const bendK = ms => Math.max(1, Math.min(9, pyRound(Math.log2(ms / 12))));
   function gbPenvT(ms) {
@@ -57,6 +56,22 @@
     return [atk, dec, sus, rel];
   }
 
+  // v0.41: an older patch's ATTACK (BLIP, CLICK) -> BEND IN's SHAPE STEP and CLICK
+  // (a patch with both keeps its BEND IN; the BLIP goes)
+  const BLIP_MS = [10, 15, 20, 30, 40];
+  function migrate(fx) {
+    if (!fx.attack) return fx;
+    const out = { ...fx }, at = out.attack;
+    delete out.attack;
+    const blip = at.blip === undefined ? 1 : at.blip, ms = BLIP_MS[at.blipMs === undefined ? 2 : at.blipMs];
+    const click = at.click || 0;
+    if (out.penv) out.penv = { ...out.penv, click };
+    else if (blip) out.penv = { amount: blip === 3 ? 24 : 12, time: blip === 1 ? ms : 2 * ms, shape: 1, click };
+    else if (click) out.penv = { amount: 0, time: 20, click };
+    return out;
+  }
+
+
   function make(DEF, LAYOUT) {
     const EFFECTS = Object.fromEntries(DEF.effects.map(e => [e.id, e]));
     const SID_ATK = DEF.lists.sidAttackMs, SID_DR = DEF.lists.sidDecayReleaseMs;
@@ -67,7 +82,7 @@
     function settings(p) {
       const ps = Object.fromEntries(DEF.patch.map(q => [q.id, q.default]));
       for (const k of Object.keys(p)) if (k in ps) ps[k] = p[k];
-      const on = {}, chips = {}, fx = p.fx || {};
+      const on = {}, chips = {}, fx = migrate(p.fx || {});
       for (const e of DEF.effects) {
         if (!(e.id in fx) && !e.alwaysOn) continue;
         const given = { ...(fx[e.id] || {}) };
@@ -178,16 +193,16 @@
       f.nesTremMode = t ? t.mode : 0;
       f.sndRpShift = rp ? rp.shift & 255 : 0;
       f.sndRpMode = rp ? (rp.shiftIn | rp.hop << 1) : 0;
-      const at = has("attack", "sid") ? on.attack : null;
-      f.sndBlip = at ? at.blip : 0;
-      f.sndBlipT = at ? BLIP_STEPS[at.blipMs] : 5;
-      f.sndClick = at ? at.click : 0;
+      // v0.41: BEND IN's SHAPE (STEP: held, then the note) and CLICK (was ATTACK's BLIP and CLICK)
       const pe = has("penv", "sid") || has("penv", "nes") ? on.penv : null;
+      f.sndStep = pe && pe.amount ? (pe.shape || 0) : 0;
+      f.sndStepT = pe ? Math.max(1, Math.min(255, pyRound(pe.time / 4))) : 5;
+      f.sndClick = pe && has("penv", "sid") ? (pe.click || 0) : 0;
       f.sndPenv = pe ? pe.amount & 255 : 0;
       f.sndPenvK = pe ? bendK(pe.time) : 0;
       const pg = has("penv", "gb") ? on.penv : null;
       f.gbPenvA = ccv(pg ? pg.amount + 24 : 24, 48);
-      f.gbPenvT = ccv(pg ? gbPenvT(pg.time) : 0, 15);
+      f.gbPenvT = ccv(pg && pg.amount ? (pg.shape ? 1 : gbPenvT(pg.time)) : 0, 15);
       const rd = has("rdrop", "sid") ? on.rdrop : null;
       f.sndRdrop = rd ? rd.amount : 0;
       const ra = on.rdrop;
@@ -217,7 +232,7 @@
     return { settings, fields, bytes, sysex };
   }
 
-  const api = { make, pyRound };
+  const api = { make, pyRound, migrate };
   root.FatChipPatch = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

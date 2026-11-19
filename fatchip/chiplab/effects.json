@@ -72,18 +72,15 @@
    {"id": "time", "name": "TIME", "type": "enum", "default": 1, "blend": "switch", "values": ["30 MS", "60 MS", "120 MS", "250 MS", "500 MS"], "map": {"sid": "1/2^k of the way per 4 ms, k 3-7", "gb": "glide (CC 5)", "nes": "by bend"}},
    {"id": "mode", "name": "MODE", "type": "enum", "default": 0, "blend": "switch", "values": ["ALWAYS", "LEGATO"], "doc": "LEGATO: only when keys overlap"}
   ]},
-  {"id": "penv", "name": "BEND IN", "voices": 0, "randOn": 0.15, "doc": "each note starts AMOUNT away and bends to its pitch over TIME: from above (a drop, like a tom or a pluck) or from below (a scoop)", "params": [
+  {"id": "penv", "name": "BEND IN", "voices": 0, "randOn": 0.15, "doc": "each note starts AMOUNT away and comes to its pitch over TIME: from above (a drop, like a tom or a pluck) or from below (a scoop). SHAPE STEP holds it there for TIME, then jumps: the chip-tune BLIP (AMOUNT 12: an octave up). CLICK: the first 20 ms of each note as noise (AMOUNT 0: just the click). (v0.41: ATTACK's BLIP and CLICK folded in here)", "params": [
    {"id": "amount", "name": "AMOUNT", "type": "int", "default": 12, "blend": "lerp", "min": -24, "max": 24, "unit": "semitones", "rand": [-12, 24], "map": {"sid": "frequency", "gb": "P_PENV_AMT", "nes": "by bend (down: no lower than the channel's bottom note)"}},
-   {"id": "time", "name": "TIME", "type": "int", "default": 80, "blend": "log", "min": 5, "max": 1000, "unit": "ms", "rand": [10, 300], "map": {"gb": "P_PENV_TIME"}}
+   {"id": "time", "name": "TIME", "type": "int", "default": 80, "blend": "log", "min": 5, "max": 1000, "unit": "ms", "rand": [10, 300], "map": {"gb": "P_PENV_TIME"}},
+   {"id": "shape", "name": "SHAPE", "type": "enum", "default": 0, "blend": "switch", "values": ["SLIDE", "STEP"], "doc": "SLIDE: bends to the note; STEP: holds AMOUNT away for TIME, then jumps to the note (the BLIP)", "rand": [0, 1], "map": {"sid": "held, then the note", "nes": "held, then the note", "gb": "its pitch envelope as fast as it goes"}},
+   {"id": "click", "name": "CLICK", "type": "enum", "default": 0, "blend": "switch", "values": ["OFF", "ON"], "doc": "the first 20 ms of each note as noise (the classic C64 snap)", "rand": [0, 1], "map": {"sid": "noise waveform for 20 ms"}}
   ]},
   {"id": "rdrop", "name": "BEND OUT", "voices": 0, "randOn": 0.1, "doc": "a note let go sags in pitch as it fades: a little tape stop on every note. The NES bends while its envelope fades; with no NES envelope its notes hold on for TIME as they fall, then stop", "params": [
    {"id": "amount", "name": "AMOUNT", "type": "int", "default": 5, "blend": "lerp", "min": 1, "max": 24, "unit": "semitones", "rand": [1, 12], "doc": "how far down", "map": {"sid": "frequency, while the release rings", "gb": "Fat Chip GB's release drop (CC 87)", "nes": "pitch bends while it fades (or a fall-off)"}},
    {"id": "time", "name": "TIME", "type": "int", "default": 300, "blend": "log", "min": 20, "max": 2000, "unit": "ms", "rand": [80, 1000], "map": {"gb": "CC 88: the nearest of Fat Chip GB's 16 times"}}
-  ]},
-  {"id": "attack", "name": "ATTACK", "voices": 0, "randOn": 0.15, "chips": ["sid"], "doc": "a chip-tune start to each note: a quick octave BLIP and / or a CLICK of noise, then the patch's own sound", "params": [
-   {"id": "blip", "name": "BLIP", "type": "enum", "default": 1, "blend": "switch", "values": ["OFF", "OCTAVE", "OCTAVE + 5TH", "2 OCTAVES"], "doc": "OCTAVE: an octave up, then the note; OCTAVE + 5TH: up an octave, then a fifth, then the note; 2 OCTAVES: two up, one up, the note", "rand": [1, 3]},
-   {"id": "blipMs", "name": "BLIP STEP", "type": "enum", "default": 2, "blend": "switch", "values": ["10 MS", "15 MS", "20 MS", "30 MS", "40 MS"]},
-   {"id": "click", "name": "CLICK", "type": "enum", "default": 0, "blend": "switch", "values": ["OFF", "ON"], "doc": "the first 20 ms of each note as noise (the classic C64 snap)", "rand": [0, 1]}
   ]},
   {"id": "warble", "name": "WARBLE", "voices": 0, "randOn": 0.3, "params": [
    {"id": "amount", "name": "AMOUNT", "type": "int", "default": 10, "blend": "lerp", "min": 0, "max": 50, "unit": "cents", "rand": [4, 40], "map": {"sid": "new: slow random drift", "gb": "warble (CC 104)", "nes": "new: slow random drift, by bend"}},
