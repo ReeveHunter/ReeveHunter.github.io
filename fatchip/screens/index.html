@@ -85,7 +85,7 @@ textarea { width: 100%; min-height: 120px; font: 12px/1.35 var(--font-mono); bac
 </div>
 
 <div id="romNote" class="warn" hidden>
-  The C64's own letters and graphics come from its character ROM, which this page doesn't include. Load yours once and the page keeps it: VICE ships it as <code>chargen</code> (in VICE's <code>C64</code> folder; 4096 bytes). Until then, letters show in a stand-in font and graphics characters as their code.
+  The C64's own letters and graphics come from its character ROM, which this page doesn't include. Load yours once and the page keeps it: VICE ships it as <code>chargen</code> (in VICE's <code>C64</code> folder); its chip number is 901225-01, 4096 bytes. (The KERNAL and BASIC ROMs, like 251913-01, are 16 KB and won't do.) Until then, letters show in a stand-in font and graphics characters as their code.
   <div class="row" style="margin-top:8px"><label class="file" for="romFile">Load character ROM…<input type="file" id="romFile"></label></div>
 </div>
 
@@ -454,7 +454,7 @@ function loadRomFile(f) {
   const rd = new FileReader();
   rd.onload = () => {
     const b = new Uint8Array(rd.result);
-    if (b.length !== 4096 && b.length !== 2048 && b.length !== 4098) { toast(`That file is ${b.length} bytes; the C64 character ROM is 4096.`); return; }
+    if (b.length !== 4096 && b.length !== 2048 && b.length !== 4098) { toast(b.length === 16384 ? "That one is the KERNAL and BASIC ROM (16 KB). The character ROM is chargen, 901225-01: 4096 bytes." : `That file is ${b.length} bytes; the C64 character ROM (chargen, 901225-01) is 4096.`); return; }
     const data = b.length === 4098 ? b.subarray(2) : b;
     setRom(new Uint8Array(data));
     let s = ""; for (const x of data) s += String.fromCharCode(x);
