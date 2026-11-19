@@ -228,7 +228,7 @@ const USED = {
   // v0.30 / v0.31 (v0.41: ATTACK's BLIP and CLICK are BEND IN's SHAPE and CLICK)
   penv: ["amount", "time", "shape", "click"], rdrop: ["amount", "time"],
 };
-USED.tremolo.push("tremSync", "mode");
+USED.tremolo.push("tremSync");                  // (v0.42: PUMP and the GATEs are SHAPEs)
 const used = (eid, pid) => (USED[eid] || []).includes(pid);
 const effectUsed = eid => !!USED[eid];
 

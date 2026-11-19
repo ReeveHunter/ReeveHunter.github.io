@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<title>PETSCII Screen Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: the 40x25 screen as the workbench's centrepiece, tools in a rail beside it (stacked below on phones).
+   One deliberate dark look: the C64 screen is the colour; the bench around it stays quiet. */
+:root {
+  --bg: #15141c;
+  --panel: #1e1d28;
+  --panel-2: #262534;
+  --line: #34324a;
+  --fg: #e6e4f0;
+  --muted: #9a97b3;
+  --accent: #8f83e0;      /* the C64's light blue, lifted */
+  --accent-ink: #120f24;
+  --warn: #e0a65a;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px;
+  box-sizing: border-box;
+}
+* { box-sizing: border-box; }
+h1 { font-family: var(--font-display); font-size: 20px; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 0 0 8px; font-weight: 500; }
+.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.top p { margin: 0; color: var(--muted); max-width: 70ch; }
+.bench { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.stage { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.screen-wrap { background: #000; border-radius: 6px; overflow: hidden; line-height: 0; }
+canvas#screen { width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; touch-action: none; display: block; }
+.status { font-family: var(--font-mono); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 16px; font-variant-numeric: tabular-nums; min-height: 1.5em; }
+.status b { color: var(--fg); font-weight: 600; }
+.rail { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+button, select, .file {
+  font: 600 13px var(--font-body); color: var(--fg); background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 10px; cursor: pointer;
+}
+button:hover, .file:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, .file:focus-within, canvas:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.tools button { flex: 1 1 auto; }
+.kbd { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.sw { aspect-ratio: 1; border-radius: 4px; border: 2px solid transparent; padding: 0; position: relative; }
+.sw[aria-pressed="true"] { border-color: var(--fg); box-shadow: 0 0 0 2px var(--bg) inset; }
+.sw span { position: absolute; inset: auto 2px 1px auto; font: 600 9px var(--font-mono); color: #fff; mix-blend-mode: difference; }
+.pair { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; margin-top: 10px; }
+.pair label { color: var(--muted); font-size: 12px; }
+canvas#chars { width: 100%; max-width: 324px; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; cursor: pointer; background: #000; border-radius: 4px; display: block; }
+.note { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+.warn { background: #2b2414; border: 1px solid #5a4520; color: var(--fg); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.warn code, .note code { font-family: var(--font-mono); font-size: 12px; }
+.file input { display: none; }
+textarea { width: 100%; min-height: 120px; font: 12px/1.35 var(--font-mono); background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; }
+.toast { min-height: 1.2em; font-size: 12px; color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { button { transition: border-color .12s, background .12s; } }
+</style>
+</head>
+<body>
+<p style="margin:0 0 8px;font-size:13px"><a href="../" style="color:#9a97b3">Fat Chip tools</a> /</p>
+
+
+<div class="top">
+  <div>
+    <h1>PETSCII Screen Bench</h1>
+    <p>Draw a 40 × 25 C64 text screen with its rules: 256 characters from one set, one colour per cell, one background, one border. Paint Fat Chip's screens, then copy the result for Claude.</p>
+  </div>
+</div>
+
+<div id="romNote" class="warn" hidden>
+  The C64's own letters and graphics come from its character ROM, which this page doesn't include. Load yours once and the page keeps it: VICE ships it as <code>chargen</code> (in VICE's <code>C64</code> folder; 4096 bytes). Until then, letters show in a stand-in font and graphics characters as their code.
+  <div class="row" style="margin-top:8px"><label class="file" for="romFile">Load character ROM…<input type="file" id="romFile"></label></div>
+</div>
+
+<div class="bench">
+  <div class="stage">
+    <div class="screen-wrap"><canvas id="screen" width="384" height="272" tabindex="0" aria-label="C64 screen, 40 by 25 characters"></canvas></div>
+    <div class="status" id="status">Move over the screen to see a cell's row, column, character and colour.</div>
+    <div class="box">
+      <h2>Copy for Claude</h2>
+      <div class="row">
+        <button id="copyOut">Copy screen</button>
+        <button id="importBtn">Paste a screen in</button>
+        <span class="toast" id="toast" role="status"></span>
+      </div>
+      <textarea id="io" spellcheck="false" aria-label="Screen as text"></textarea>
+      <p class="note">“Copy screen” puts the whole screen on the clipboard as text: rows of character codes and colours, plus a readable preview. Paste it to Claude in the chat. To load one back, paste it in the box and press “Paste a screen in”.</p>
+    </div>
+  </div>
+
+  <div class="rail">
+    <div class="box">
+      <h2>Tool</h2>
+      <div class="row tools" id="tools">
+        <button data-tool="draw" aria-pressed="true" title="Character and colour (D)">Draw</button>
+        <button data-tool="paint" title="Colour only (C)">Colour</button>
+        <button data-tool="text" title="Type text (T)">Text</button>
+        <button data-tool="box" title="Fill a rectangle (B)">Box</button>
+        <button data-tool="pick" title="Pick up a cell's character and colour (P, or alt-click)">Pick</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="undo" title="Undo (Ctrl/⌘ Z)">Undo</button>
+        <button id="redo" title="Redo (Ctrl/⌘ Shift Z)">Redo</button>
+        <button id="gridBtn" aria-pressed="false" title="Cell grid (G)">Grid</button>
+        <button id="clearBtn">Clear</button>
+      </div>
+      <p class="note" id="toolHelp">Draw: click or drag to place the character in the colour.</p>
+    </div>
+
+    <div class="box">
+      <h2>Colour</h2>
+      <div class="swatches" id="swatches"></div>
+      <div class="pair">
+        <label for="bgSel">Background</label><select id="bgSel"></select>
+        <label for="borderSel">Border</label><select id="borderSel"></select>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Character</h2>
+      <div class="row" style="margin-bottom:8px">
+        <select id="setSel" aria-label="Character set">
+          <option value="0">Upper case + graphics</option>
+          <option value="1">Lower + upper case</option>
+        </select>
+        <button id="revBtn" aria-pressed="false" title="Typed text in reverse (R)">Reverse text</button>
+      </div>
+      <canvas id="chars" width="162" height="162" aria-label="The 256 characters"></canvas>
+      <p class="note" id="charInfo"></p>
+      <div class="row" style="margin-top:6px"><label class="file" for="romFile2">Load character ROM…<input type="file" id="romFile2"></label></div>
+    </div>
+
+    <div class="box">
+      <h2>Screens</h2>
+      <div class="row">
+        <select id="presetSel" aria-label="Start from"></select>
+        <button id="loadPreset">Open</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="saveBtn">Save as…</button>
+        <input id="saveName" aria-label="Name to save as" placeholder="name" style="flex:1 1 120px;min-width:0;font:13px var(--font-body);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 8px">
+      </div>
+      <p class="note">Fat Chip's own screens are here as they look today. Saved screens stay in this browser.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const PRESETS = [{"name": "Fat Chip 64: play screen", "border": 0, "bg": 0, "lower": 0, "chars": "a0868194a083888990a0b6b4a0a096b0aeb4b1a0a0a0a0a0a0a0a092859495928ebaa08d858e95a02020202020202020202020202020202020202020202020202020202020202020202020202020202006011420202031200601142020202020202020202020202020100f0c19200601142002011313202013100c0914200f060620202020200c050104202b312004151419200c0501042020202020202020201309042020202020200f0e202020202003203420202003203420202003203420202020202020202007010d0520020f192031312d313520200320342020200320342020200320322020202020202020200d0904090e05132020312d352020202003203420202003203420202003203220202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200b0519200320200d010a0f12202020202020100f0c192020202020200c01140308200f0606202020011210200f060620202020201510202020202033300d132020202b31200f031420202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202014050d100f203132302002100d20200205011420050c050314120f202013140f102020202020202013100103052002050e0420040e2020200f03140116052003203320202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202008050c042020032034202020202020202020202020202020202020202020202020202020202020200d09040920090e20200f0314202b302020202020200c0113142003083120032034202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202006352006011420020113132020063720160f090305132020033d200618202013140f102002050114", "colors": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddbbbbbbbbbbbbbbbbbbbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}, {"name": "Fat Chip 64: menu", "border": 0, "bg": 0, "lower": 0, "chars": "a0868194a083888990a0b6b4a08d858e95a0a0a0a09388898694ab92859495928ebaa08281838ba0202020202020202020202020202020202020202020202020202020202020202020202020202020203e2008050c103a20140805200b051913202e2e2e2e2e2092859495928ebaa08f90858e2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020130904202e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e208f8e202020202020202020202020202020202007010d0520020f19202e2e2e2e2e2e2e2e2e2e2e208f8e20202020202020202020202020202020200d0904090e0513202e2e2e2e2e2e2e2e2e2e2e2e208f8e2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020201001140308202e2e2e2e2e2e2e2e2e2e2e2e2e2e2092859495928ebaa08f90858e20202020202020100c0119090e07202e2e2e2e2e2e2e2e2e2e2e2e2092859495928ebaa08f90858e202020202020200f0e05200b051920100c0119202e2e2e2e2e2e2e2092859495928ebaa08f90858e2020202020202004051609030513202e2e2e2e2e2e2e2e2e2e2e2e2092859495928ebaa08f90858e202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202019010d010801201308132d3130202e2e2e2e2e2e2092859495928ebaa08f90858e2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200631202f200633202803121312293a2003080f0f13052001200c090e0520202020202020202020200635202f200637202803121312201209070814293a200308010e070520091420202020202020202012051415120e3a200f10050e20202013080906142b2f3a20120f0c0c20140805200409030520202013080906142b12051415120e3a200201030b20202020202020202020202020202020202020202020", "colors": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}, {"name": "Fat Chip 64: help page", "border": 0, "bg": 0, "lower": 0, "chars": "a088858c90baa0948885a08b859993a0a0a0a0a0a09388898694ab92859495928ebaa08281838ba02020202020202020202020202020202020202020202020202020202020202020202020202020202020012d072002010e0b20201a2d0220100114030820203a203b2010120516202f200e051814202020200b200b051920200c200c0114030820200e2003080f120420200d200d1514052020202020202020202f200409030520203c2d20150e040f20203d2014011020202c202e200e15040705202020202020200631200633200f0314202006352006011420020113132020063720160f0903051320202020202020131001030520061820200312131220312d0b05192020120513140f12052013031205050e2020202013080906142020012d07201a2d02203a203b200c050104201001140308202020202020202020202020200b2013100c091420100f090e1420200635200d0f040520200637200f0e2f0f0606202020202020200631200633200c050104200f031420202c202e201412010e13100f1305202020202020202020033d202001200112102013201210142004200415141920062006090c14200720070c09040520202020200820040514150e05200a20170112020c05200b20020c0910201a2001140b20182012050c2020202003201412050d20162016090220022002050e0420090e200e200f1514200d2010170d2020202020203a203b2013051414090e0720202c202e20131005050420200c2013190e032020202020202020202012051415120e200e0518142013051414090e07202013100103052016090e190c2020202020202020063120063320011210200f0314202006352013190e032020063720141910052020202020202013140f102020012d07201a2d02200205011420203a203b2010120516202f200e051814202020202020202c202e2014050d100f202013100103052006090c0c20201401103a20070f2f13140f102020200314120c202001201320042003080910132020062013190e1408030112142013190e032020202020202008200a2014150e0520200c200c01140308201314190c0520200d2010010e090320202020202020202c202e20131001030520061820200631200633200d0904092020031213122004120f0e05200631202f200633202803121312293a2003080f0f13052001200c090e0520202020202020202020200635202f200637202803121312201209070814293a200308010e070520091420202020202020202012051415120e3a200f10050e20202013080906142b2f3a20120f0c0c20140805200409030520202013080906142b12051415120e3a200201030b20202020202020202020202020202020202020202020", "colors": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}];
+const PAL = ["#000000","#FFFFFF","#68372B","#70A4B2","#6F3D86","#588D43","#352879","#B8C76F",
+             "#6F4F25","#433900","#9A6759","#444444","#6C6C6C","#9AD284","#6C5EB5","#959595"];
+const NAMES = ["black","white","red","cyan","purple","green","blue","yellow","orange","brown",
+               "light red","dark grey","grey","light green","light blue","light grey"];
+const W = 40, H = 25, BX = 32, BY = 36;          // the border around the 320 x 200 screen
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+
+// ---------------------------------------------------------------- state
+let chars = new Uint8Array(W * H).fill(32), cols = new Uint8Array(W * H).fill(14);
+let bg = 6, border = 14, lower = 0;
+let cur = { code: 1 + 128 * 0, color: 1 }, tool = "draw", rev = false, grid = false;
+let textAt = null, rom = null;
+const undo = [], redo = [];
+
+const scr = document.getElementById("screen"), sctx = scr.getContext("2d");
+const chc = document.getElementById("chars"), cctx = chc.getContext("2d");
+const img = sctx.createImageData(scr.width, scr.height);
+const px = new Uint32Array(img.data.buffer);
+const rgba = PAL.map(h => { const n = parseInt(h.slice(1), 16); return 0xFF000000 | (n & 255) << 16 | (n >> 8 & 255) << 8 | n >> 16; });
+
+// ---------------------------------------------------------------- glyphs
+// glyph(code) -> 8 bytes (rows, bit 7 = left). From the loaded ROM; else a stand-in.
+let fallback = [null, null];
+function codeToChar(code, set) {
+  const c = code & 127;
+  if (c === 0) return "@";
+  if (c <= 26) return set ? String.fromCharCode(96 + c) : String.fromCharCode(64 + c);
+  if (c === 27) return "["; if (c === 28) return "£"; if (c === 29) return "]";
+  if (c === 30) return set ? "↑" : "↑"; if (c === 31) return "←";
+  if (c < 64) return String.fromCharCode(c);
+  if (set && c >= 65 && c <= 90) return String.fromCharCode(c);
+  return null;
+}
+function buildFallback(set) {
+  // a stand-in drawn at 16 x 16 and halved (a pixel lit where its 2 x 2 is mostly ink)
+  const out = [];
+  const t = document.createElement("canvas"); t.width = 16; t.height = 16;
+  const x = t.getContext("2d", { willReadFrequently: true });
+  for (let code = 0; code < 256; code++) {
+    const g = new Uint8Array(8), ch = codeToChar(code, set);
+    x.clearRect(0, 0, 16, 16);
+    if (ch && ch !== " ") {
+      x.fillStyle = "#fff"; x.font = "bold 15px ui-monospace, Menlo, Consolas, monospace";
+      x.textBaseline = "middle"; x.textAlign = "center";
+      x.fillText(ch, 8, 8.5);
+      const d = x.getImageData(0, 0, 16, 16).data;
+      for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) {
+        let a = 0;
+        for (const [dy, dx] of [[0, 0], [0, 1], [1, 0], [1, 1]]) a += d[((r * 2 + dy) * 16 + b * 2 + dx) * 4 + 3];
+        if (a > 300) g[r] |= 128 >> b;
+      }
+    } else if (!ch) {                              // a graphics character: a dotted frame (load the ROM)
+      g[0] = g[7] = 0xAA; for (let r = 1; r < 7; r++) g[r] = r & 1 ? 0x01 : 0x80;
+    }
+    if (code >= 128) for (let r = 0; r < 8; r++) g[r] ^= 0xFF;
+    out.push(g);
+  }
+  return out;
+}
+function glyph(code) {
+  if (rom) {
+    const base = (lower ? 2048 : 0) + (code & 255) * 8;
+    if (rom.length >= base + 8) return rom.subarray(base, base + 8);
+  }
+  if (!fallback[lower]) fallback[lower] = buildFallback(lower);
+  return fallback[lower][code];
+}
+
+// ---------------------------------------------------------------- drawing
+function fillRect(x0, y0, w, h, c) {
+  for (let y = y0; y < y0 + h; y++) px.fill(c, y * scr.width + x0, y * scr.width + x0 + w);
+}
+function drawCell(i) {
+  const cx = BX + (i % W) * 8, cy = BY + Math.floor(i / W) * 8;
+  const g = glyph(chars[i]), f = rgba[cols[i]], b = rgba[bg];
+  for (let r = 0; r < 8; r++) {
+    const row = g[r], o = (cy + r) * scr.width + cx;
+    for (let k = 0; k < 8; k++) px[o + k] = row & (128 >> k) ? f : b;
+  }
+}
+function render() {
+  fillRect(0, 0, scr.width, scr.height, rgba[border]);
+  for (let i = 0; i < W * H; i++) drawCell(i);
+  flush();
+}
+function flush() {
+  sctx.putImageData(img, 0, 0);
+  if (grid) {
+    sctx.strokeStyle = "rgba(255,255,255,0.13)"; sctx.lineWidth = 1; sctx.beginPath();
+    for (let x = 0; x <= W; x++) { sctx.moveTo(BX + x * 8 + 0.5, BY); sctx.lineTo(BX + x * 8 + 0.5, BY + 200); }
+    for (let y = 0; y <= H; y++) { sctx.moveTo(BX, BY + y * 8 + 0.5); sctx.lineTo(BX + 320, BY + y * 8 + 0.5); }
+    sctx.stroke();
+  }
+  if (tool === "text" && textAt !== null) {
+    sctx.strokeStyle = PAL[cur.color === bg ? (bg === 1 ? 0 : 1) : cur.color]; sctx.lineWidth = 1;
+    sctx.strokeRect(BX + (textAt % W) * 8 + 0.5, BY + Math.floor(textAt / W) * 8 + 0.5, 7, 7);
+  }
+  if (boxFrom !== null && boxTo !== null) {
+    const [x0, y0, x1, y1] = rect(boxFrom, boxTo);
+    sctx.strokeStyle = "#fff"; sctx.setLineDash([2, 2]);
+    sctx.strokeRect(BX + x0 * 8 + 0.5, BY + y0 * 8 + 0.5, (x1 - x0 + 1) * 8 - 1, (y1 - y0 + 1) * 8 - 1);
+    sctx.setLineDash([]);
+  }
+}
+function renderChars() {
+  const cimg = cctx.createImageData(chc.width, chc.height), cp = new Uint32Array(cimg.data.buffer);
+  const on = rgba[cur.color === bg ? (bg === 1 ? 0 : 1) : cur.color], off = rgba[bg];
+  for (let code = 0; code < 256; code++) {
+    const g = glyph(code), cx = (code % 16) * 10 + 2, cy = Math.floor(code / 16) * 10 + 2;
+    for (let r = 0; r < 8; r++) for (let k = 0; k < 8; k++) cp[(cy + r) * chc.width + cx + k] = g[r] & (128 >> k) ? on : off;
+  }
+  cctx.putImageData(cimg, 0, 0);
+  const sx = (cur.code % 16) * 10 + 1, sy = Math.floor(cur.code / 16) * 10 + 1;
+  cctx.strokeStyle = "#fff"; cctx.lineWidth = 1; cctx.strokeRect(sx + 0.5, sy + 0.5, 9, 9);
+  const ch = codeToChar(cur.code, lower);
+  document.getElementById("charInfo").textContent =
+    `Code ${cur.code} ($${hex2(cur.code)})${cur.code >= 128 ? ", reversed" : ""}${ch && ch !== " " ? " · " + ch : cur.code % 128 === 32 ? " · space" : ""}`;
+}
+const hex2 = n => n.toString(16).toUpperCase().padStart(2, "0");
+
+// ---------------------------------------------------------------- history
+function snap() { undo.push([chars.slice(), cols.slice(), bg, border, lower]); if (undo.length > 200) undo.shift(); redo.length = 0; }
+function restore(s) { [chars, cols, bg, border, lower] = [s[0].slice(), s[1].slice(), s[2], s[3], s[4]]; syncControls(); render(); renderChars(); autosave(); }
+function doUndo() { if (!undo.length) return; redo.push([chars.slice(), cols.slice(), bg, border, lower]); restore(undo.pop()); }
+function doRedo() { if (!redo.length) return; undo.push([chars.slice(), cols.slice(), bg, border, lower]); restore(redo.pop()); }
+let saveTimer = 0;
+function autosave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => store.set("psb.current", JSON.stringify(serial("current"))), 300); }
+
+// ---------------------------------------------------------------- input on the screen
+let boxFrom = null, boxTo = null, painting = false;
+function cellAt(e) {
+  const r = scr.getBoundingClientRect();
+  const x = (e.clientX - r.left) * scr.width / r.width - BX, y = (e.clientY - r.top) * scr.height / r.height - BY;
+  if (x < 0 || y < 0 || x >= 320 || y >= 200) return null;
+  return Math.floor(y / 8) * W + Math.floor(x / 8);
+}
+function rect(a, b) {
+  const x0 = Math.min(a % W, b % W), x1 = Math.max(a % W, b % W);
+  const y0 = Math.min(Math.floor(a / W), Math.floor(b / W)), y1 = Math.max(Math.floor(a / W), Math.floor(b / W));
+  return [x0, y0, x1, y1];
+}
+function apply(i) {
+  if (tool === "draw") { chars[i] = cur.code; cols[i] = cur.color; }
+  else if (tool === "paint") cols[i] = cur.color;
+  drawCell(i); flush();
+}
+function pickFrom(i) { cur.code = chars[i]; cur.color = cols[i]; syncControls(); renderChars(); }
+scr.addEventListener("pointerdown", e => {
+  const i = cellAt(e); if (i === null) return;
+  scr.focus(); scr.setPointerCapture(e.pointerId);
+  if (e.altKey || tool === "pick") { pickFrom(i); return; }
+  if (tool === "text") { textAt = i; flush(); return; }
+  snap();
+  if (tool === "box") { boxFrom = boxTo = i; flush(); return; }
+  painting = true; apply(i);
+});
+scr.addEventListener("pointermove", e => {
+  const i = cellAt(e); showStatus(i);
+  if (i === null) return;
+  if (painting) apply(i);
+  if (boxFrom !== null) { boxTo = i; render(); }
+});
+function endStroke() {
+  if (boxFrom !== null && boxTo !== null) {
+    const [x0, y0, x1, y1] = rect(boxFrom, boxTo);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { chars[y * W + x] = cur.code; cols[y * W + x] = cur.color; }
+    boxFrom = boxTo = null; render();
+  }
+  if (painting) autosave();
+  painting = false;
+}
+scr.addEventListener("pointerup", () => { endStroke(); autosave(); });
+scr.addEventListener("pointercancel", endStroke);
+scr.addEventListener("pointerleave", () => { if (!painting && boxFrom === null) showStatus(null); });
+function showStatus(i) {
+  const s = document.getElementById("status");
+  if (i === null) { s.textContent = "Move over the screen to see a cell's row, column, character and colour."; return; }
+  const ch = codeToChar(chars[i], lower);
+  s.innerHTML = `<span>row <b>${Math.floor(i / W)}</b></span><span>column <b>${i % W}</b></span>` +
+    `<span>code <b>${chars[i]}</b> ($${hex2(chars[i])})${ch && ch !== " " ? " " + escapeHtml(ch) : ""}</span>` +
+    `<span>colour <b>${cols[i]}</b> ${NAMES[cols[i]]}</span>`;
+}
+const escapeHtml = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// typing (Text tool): a key -> a screen code in the set
+function typeCode(k) {
+  if (k.length !== 1) return null;
+  const c = k.charCodeAt(0);
+  let code = null;
+  if (k === "@") code = 0;
+  else if (/[a-z]/.test(k)) code = c - 96;
+  else if (/[A-Z]/.test(k)) code = lower ? c : c - 64;
+  else if (k === "[") code = 27; else if (k === "£") code = 28; else if (k === "]") code = 29;
+  else if (c >= 32 && c < 64) code = c;
+  if (code === null) return null;
+  return rev ? code | 128 : code;
+}
+document.addEventListener("keydown", e => {
+  const inField = e.target.matches("input, textarea, select");
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === "z" && !inField) { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); return; }
+  if (inField || mod) return;
+  if (tool === "text" && textAt !== null && document.activeElement === scr) {
+    const step = d => { textAt = Math.max(0, Math.min(W * H - 1, textAt + d)); };
+    if (e.key === "ArrowLeft") step(-1); else if (e.key === "ArrowRight") step(1);
+    else if (e.key === "ArrowUp") step(-W); else if (e.key === "ArrowDown") step(W);
+    else if (e.key === "Enter") textAt = Math.min(W * H - 1, (Math.floor(textAt / W) + 1) * W);
+    else if (e.key === "Backspace") { snap(); step(-1); chars[textAt] = rev ? 160 : 32; cols[textAt] = cur.color; drawCell(textAt); autosave(); }
+    else if (e.key === "Escape") textAt = null;
+    else {
+      const code = typeCode(e.key);
+      if (code === null) return;
+      snap(); chars[textAt] = code; cols[textAt] = cur.color; drawCell(textAt); step(1); autosave();
+    }
+    e.preventDefault(); flush(); return;
+  }
+  const map = { d: "draw", c: "paint", t: "text", b: "box", p: "pick" };
+  if (map[e.key]) setTool(map[e.key]);
+  else if (e.key === "g") toggleGrid();
+  else if (e.key === "r") toggleRev();
+});
+
+// ---------------------------------------------------------------- controls
+const HELP = {
+  draw: "Draw: click or drag to place the character in the colour.",
+  paint: "Colour: click or drag to recolour cells, keeping their characters.",
+  text: "Text: click a cell, then type. Arrows move, Return goes to the next line, Esc stops.",
+  box: "Box: drag a rectangle; it fills with the character in the colour.",
+  pick: "Pick: click a cell to take its character and colour. Alt-click does this with any tool.",
+};
+function setTool(t) {
+  tool = t; if (t !== "text") textAt = null;
+  document.querySelectorAll("#tools button").forEach(b => b.setAttribute("aria-pressed", b.dataset.tool === t));
+  document.getElementById("toolHelp").textContent = HELP[t];
+  flush();
+}
+document.getElementById("tools").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTool(b.dataset.tool); });
+function toggleGrid() { grid = !grid; document.getElementById("gridBtn").setAttribute("aria-pressed", grid); render(); }
+function toggleRev() { rev = !rev; document.getElementById("revBtn").setAttribute("aria-pressed", rev); }
+document.getElementById("gridBtn").onclick = toggleGrid;
+document.getElementById("revBtn").onclick = toggleRev;
+document.getElementById("undo").onclick = doUndo;
+document.getElementById("redo").onclick = doRedo;
+document.getElementById("clearBtn").onclick = () => { snap(); chars.fill(32); render(); autosave(); };
+
+const sw = document.getElementById("swatches");
+PAL.forEach((c, i) => {
+  const b = document.createElement("button");
+  b.className = "sw"; b.style.background = c; b.title = `${i} ${NAMES[i]}`; b.setAttribute("aria-label", `Colour ${i}, ${NAMES[i]}`);
+  b.innerHTML = `<span>${i}</span>`;
+  b.onclick = () => { cur.color = i; syncControls(); renderChars(); };
+  sw.appendChild(b);
+});
+for (const id of ["bgSel", "borderSel"]) {
+  const s = document.getElementById(id);
+  PAL.forEach((c, i) => { const o = document.createElement("option"); o.value = i; o.textContent = `${i} ${NAMES[i]}`; s.appendChild(o); });
+  s.onchange = () => { snap(); if (id === "bgSel") bg = +s.value; else border = +s.value; render(); renderChars(); autosave(); };
+}
+document.getElementById("setSel").onchange = e => { snap(); lower = +e.target.value; render(); renderChars(); autosave(); };
+chc.addEventListener("click", e => {
+  const r = chc.getBoundingClientRect();
+  const x = Math.min(15, Math.floor(((e.clientX - r.left) * chc.width / r.width - 1) / 10)),
+        y = Math.min(15, Math.floor(((e.clientY - r.top) * chc.height / r.height - 1) / 10));
+  cur.code = Math.max(0, Math.min(255, y * 16 + x));
+  if (tool === "pick" || tool === "paint") setTool("draw");
+  renderChars();
+});
+function syncControls() {
+  sw.querySelectorAll(".sw").forEach((b, i) => b.setAttribute("aria-pressed", i === cur.color));
+  document.getElementById("bgSel").value = bg;
+  document.getElementById("borderSel").value = border;
+  document.getElementById("setSel").value = lower;
+}
+
+// ---------------------------------------------------------------- the ROM
+function setRom(bytes) {
+  rom = bytes; fallback = [null, null];
+  document.getElementById("romNote").hidden = !!rom;
+  render(); renderChars();
+}
+function loadRomFile(f) {
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const b = new Uint8Array(rd.result);
+    if (b.length !== 4096 && b.length !== 2048 && b.length !== 4098) { toast(`That file is ${b.length} bytes; the C64 character ROM is 4096.`); return; }
+    const data = b.length === 4098 ? b.subarray(2) : b;
+    setRom(new Uint8Array(data));
+    let s = ""; for (const x of data) s += String.fromCharCode(x);
+    store.set("psb.rom", btoa(s));
+    toast("Character ROM loaded. This browser keeps it.");
+  };
+  rd.readAsArrayBuffer(f);
+}
+for (const id of ["romFile", "romFile2"]) document.getElementById(id).onchange = e => loadRomFile(e.target.files[0]);
+
+// ---------------------------------------------------------------- text in and out
+function serial(name) {
+  return { name, border, bg, lower, chars: Array.from(chars, hex2).join(""), colors: Array.from(cols, c => c.toString(16)).join("") };
+}
+function exportText() {
+  const lines = ["FAT CHIP SCREEN v1", `name: ${document.getElementById("saveName").value || "untitled"}`,
+    `charset: ${lower ? "lower+upper" : "upper+graphics"}   border: ${border} ${NAMES[border]}   background: ${bg} ${NAMES[bg]}`,
+    "", "readable (rows 0-24; # = a graphics character):"];
+  for (let y = 0; y < H; y++) {
+    let s = "";
+    for (let x = 0; x < W; x++) { const c = chars[y * W + x], ch = codeToChar(c, lower); s += ch === null ? "#" : ch; }
+    lines.push(String(y).padStart(2, "0") + " |" + s + "|");
+  }
+  lines.push("", "chars (screen codes, hex, a row a line):");
+  for (let y = 0; y < H; y++) lines.push(Array.from(chars.subarray(y * W, y * W + W), hex2).join(" "));
+  lines.push("", "colours (one hex digit a cell, a row a line):");
+  for (let y = 0; y < H; y++) lines.push(Array.from(cols.subarray(y * W, y * W + W), c => c.toString(16).toUpperCase()).join(""));
+  return lines.join("\n");
+}
+function importText(t) {
+  const m = t.split(/\r?\n/);
+  const ci = m.findIndex(l => l.startsWith("chars")), oi = m.findIndex(l => l.startsWith("colours"));
+  if (ci < 0 || oi < 0) throw new Error("No “chars” and “colours” sections found. Paste the whole copied screen.");
+  const nc = new Uint8Array(W * H), no = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    const cs = (m[ci + 1 + y] || "").trim().split(/\s+/), os = (m[oi + 1 + y] || "").trim();
+    if (cs.length !== W || os.length !== W) throw new Error(`Row ${y} isn't 40 cells.`);
+    cs.forEach((v, x) => nc[y * W + x] = parseInt(v, 16) & 255);
+    [...os].forEach((v, x) => no[y * W + x] = parseInt(v, 16) & 15);
+  }
+  const head = m.find(l => l.startsWith("charset")) || "";
+  const bd = head.match(/border:\s*(\d+)/), bk = head.match(/background:\s*(\d+)/);
+  const nm = (m.find(l => l.startsWith("name:")) || "").slice(5).trim();
+  snap(); chars = nc; cols = no;
+  if (bd) border = +bd[1]; if (bk) bg = +bk[1];
+  lower = /lower/.test(head) ? 1 : 0;
+  if (nm && nm !== "untitled") document.getElementById("saveName").value = nm;
+  syncControls(); render(); renderChars(); autosave();
+}
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(() => t.textContent = "", 4000); }
+document.getElementById("copyOut").onclick = () => {
+  const t = exportText(), io = document.getElementById("io");
+  io.value = t;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(() => toast("Copied. Paste it to Claude."), () => { io.select(); toast("Selected below: copy it with Ctrl/⌘ C."); });
+  } else { io.select(); toast("Selected below: copy it with Ctrl/⌘ C."); }
+};
+document.getElementById("importBtn").onclick = () => {
+  try { importText(document.getElementById("io").value); toast("Screen loaded."); } catch (err) { toast(err.message); }
+};
+
+// ---------------------------------------------------------------- presets and saved screens
+function fromSerial(p) {
+  chars = Uint8Array.from(p.chars.match(/../g), h => parseInt(h, 16));
+  cols = Uint8Array.from(p.colors.match(/./g), h => parseInt(h, 16));
+  bg = p.bg; border = p.border; lower = p.lower;
+}
+function savedList() { try { return JSON.parse(store.get("psb.saved") || "[]"); } catch (e) { return []; } }
+function fillPresets() {
+  const s = document.getElementById("presetSel"); s.innerHTML = "";
+  const g1 = document.createElement("optgroup"); g1.label = "Fat Chip 64 today";
+  PRESETS.forEach((p, i) => { const o = document.createElement("option"); o.value = "p" + i; o.textContent = p.name.replace("Fat Chip 64: ", ""); g1.appendChild(o); });
+  s.appendChild(g1);
+  const saved = savedList();
+  if (saved.length) {
+    const g2 = document.createElement("optgroup"); g2.label = "Saved";
+    saved.forEach((p, i) => { const o = document.createElement("option"); o.value = "s" + i; o.textContent = p.name; g2.appendChild(o); });
+    s.appendChild(g2);
+  }
+}
+document.getElementById("loadPreset").onclick = () => {
+  const v = document.getElementById("presetSel").value, src = v[0] === "p" ? PRESETS[+v.slice(1)] : savedList()[+v.slice(1)];
+  if (!src) return;
+  snap(); fromSerial(src);
+  document.getElementById("saveName").value = src.name.replace("Fat Chip 64: ", "");
+  syncControls(); render(); renderChars(); autosave();
+};
+document.getElementById("saveBtn").onclick = () => {
+  const name = document.getElementById("saveName").value.trim() || "untitled";
+  const list = savedList().filter(p => p.name !== name);
+  list.unshift(serial(name)); store.set("psb.saved", JSON.stringify(list.slice(0, 40)));
+  fillPresets(); toast(`Saved “${name}” in this browser.`);
+};
+
+// ---------------------------------------------------------------- start
+const romB64 = store.get("psb.rom");
+if (romB64) { try { const s = atob(romB64); rom = Uint8Array.from(s, c => c.charCodeAt(0)); } catch (e) { rom = null; } }
+document.getElementById("romNote").hidden = !!rom;
+let started = false;
+try { const c = JSON.parse(store.get("psb.current") || "null"); if (c && c.chars) { fromSerial(c); started = true; } } catch (e) {}
+if (!started) { fromSerial(PRESETS[0]); document.getElementById("saveName").value = "play screen"; }
+cur.code = 160; cur.color = 1;
+fillPresets(); syncControls(); render(); renderChars(); setTool("draw");
+})();
+</script>
+
+</body>
+</html>

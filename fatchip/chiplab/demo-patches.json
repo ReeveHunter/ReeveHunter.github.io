@@ -407,7 +407,7 @@
     "tremolo": {
      "depth": 90,
      "tremSync": 3,
-     "mode": 1
+     "shape": 6
     },
     "warble": {
      "amount": 9,
@@ -440,7 +440,7 @@
     "tremolo": {
      "depth": 65,
      "tremSync": 2,
-     "mode": 1
+     "shape": 6
     }
    }
   },
@@ -466,7 +466,7 @@
     "tremolo": {
      "depth": 100,
      "tremSync": 7,
-     "mode": 2
+     "shape": 7
     }
    }
   },
@@ -494,7 +494,7 @@
     "tremolo": {
      "depth": 100,
      "tremSync": 7,
-     "mode": 3
+     "shape": 8
     },
     "pwm": {
      "depth": 40,
@@ -525,7 +525,7 @@
     "tremolo": {
      "depth": 100,
      "tremSync": 7,
-     "mode": 4
+     "shape": 9
     }
    }
   },

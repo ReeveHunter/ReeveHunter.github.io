@@ -60,8 +60,15 @@
   // (a patch with both keeps its BEND IN; the BLIP goes)
   const BLIP_MS = [10, 15, 20, 30, 40];
   function migrate(fx) {
-    if (!fx.attack) return fx;
-    const out = { ...fx }, at = out.attack;
+    let out = { ...fx };
+    if (out.tremolo && "mode" in out.tremolo) {         // v0.42: TREMOLO's MODE folded into SHAPE
+      const tr = { ...out.tremolo }, m = tr.mode;
+      delete tr.mode;
+      if (m) tr.shape = 5 + m;
+      out.tremolo = tr;
+    }
+    if (!out.attack) return out;
+    const at = out.attack;
     delete out.attack;
     const blip = at.blip === undefined ? 1 : at.blip, ms = BLIP_MS[at.blipMs === undefined ? 2 : at.blipMs];
     const click = at.click || 0;
@@ -187,10 +194,10 @@
       f.nesTrem = t ? pyRound(t.depth * 15 / 100) : 0;
       r = t ? pyRound(t.tremRate * 65536 / 100) : 0;
       f.nesTremRL = r & 255; f.nesTremRH = r >> 8;
-      f.nesTremShp = t ? t.shape : 0;      // v0.34: every SHAPE (was 1 = SQUARE)
+      f.nesTremShp = t && t.shape < 6 ? t.shape : 0;      // v0.34: every SHAPE (was 1 = SQUARE)
       // v0.30
       f.nesTremSync = t ? t.tremSync : 0;
-      f.nesTremMode = t ? t.mode : 0;
+      f.nesTremMode = t && t.shape >= 6 ? t.shape - 5 : 0;    // (v0.42: PUMP, the GATEs are SHAPEs)
       f.sndRpShift = rp ? rp.shift & 255 : 0;
       f.sndRpMode = rp ? (rp.shiftIn | rp.hop << 1) : 0;
       // v0.41: BEND IN's SHAPE (STEP: held, then the note) and CLICK (was ATTACK's BLIP and CLICK)
@@ -216,6 +223,11 @@
       f.gbRdT = rg ? gbPenvT(rg.time) * 8 : 0;
       // v0.33: the patch's tremolo on the SID too (its master volume): bit 0 the NES, bit 1 the SID
       f.tremChips = (has("tremolo", "nes") ? 1 : 0) | (has("tremolo", "sid") ? 2 : 0);
+      // v0.42: WARBLE on the SID and the NES (a slow random drift): f / 4096 steps, a rate per 4 ms
+      const wv = has("warble", "sid") || has("warble", "nes") ? on.warble : null;
+      f.sndWarbA = wv ? Math.min(120, pyRound(wv.amount * 4096 * Math.log(2) / 1200)) : 0;
+      f.sndWarbR = wv ? Math.max(1, wv.speed) : 0;
+      f.warbChips = (has("warble", "sid") ? 1 : 0) | (has("warble", "nes") ? 2 : 0);
       return f;
     }
 
