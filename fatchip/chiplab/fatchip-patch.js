@@ -214,7 +214,9 @@
       f.sndPenv = pe ? pe.amount & 255 : 0;
       f.sndPenvK = pe ? bendK(pe.time) : 0;
       const pg = has("penv", "gb") ? on.penv : null;
-      f.gbPenvA = ccv(pg ? pg.amount + 24 : 24, 48);
+      let gpa = pg ? pg.amount : 0;
+      if (Math.abs(gpa) > 24) gpa = Math.sign(gpa) * Math.min(24, Math.floor((Math.abs(gpa) + 1) / 2));   // (v0.59: half, and the x2 bit)
+      f.gbPenvA = ccv(gpa + 24, 48);
       f.gbPenvT = ccv(pg && (pg.amount || pg.click) ? (pg.shape || !pg.amount ? gbStepT(pg.time) : gbPenvT(pg.time)) : 0, 15);
       const rd = has("rdrop", "sid") ? on.rdrop : null;
       f.sndRdrop = rd ? rd.amount : 0;
@@ -234,6 +236,10 @@
       f.sndWarbA = wv ? Math.min(120, pyRound(wv.amount * 4096 * Math.log(2) / 1200)) : 0;
       f.sndWarbR = wv ? Math.max(1, wv.speed) : 0;
       f.warbChips = (has("warble", "sid") ? 1 : 0) | (has("warble", "nes") ? 2 : 0);
+      // v0.58: VIBRATO SYNC and PWM SYNC, and the Game Boy LFO's
+      f.sndVibSync = v ? v.vibSync : 0;
+      f.sndPwmSync = pw ? pw.pwmSync : 0;
+      f.gbLSync = lf ? (vb ? vb.vibSync : pm.pwmSync) : 0;
       return f;
     }
 
