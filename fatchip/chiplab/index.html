@@ -225,10 +225,10 @@ const USED = {
   detune: ["cents"], vibrato: ["depth", "vibRate", "delay", "shape", "drift"], glide: ["time"], warble: ["amount", "speed"],
   tremolo: ["depth", "tremRate", "shape"], filter: ["cutoff", "resonance", "envAmount", "lfoDepth", "filtLfoRate"],
   pwm: ["depth", "pwmRate", "shape"], dutyseq: ["pattern", "stepMs"], repeat: ["time", "repeats", "level", "shift", "shiftIn", "hop"],
-  // v0.30 / v0.31 (v0.41: ATTACK's BLIP and CLICK are BEND IN's SHAPE and CLICK)
-  penv: ["amount", "time", "shape", "click"], rdrop: ["amount", "time"],
+  // v0.30 / v0.31
+  attack: ["blip", "blipMs", "click"], penv: ["amount", "time"], rdrop: ["amount", "time"],
 };
-USED.tremolo.push("tremSync");                  // (v0.42: PUMP and the GATEs are SHAPEs)
+USED.tremolo.push("tremSync", "mode");
 const used = (eid, pid) => (USED[eid] || []).includes(pid);
 const effectUsed = eid => !!USED[eid];
 
@@ -439,7 +439,7 @@ function drawLists() {
 }
 function audition(key) {
   const f = byKey(key); if (!f) return;
-  origin = { kind: KIND[f.src], i: f.i }; work = clone(f.p); work.fx = FatChipPatch.migrate(work.fx || {});
+  origin = { kind: KIND[f.src], i: f.i }; work = clone(f.p); work.fx ||= {};
   drawAll(); changed();
 }
 // dragging: pointer events (mouse, pen and touch alike); a press that doesn't move is a click
