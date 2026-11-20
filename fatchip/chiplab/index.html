@@ -89,6 +89,9 @@ select:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-
 .bank h3 { font: 700 14px/1.2 var(--display); letter-spacing: 0.06em; margin: 2px 4px 4px; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
 .bank h3 small { font: 600 11px var(--mono); color: var(--muted); letter-spacing: 0; }
 .bank h3 small.over { color: var(--warn); }
+.bank h3 input.bname { font: inherit; letter-spacing: inherit; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 1px 4px; margin-left: -5px; width: 7ch; min-width: 0; text-transform: uppercase; }
+.bank h3 input.bname:hover { border-color: var(--border); }
+.bank h3 input.bname:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 .tier { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 2px; }
 .tier:first-of-type { border-top: 0; }
 .tlabel { font: 700 10.5px/1 var(--mono); letter-spacing: 0.12em; color: var(--muted); margin: 6px 4px 2px; }
@@ -173,7 +176,7 @@ textarea { width: 100%; resize: vertical; font: 14px/1.4 "Inter", system-ui, san
       <div class="plabel">My patches <span id="myCount"></span></div><div class="zone" data-zone="pool" data-src="m" data-empty="None here"></div>
     </div>
     <div class="banks" id="banks"></div>
-    <p class="hint">Click a patch to hear it (it goes to the C64 and opens below). Drag the ones you want in Fat Chip into a bank, under <b>KEEP</b>, <b>GOOD</b> or <b>MAYBE</b>, and drag them about to put them in order; drag one back up to take it out. The C64 has 5 slots a bank (Z X C V B), so KEEP shows how many of the 5 you've used. Dashed tags are the demo patches. <button class="btn small" id="banksReset" style="margin-left:6px">Empty the banks</button></p>
+    <p class="hint">Click a patch to hear it (it goes to the C64 and opens below). Drag the ones you want in Fat Chip into a bank, under <b>KEEP</b>, <b>GOOD</b> or <b>MAYBE</b>, and drag them about to put them in order; drag one back up to take it out. Click a bank's name to rename it (5 characters, as on the C64). The C64 has 5 slots a bank (Z X C V B), so KEEP shows how many of the 5 you've used. Dashed tags are the demo patches. <button class="btn small" id="banksReset" style="margin-left:6px">Empty the banks</button></p>
   </section>
 
   <section class="card">
@@ -225,10 +228,10 @@ const USED = {
   detune: ["cents"], vibrato: ["depth", "vibRate", "delay", "shape", "drift", "vibSync"], glide: ["time"], warble: ["amount", "speed"],
   tremolo: ["depth", "tremRate", "shape"], filter: ["cutoff", "resonance", "envAmount", "lfoDepth", "filtLfoRate"],
   pwm: ["depth", "pwmRate", "shape", "pwmSync"], dutyseq: ["pattern", "stepMs"], repeat: ["time", "repeats", "level", "shift", "shiftIn", "hop"],
-  // v0.30 / v0.31
-  attack: ["blip", "blipMs", "click"], penv: ["amount", "time"], rdrop: ["amount", "time"],
+  // v0.30 / v0.31 (v0.41: ATTACK's BLIP and CLICK are BEND IN's SHAPE and CLICK)
+  penv: ["amount", "time", "shape", "click"], rdrop: ["amount", "time"],
 };
-USED.tremolo.push("tremSync", "mode");
+USED.tremolo.push("tremSync");                  // (v0.42: PUMP and the GATEs are SHAPEs)
 const used = (eid, pid) => (USED[eid] || []).includes(pid);
 const effectUsed = eid => !!USED[eid];
 
@@ -240,6 +243,10 @@ function fixBanks() {
   for (const b of BANK_NAMES) { banks[b] ||= {}; for (const t of TIERS) if (!Array.isArray(banks[b][t])) banks[b][t] = []; }
 }
 fixBanks();
+// the banks' names, as Fat Chip 64 shows them (5 characters); the keys above stay FAT ... FX
+let bankNames = store.get("bankNames", null);
+if (!Array.isArray(bankNames) || bankNames.length !== BANK_NAMES.length) bankNames = [...BANK_NAMES];
+const cleanName = (v, i) => (v.toUpperCase().replace(/[^A-Z0-9 .!?\-+&'\/]/g, "").slice(0, 5).trim()) || BANK_NAMES[i];
 let mine = store.get("mine", []);              // [{name, fx, ..., notes}]
 let work = null;                               // the patch being edited
 let origin = store.get("origin", { kind: "built", i: 0 });   // where `work` came from
@@ -419,14 +426,18 @@ function drawLists() {
     SRC[src]().forEach(p => { const k = keyOf(src, p); if (!used.has(k)) z.append(tagEl(k)); });
   });
   const box = $("banks"); box.innerHTML = "";
-  for (const b of BANK_NAMES) {
+  BANK_NAMES.forEach((b, bi) => {
     const col = document.createElement("div"); col.className = "bank";
     const n = banks[b].keep.length;
-    col.innerHTML = `<h3>${b}<small class="${n > SLOTS ? "over" : ""}" title="Fat Chip 64 has ${SLOTS} slots in a bank">${n}/${SLOTS}</small></h3>` +
+    col.innerHTML = `<h3><input class="bname" type="text" maxlength="5" spellcheck="false" value="${esc(bankNames[bi])}" aria-label="Bank ${bi + 1}'s name" title="Click to rename this bank (5 characters, as on the C64)"><small class="${n > SLOTS ? "over" : ""}" title="Fat Chip 64 has ${SLOTS} slots in a bank">${n}/${SLOTS}</small></h3>` +
       TIERS.map(t => `<div class="tier ${t}"><div class="tlabel">${t.toUpperCase()}</div><div class="zone" data-zone="${b}.${t}" data-empty="drop here"></div></div>`).join("");
     for (const t of TIERS) { const z = col.querySelector(`[data-zone="${b}.${t}"]`); banks[b][t].forEach(k => z.append(tagEl(k))); }
+    const inp = col.querySelector(".bname");
+    inp.oninput = () => { const pos = inp.selectionStart; inp.value = inp.value.toUpperCase(); inp.setSelectionRange(pos, pos); };
+    inp.onchange = () => { inp.value = bankNames[bi] = cleanName(inp.value, bi); store.set("bankNames", bankNames); };
+    inp.onkeydown = e => { if (e.key === "Enter" || e.key === "Escape") { if (e.key === "Escape") inp.value = bankNames[bi]; inp.blur(); } };
     box.append(col);
-  }
+  });
   $("myCount").textContent = mine.length ? `(${mine.length})` : "(Save keeps the one you're editing)";
   $("delBtn").disabled = origin.kind !== "mine";
   for (const id of ["blendA", "blendB"]) {
@@ -439,7 +450,7 @@ function drawLists() {
 }
 function audition(key) {
   const f = byKey(key); if (!f) return;
-  origin = { kind: KIND[f.src], i: f.i }; work = clone(f.p); work.fx ||= {};
+  origin = { kind: KIND[f.src], i: f.i }; work = clone(f.p); work.fx = FatChipPatch.migrate(work.fx || {});
   drawAll(); changed();
 }
 // dragging: pointer events (mouse, pen and touch alike); a press that doesn't move is a click
@@ -651,7 +662,8 @@ $("blendKeep").onclick = () => { const p = blendNow(); if (!p) return; work = p;
 $("exportBtn").onclick = () => {
   const bankList = Object.fromEntries(BANK_NAMES.map(b => [b, Object.fromEntries(TIERS.map(t => [t, banks[b][t].map(k => { const f = byKey(k); return { name: f.p.name, from: KIND[f.src] }; })]))]));
   const demoUsed = DEMO.filter(p => placed().has("d:" + p.name));
-  const data = { app: "fatchip-chiplab", version: 4, exported: new Date().toISOString(), definition: DEF.version, patches: mine, banks: bankList, demoPatches: demoUsed, editing: work, notes };
+  const data = { app: "fatchip-chiplab", version: 5, exported: new Date().toISOString(), definition: DEF.version, patches: mine, banks: bankList,
+    bankNames: Object.fromEntries(BANK_NAMES.map((b, i) => [b, bankNames[i]])), demoPatches: demoUsed, editing: work, notes };
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
   a.download = `chiplab-patches-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
