@@ -228,7 +228,7 @@
       f.gbRdA = rg ? rg.amount : 0;
       f.gbRdT = rg ? gbPenvT(rg.time) * 8 : 0;
       // v0.33: the patch's tremolo on the SID too (its master volume): bit 0 the NES, bit 1 the SID
-      f.tremChips = (has("tremolo", "nes") ? 1 : 0) | (has("tremolo", "sid") ? 2 : 0);
+      f.tremChips = (has("tremolo", "nes") ? 1 : 0) | (has("tremolo", "sid") ? 2 : 0) | (has("tremolo", "gb") ? 4 : 0);
       // v0.42: WARBLE on the SID and the NES (a slow random drift): f / 4096 steps, a rate per 4 ms
       const wv = has("warble", "sid") || has("warble", "nes") ? on.warble : null;
       f.sndWarbA = wv ? Math.min(120, pyRound(wv.amount * 4096 * Math.log(2) / 1200)) : 0;
