@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fat Chip Beats</title>
+<meta name="description" content="Fat Chip's 25 beats in five banks (BASIC, CHILL, BREAK, GLOBE, SWING), each with an A and a B part, hat and accent layers, swing and odd time signatures, played on the MidiNES drums and Fat Chip GB's kits.">
+<link rel="icon" type="image/png" href="../../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f3fb; --surface: #ffffff; --surface-2: #efeaf7; --border: #ddd5ec; --text: #1d1730; --muted: #675d84;
+  --accent: #c4302a; --accent-strong: #a8231e; --accent-ink: #ffffff; --ok: #2e9b3a; --warn: #b77900;
+  --step: #e3dcf0; --a: #c4302a; --b: #2b62c9; --ab: #6b2fb3; --gb: #4f7a1f;
+  --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Chakra Petch", "Inter", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+    --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c;
+    --step: #3a2f52; --a: #ff6a5f; --b: #6c9dff; --ab: #c194ff; --gb: #a7d36a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15101f; --surface: #211a30; --surface-2: #2c2340; --border: #3d3258; --text: #f1ecff; --muted: #a69cc6;
+  --accent: #e4473f; --accent-strong: #ff6a5f; --accent-ink: #ffffff; --ok: #7fdc6a; --warn: #ffc95c;
+  --step: #3a2f52; --a: #ff6a5f; --b: #6c9dff; --ab: #c194ff; --gb: #a7d36a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Inter", system-ui, sans-serif; padding-bottom: 64px; }
+a { color: var(--accent-strong); }
+.top { padding: 28px 16px 8px; max-width: 1100px; margin: 0 auto; }
+.crumb { margin: 0 0 2px; color: var(--muted); font-size: 14px; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4vw, 34px); letter-spacing: 0.02em; margin: 0; }
+.top h1::before { content: ""; display: inline-block; width: 0.55em; height: 0.85em; background: var(--accent); margin-right: 0.35em; vertical-align: -0.08em; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .top h1::before { animation: none; } }
+.sub { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 20px; margin: 14px 0; min-width: 0; }
+.card h2 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.step-n { font-family: var(--mono); font-size: 13px; color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 1px 7px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.field output { font-family: var(--mono); font-size: 12.5px; color: var(--accent-strong); }
+select { font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; width: 100%; min-width: 0; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select:focus-visible, .btn:focus-visible, input:focus-visible, .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 7px 10px; font-size: 13px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hint { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+code { font-family: var(--mono); font-size: 13px; }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin: 14px 0; border: 1px solid var(--warn); background: var(--surface-2); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+/* banks and beats */
+.banks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 760px) { .banks { grid-template-columns: 1fr 1fr; } }
+.bank { border: 1px solid var(--border); border-radius: 10px; padding: 8px; background: var(--surface-2); display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.bank h3 { margin: 0 0 2px; font: 700 13px var(--display); letter-spacing: 0.12em; color: var(--muted); display: flex; justify-content: space-between; }
+.bank h3 kbd { font: 500 11px var(--mono); }
+.pill { font: 600 13px/1 "Inter", system-ui, sans-serif; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-align: left; display: flex; justify-content: space-between; gap: 6px; }
+.pill small { font: 500 11.5px var(--mono); color: var(--muted); }
+.pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pill[aria-pressed="true"] small { color: var(--accent-ink); opacity: 0.85; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.seg button { font: 700 13px var(--mono); border: 0; background: var(--surface-2); color: var(--text); padding: 9px 13px; cursor: pointer; border-right: 1px solid var(--border); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+.transport { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 14px; align-items: end; }
+@media (max-width: 760px) { .transport { grid-template-columns: 1fr 1fr; } }
+.seqwrap { overflow-x: auto; margin-top: 14px; }
+.seq { display: grid; gap: 3px; align-items: center; min-width: 640px; }
+.lbl { font: 600 12px var(--mono); color: var(--muted); white-space: nowrap; }
+.lbl.hit { color: var(--accent-strong); }
+.cell { height: 18px; border-radius: 4px; background: var(--step); }
+.cell.a { background: var(--a); }
+.cell.b { background: var(--b); }
+.cell.x { background: var(--ab); }
+.cell.lay { background: var(--gb); }
+.cell.beat { box-shadow: inset 0 0 0 1px var(--border); }
+.cell.out { opacity: 0.25; }
+.cell.now { outline: 2px solid var(--ok); outline-offset: 0; }
+.cell.S { height: 18px; }
+.acc { height: 10px; border-radius: 3px; background: var(--step); align-self: end; }
+.acc.S { height: 18px; background: var(--muted); }
+.acc.n { height: 12px; background: var(--muted); opacity: 0.6; }
+.acc.s { height: 6px; background: var(--muted); opacity: 0.4; }
+.key { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 10px; }
+.key span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+.devs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .devs { grid-template-columns: 1fr; } }
+.dev { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dev.off { opacity: 0.55; }
+.dev h3 { margin: 0; font: 700 15px var(--display); letter-spacing: 0.06em; display: flex; justify-content: space-between; align-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#hits { font: 12px/1.45 var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; height: 110px; overflow: auto; white-space: pre; color: var(--muted); margin-top: 12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="crumb"><a href="../../tools/">Tools</a> / <a href="../">Fat Chip</a> /</p>
+  <h1>Beats</h1>
+  <p class="sub">Fat Chip's 25 beats in five banks. Each beat has an A and a B part: play either, both together, or A and B taking turns. Lay a hat pattern or an accent shape over any beat, swing it, or fold it into an odd time signature, on the MidiNES, the Game Boy, or both.</p>
+</header>
+<main>
+  <div id="noData" class="banner" hidden>
+    <strong>No MidiNES sample data in this browser yet</strong>, so the NES is off. Load the <code>midines-dmc</code> folder in the <a href="../samples/">Sample Lab</a> (this page uses it too), or choose it here:
+    <label class="btn small" for="dmcFolder" style="margin-left:6px">Choose the midines-dmc folder</label>
+    <input id="dmcFolder" type="file" webkitdirectory multiple hidden>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">1</span>Beat</h2>
+      <div class="row">
+        <div class="seg" role="group" aria-label="Part" id="parts">
+          <button data-part="A" title="Key A">A</button><button data-part="B" title="Key B">B</button><button data-part="AB" title="Key N">A+B</button><button data-part="ALT" title="Key M">A↔B</button>
+        </div>
+        <button id="playBtn" class="btn primary">▶ Play (Space)</button>
+      </div>
+    </div>
+    <div class="banks" id="banks"></div>
+    <div class="transport">
+      <label class="field"><span>Tempo <output id="bpmOut"></output> BPM</span><input id="bpm" type="range" min="50" max="190"></label>
+      <label class="field"><span>Swing <output id="swingOut"></output></span><input id="swing" type="range" min="0" max="75" step="1"></label>
+      <label class="field"><span>Time signature</span><select id="ts"></select></label>
+      <label class="field"><span>Hat layer</span><select id="hats"></select></label>
+      <label class="field"><span>Accent layer</span><select id="accent"></select></label>
+    </div>
+    <div class="seqwrap"><div class="seq" id="seq"></div></div>
+    <div class="key"><span style="--c:var(--a)">A only</span><span style="--c:var(--b)">B only</span><span style="--c:var(--ab)">A and B</span><span style="--c:var(--gb)">hat layer</span><span>bars: accent layer (strong / normal / soft)</span></div>
+    <p class="hint">Choosing a beat loads its tempo, swing, hat layer and accent layer; the part and time signature stay. A time signature takes whole runs of the beat's steps from each bar's start (dimmed steps don't play), so the kick stays on the downbeat. Hat layers replace the beat's own closed and open hats; the triplet ones play three to a beat over the straight beat. Accents: hats, cymbals and percussion follow the layer fully, kick and snare only take its strong steps. Keys: Space, A B N M for the part, ← → for the beat.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step-n">2</span>Devices</h2>
+      <label class="field" style="width:220px"><span>Both on</span><select id="route"><option value="layer">LAYER: every drum on both</option><option value="split">SPLIT: NES drums, Game Boy hats</option></select></label>
+    </div>
+    <div class="devs">
+      <div class="dev" id="nesDev">
+        <h3>MidiNES <label class="check"><input type="checkbox" id="nesOn" checked> on</label></h3>
+        <label class="field"><span>Kit</span><select id="nesKit"></select></label>
+        <p class="hint" style="margin:0">NES rules: one sample at a time (kick, snare, toms, percussion first); hats and cymbals that lose it move to the noise channel. Ride and shaker play on noise. <b>Auto</b> builds a kit for each beat from your Sound Sorter types and tags; your Beat Lab kits are listed too.</p>
+      </div>
+      <div class="dev" id="gbDev">
+        <h3>Game Boy <label class="check"><input type="checkbox" id="gbOn" checked> on</label></h3>
+        <div class="grid2">
+          <label class="field"><span>Kit</span><select id="gbKit"></select></label>
+          <label class="field"><span>HATS</span><select id="gbHats"><option value="sample">SAMPLE</option><option value="noise">NOISE</option></select></label>
+        </div>
+        <label class="field"><span>Level <output id="gbLevelOut"></output></span><input id="gbLevel" type="range" min="0" max="100" value="45"></label>
+        <p class="hint" style="margin:0">Fat Chip GB v0.17's kits, played as the Game Boy plays them: 4-bit at 10.9 kHz, two hits at once (mixed with its soft clip; a third takes over the one nearer its end), volume in its three steps.</p>
+      </div>
+    </div>
+    <div id="hits" role="log" aria-live="off"></div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("beats." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("beats." + k, JSON.stringify(v)); } catch { /* */ } },
+};
+const sorter = k => { try { return JSON.parse(localStorage.getItem("sorter." + k)); } catch { return null; } };   // Sound Sorter's data (same site)
+const beatlab = k => { try { return JSON.parse(localStorage.getItem("beatlab." + k)); } catch { return null; } };   // Beat Lab's kits (same site)
+
+// ====================================================================== from the Beat Lab: samples, Sound Sorter, kits, NES sound
+// (copied from ../beatlab/index.html: keep in step with it)
+const SR = 48000;
+const MAP = {"A0":["kick","kick"],"A1":["bass",""],"A2":["kick","kick"],"A3":["kick",""],"A4":["kick","kick"],"A5":["kick","kick"],"A6":["snare","snare"],"A7":["snare","snare"],"A8":["snare","snare"],"A9":["snare","snare"],"A10":["kick","kick"],"A11":["snare","snare"],"A12":["hatc","hat"],"A13":["perc","perc"],"A14":["hatc","hat"],"A15":["hatc","hat"],"A16":["snare","snare"],"A17":["tom","tom"],"A18":["kick","kick"],"A19":["kick","kick"],"A20":["hato","ohat"],"A21":["hatc","hat"],"A22":["kick","kick hat"],"A23":["snare","snare"],"A24":["clap","clap"],"A25":["clap","clap"],"A26":["hatc","ohat"],"A27":["hato","ohat"],"A28":["snare","snare"],"A29":["snare","snare"],"A30":["tom","tom"],"A31":["tom","tom"],"A32":["snare","snare"],"A33":["snare","snare"],"A34":["snare","snare"],"A35":["snare","snare"],"A36":["kick","kick"],"A37":["kick","kick"],"A38":["perc","perc"],"A39":["hatc","hat"],"A40":["clap","snare clap"],"A41":["perc","perc"],"A42":["hato","ohat"],"A43":["tom","tom"],"A44":["hatc","hat"],"A45":["perc","perc"],"A46":["tom","tom"],"A47":["tom","tom"],"A48":["perc","perc"],"A49":["perc","perc"],"A50":["perc","perc"],"A51":["snare","snare"],"A52":["perc","perc"],"A53":["perc","perc"],"A54":["cymbal","cymbal"],"A55":["hatc","hat"],"A56":["hato","ohat"],"A57":["kick","kick"],"A58":["hato","ohat"],"A59":["perc","snare hat"],"A60":["snare","snare"],"A61":["snare","snare"],"A62":["hatc","perc"],"A63":["perc","perc"],"A64":["snare","snare"],"A65":["snare","snare"],"A66":["kick","kick"],"A67":["kick","kick"],"A68":["kick","kick"],"A69":["snare","snare"],"A70":["snare","snare ohat"],"A71":["snare","snare"],"A72":["snare","snare"],"A73":["kick","kick hat"],"A74":["hatc","hat"],"A75":["snare","snare"],"A76":["perc","perc"],"A77":["cymbal","cymbal"],"A78":["perc","perc"],"A79":["perc","perc"],"A80":["perc","perc"],"A81":["hato","ohat"],"A82":["cymbal","cymbal"],"A83":["hatc","hat"],"A84":["hatc","hat"],"A85":["fx",""],"A86":["snare","snare"],"A87":["hato","snare cymbal"],"A88":["snare","snare"],"A89":["hatc","hat"],"A90":["snare","snare"],"A91":["kick","kick hat"],"A92":["kick","kick"],"A93":["snare","snare hat"],"A94":["hatc","hat"],"A95":["snare","snare hat"],"A96":["snare","hat"],"A97":["snare","snare"],"A98":["kick","kick cymbal"],"A99":["snare","snare cymbal"],"A100":["kick","kick cymbal"],"A101":["hato","ohat"],"A102":["kick","kick hat"],"A103":["snare","snare"],"A104":["snare","snare"],"A105":["vocal","vocal"],"A106":["kick","kick"],"A107":["kick","kick"],"A108":["snare","snare"],"A109":["snare","snare"],"A110":["perc","snare tom"],"A111":["perc","snare"],"A112":["kick","kick cymbal"],"A113":["snare","snare cymbal"],"A114":["hato","ohat"],"A115":["kick","kick hat"],"A116":["hato","ohat"],"A117":["snare","snare"],"A118":["hatc","hat"],"A119":["kick","kick"],"A120":["snare","snare"],"A121":["snare","snare"],"A122":["snare","snare"],"A123":["hatc","hat"],"A124":["snare","snare"],"A125":["snare","snare"],"A126":["snare","snare hat"],"A127":["snare","snare"],"B0":["perc","snare"],"B1":["snare","snare"],"B2":["kick","kick ohat"],"B3":["kick","kick ohat"],"B4":["snare","snare hat"],"B5":["kick","kick ohat"],"B6":["kick","kick cymbal"],"B7":["kick","kick ohat"],"B8":["kick","kick"],"B9":["snare","snare hat"],"B10":["kick","kick"],"B11":["kick","kick"],"B12":["kick","kick"],"B13":["snare","snare"],"B14":["kick","kick"],"B15":["kick","kick"],"B16":["kick","kick"],"B17":["snare",""],"B18":["perc",""],"B19":["perc","perc"],"B20":["fx",""],"B21":["hatc","hat"],"B22":["vocal","vocal"],"B23":["vocal","vocal"],"B24":["vocal","vocal"],"B25":["vocal","vocal"],"B26":["vocal",""],"B27":["vocal",""],"B28":["vocal",""],"B29":["vocal",""],"B30":["vocal","vocal"],"B31":["vocal","vocal"],"B32":["vocal","vocal"],"B33":["vocal","vocal"],"B34":["vocal","vocal"],"B35":["vocal","vocal"],"B36":["tonal","vocal"],"B37":["vocal","vocal"],"B38":["vocal","vocal"],"B39":["vocal","vocal"],"B40":["vocal","vocal"],"B41":["fx",""],"B42":["tonal",""],"B43":["tonal",""],"B44":["tonal",""],"B45":["fx",""],"B46":["fx",""],"B47":["fx",""],"B48":["fx",""],"B49":["fx",""],"B50":["vocal","vocal"],"B51":["vocal",""],"B52":["vocal",""],"B53":["vocal",""],"B54":["vocal",""],"B55":["vocal",""],"B56":["vocal",""],"B57":["vocal",""],"B58":["vocal",""],"B59":["vocal",""],"B60":["tonal",""],"B61":["tonal",""],"B62":["tonal",""],"B63":["tonal",""],"B64":["tonal",""],"B65":["tonal",""],"B66":["tonal","tom"],"B67":["tonal","tom"],"B68":["tonal","tom"],"B69":["tonal","tom"],"B70":["tonal",""],"B71":["tonal",""],"B72":["tonal",""],"B73":["tonal",""],"B74":["tonal",""],"B75":["fx",""],"B76":["fx",""],"B77":["fx",""],"B78":["fx",""],"B79":["fx",""],"B80":["fx",""],"B81":["vocal","vocal"],"B82":["vocal","vocal"],"B83":["vocal","vocal"],"B84":["vocal","vocal"],"B85":["vocal","vocal"],"B86":["vocal","vocal"],"B87":["vocal","vocal"],"B88":["vocal","vocal"],"B89":["vocal","vocal"],"B90":["vocal","vocal"],"B91":["vocal","vocal"],"B92":["vocal","vocal"],"B93":["vocal","vocal"],"B94":["vocal","vocal"],"B95":["fx",""],"B96":["fx",""],"B97":["fx",""],"B98":["fx",""],"B99":["fx",""],"B100":["fx",""],"B101":["fx",""],"B102":["fx",""],"B103":["fx",""],"B104":["fx",""],"B105":["fx",""],"B106":["fx",""],"B107":["fx",""],"B108":["fx",""],"B109":["fx",""],"B110":["fx",""],"B111":["fx",""],"B112":["fx",""],"B113":["fx",""],"B114":["fx",""],"B115":["fx",""],"B116":["fx",""],"B117":["fx",""],"B118":["fx",""],"B119":["fx",""],"B120":["fx",""],"B121":["fx",""],"B122":["fx",""],"B123":["fx",""],"B124":["fx",""],"B125":["fx",""],"B126":["fx",""],"B127":["fx",""]};   // Reeve's categories and "has" (Sample Lab), used where this browser has none
+const HZ = [4181.7, 4709.9, 5264.0, 5593.0, 6258.0, 7046.4, 7919.4, 8363.4, 9419.9, 11186.1, 12604.0, 13982.6, 16884.6, 21306.8, 24858.0, 33143.9];
+const SWEEP = Array.from({ length: 33 }, (_, i) => "B" + (95 + i));
+const NOISE = {
+  closed: { period: 1, len: 45, mode: 0 }, pedal: { period: 2, len: 30, mode: 0 }, open: { period: 2, len: 260, mode: 0 },
+  crash: { period: 3, len: 900, mode: 0 }, ride: { period: 2, len: 420, mode: 1 }, metal: { period: 2, len: 120, mode: 1 },
+};
+const NOISE_PERIOD = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068];   // CPU cycles, NTSC
+const CPU = 1789773;
+// the drums: prio = who gets the one sample channel (0 first); noise = can be (or fall back to) NES noise
+const VOICES = [
+  { id: "bd", name: "Kick", prio: 0, key: 45 },
+  { id: "sd", name: "Snare / clap", prio: 1, key: 52 },
+  { id: "ch", name: "Closed hat", prio: 7, noise: "closed", key: 57 },
+  { id: "oh", name: "Open hat", prio: 6, noise: "open" },
+  { id: "cy", name: "Cymbal", prio: 5, noise: "crash", key: 62 },
+  { id: "tom", name: "Toms", prio: 2, key: 48 },
+  { id: "p1", name: "Perc 1", prio: 3 },
+  { id: "p2", name: "Perc 2", prio: 4 },
+];
+const V = Object.fromEntries(VOICES.map(v => [v.id, v]));
+const NOISE_ORDER = ["cy", "oh", "ch"];   // one noise sound at a time
+
+// ====================================================================== sample data
+let samples = [], byId = {};
+function dbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("fatchip-samplelab", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("clips", { keyPath: "key" });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function loadFromDb() {
+  const db = await dbOpen();
+  const all = await new Promise((res, rej) => { const q = db.transaction("clips").objectStore("clips").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+  return all.filter(c => c.set === "dmc" && c.bytes).map(c => ({ bank: c.bank, note: c.note, bytes: new Uint8Array(c.bytes), native: c.native, cat: c.cat, has: c.has }));
+}
+async function loadFiles(files) {
+  const out = [];
+  for (const f of files) {
+    const m = f.name.match(/bank([AB])_n(\d{3})\.dmc$/i);
+    if (m) out.push({ bank: m[1].toUpperCase(), note: +m[2], bytes: new Uint8Array(await f.arrayBuffer()) });
+  }
+  return out;
+}
+function renderDmc(bytes, pidx, opt = {}) {   // bits from bit 0: 1 = up 2, 0 = down 2 (0..127)
+  const nbits = bytes.length * 8, rate = HZ[pidx], dt = SR / rate, n = Math.ceil(nbits * dt) + 2, out = new Float32Array(n);
+  let v = opt.start ?? 64, t = 0;
+  for (let k = 0; k < nbits; k++) {
+    const bit = (bytes[k >> 3] >> (k & 7)) & 1;
+    if (bit) { if (v <= 125) v += 2; } else if (v >= 2) v -= 2;
+    let a = t; const t1 = t + dt;
+    while (a < t1) { const i = Math.floor(a), b = Math.min(t1, i + 1); out[i] += v * (b - a); a = b; }
+    t = t1;
+  }
+  return { out, end: v, n: Math.ceil(t) };
+}
+function centred(x) {   // remove the sample's own DC, 1 ms fades
+  let m = 0; for (const v of x) m += v; m /= x.length;
+  const f = Math.round(SR * 0.001), y = new Float32Array(x.length);
+  for (let i = 0; i < x.length; i++) y[i] = (x[i] - m) * Math.min(1, i / f, (x.length - 1 - i) / f);
+  return y;
+}
+// Sound Sorter: types, percussion names, tags and go-together pairs (bucket rounds within one family)
+let types = {}, percOf = {}, tags = {}, pairs = new Map();
+const pk = (a, b) => a < b ? a + "|" + b : b + "|" + a;
+function loadSorter() {
+  types = sorter("types") || {}; percOf = (sorter("perc") || {}).of || {}; tags = sorter("tags") || {};
+  pairs = new Map();
+  const add = (a, b, k) => { const key = pk(a, b); let o = pairs.get(key); if (!o) pairs.set(key, o = { t: 0, a: 0 }); o[k]++; };
+  for (const r of sorter("rounds") || []) {
+    if (!["kick", "snare", "hatc", "hato", "tom", "fx"].includes(r.mode)) continue;
+    r.b.forEach((B, i) => {
+      for (let x = 0; x < B.length; x++) for (let y = x + 1; y < B.length; y++) add(B[x], B[y], "t");
+      r.b.forEach((C, j) => { if (j > i) for (const a of B) for (const b of C) add(a, b, "a"); });
+    });
+  }
+}
+const typeOf = id => { const s = byId[id]; return s ? types[s.fam]?.of?.[id] || null : null; };
+const tagList = (id, pre) => (tags[id] || []).filter(t => t.startsWith(pre)).map(t => t.slice(pre.length));
+function partners(id) {   // sounds you put in the same bucket with it (more together than apart)
+  const out = [];
+  for (const s of samples) { if (s.id === id) continue; const p = pairs.get(pk(id, s.id)); if (p && p.t >= 1 && p.t > p.a && p.t / (p.t + p.a) >= 0.6) out.push(s.id); }
+  return out;
+}
+function prepare(raw) {
+  samples = raw.map(r => {
+    const id = r.bank + r.note, m = MAP[id] || ["fx", ""];
+    return { id, bank: r.bank, note: r.note, bytes: r.bytes, native: r.native ?? (r.bank === "A" || r.note <= 21 ? 15 : 12), fam: r.cat || m[0] };
+  }).sort((a, b) => a.bank.localeCompare(b.bank) || a.note - b.note);
+  byId = Object.fromEntries(samples.map(s => [s.id, s]));
+  loadSorter();
+}
+// which samples each drum can use, in a fixed order: by type (in your type order), then sample order
+function candidates(vid) {
+  const ok = s => {
+    const f = s.fam, t = typeOf(s.id);
+    if (vid === "bd") return f === "kick";
+    if (vid === "sd") return f === "snare" || f === "clap" || percOf[s.id] === "Clap";
+    if (vid === "ch") return f === "hatc" || (f === "hato" && (t === "Half open" || t === "Open → closed"));
+    if (vid === "oh") return f === "hato";
+    if (vid === "cy") return f === "cymbal";
+    if (vid === "tom") return f === "tom";
+    return f === "perc" || f === "clap";
+  };
+  const list = samples.filter(ok);
+  const rank = s => { const names = types[s.fam]?.names || [], t = typeOf(s.id); const i = t ? names.indexOf(t) : -1; return (vid === "ch" && s.fam === "hato" ? 50 : 0) + (i < 0 ? 40 : i); };
+  return list.sort((a, b) => rank(a) - rank(b) || (percOf[a.id] || "").localeCompare(percOf[b.id] || "") || a.bank.localeCompare(b.bank) || a.note - b.note).map(s => s.id);
+}
+const label = id => typeOf(id) || percOf[id] || "";
+
+// ====================================================================== measuring: how big a hit is (for accent vs ghost picks) and how high (toms)
+const meas = {};
+function measure(id) {
+  if (meas[id]) return meas[id];
+  const s = byId[id], r = renderDmc(s.bytes, s.native), x = centred(r.out.subarray(0, r.n));
+  const w = Math.min(x.length, Math.round(SR * 0.06)); let e = 0, zc = 0;
+  for (let i = 0; i < w; i++) e += x[i] * x[i];
+  const z = Math.min(x.length, Math.round(SR * 0.1)); for (let i = 1; i < z; i++) if ((x[i - 1] < 0) !== (x[i] < 0)) zc++;
+  const lenMs = x.length / SR * 1000, rms = Math.sqrt(e / Math.max(1, w));
+  return meas[id] = { lenMs, rms, size: rms * Math.sqrt(lenMs), zcr: zc / (z / SR), f0: s.fam === "tom" ? toneHz(x) : 0 };
+}
+// a drum's tone: the strongest peak between 50 and 600 Hz, 10–260 ms in (after the stick)
+function toneHz(x) {
+  const N = 16384, a = Math.round(SR * 0.01), L = Math.min(x.length - a, Math.round(SR * 0.25), N);
+  if (L < 512) return 0;
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let i = 0; i < L; i++) re[i] = x[a + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (L - 1)));
+  for (let i = 1, j = 0; i < N; i++) { let bit = N >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= N; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < N; i += len) { let cr = 1, ci = 0; for (let k = 0; k < len / 2; k++) { const p = i + k, q = p + len / 2, tr = re[q] * cr - im[q] * ci, ti = re[q] * ci + im[q] * cr; re[q] = re[p] - tr; im[q] = im[p] - ti; re[p] += tr; im[p] += ti; const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } }
+  }
+  let bk = 0, bm = 0;
+  for (let k = Math.ceil(50 * N / SR); k < 600 * N / SR; k++) { const m = Math.hypot(re[k], im[k]); if (m > bm) { bm = m; bk = k; } }
+  return bk * SR / N;
+}
+const BUCKETS = vid => vid === "tom" ? [["hi", "Hi tom (1)"], ["mid", "Mid tom (2)"], ["lo", "Lo tom (3)"]] : vid === "p1" || vid === "p2" ? [["main", "Hits"], ["acc", "Accent"], ["ghost", "Ghost"]] : [["main", "Main"], ["acc", "Accent"], ["ghost", "Ghost"]];
+const NOISE_LIB = { ch: [["closed", 4], ["closed", 6], ["closed", 8], ["pedal", 5], ["metal", 5]], oh: [["open", 5], ["open", 7], ["metal", 6]], cy: [["crash", 5], ["crash", 7], ["ride", 5], ["ride", 7]] };
+const itemKey = it => it.id ? it.id : `noise:${it.noise}:${it.vol}`;
+const itemName = it => it.id ? it.id : `${it.noise} ${noiseNote(NOISE[it.noise])} vol ${it.vol}`;
+// build a kit for a beat: the style's preferred sounds for main hits, plus sounds you bucketed with them;
+// accents = the biggest of those (length × level), ghosts = the smallest; toms by pitch
+function buildKit(st) {   // (here: the style comes from the beat)
+  st = st || {}; const k = {}, used = new Set();
+  for (const v of VOICES) {
+    const p = st[v.id] || {}, c = candidates(v.id), out = { buckets: {}, vary: 40, pitch: 0, mute: false };
+    for (const [b] of BUCKETS(v.id)) out.buckets[b] = [];
+    k[v.id] = out;
+    if (p.noise && NOISE_LIB[v.id]) {   // a noise kit: middle volume for hits, louder accents, quieter (or pedal) ghosts
+      const lib = NOISE_LIB[v.id].filter(([n]) => n === p.noise);
+      const mk = ([noise, vol]) => ({ noise, vol });
+      out.buckets.main = [mk(lib[Math.floor(lib.length / 2)] || NOISE_LIB[v.id][0])];
+      out.buckets.acc = [mk(lib[lib.length - 1] || NOISE_LIB[v.id][0])];
+      out.buckets.ghost = [mk(lib[0] || NOISE_LIB[v.id][0])];
+      continue;
+    }
+    if (!c.length) continue;
+    const score = id => (p.type && typeOf(id) === p.type ? 2 : 0) + (p.tag && tagList(id, "style:").includes(p.tag) ? 1.5 : 0) + (p.perc && percOf[id] === p.perc ? 3 : 0);
+    const ranked = c.filter(id => !used.has(id)).sort((a, b) => score(b) - score(a));
+    const lead = ranked[0] || c[0];
+    // the family around it: sounds you put in its bucket, then same-type sounds. Cymbal, open hat and percussion
+    // stay within the lead's own type / percussion name (a ride doesn't stand in for a crash, a clave for a cowbell)
+    const same = id => !["cy", "oh", "p1", "p2"].includes(v.id) || (label(id) || "") === (label(lead) || "");
+    c.splice(0, c.length, ...c.filter(same));
+    let fam = [lead, ...partners(lead).filter(id => c.includes(id) && !used.has(id))];
+    if (fam.length < 5) fam = fam.concat(ranked.filter(id => !fam.includes(id) && c.includes(id) && score(id) >= score(lead) - 0.5)).slice(0, 7);
+    if (fam.length < 3) fam = fam.concat(ranked.filter(id => !fam.includes(id) && c.includes(id))).slice(0, 3);
+    if (v.id === "tom") {   // hi / mid / lo by how high they ring
+      const byPitch = c.slice().sort((a, b) => measure(b).f0 - measure(a).f0), n = byPitch.length;
+      out.buckets.hi = byPitch.slice(0, Math.max(1, Math.round(n / 3))).map(id => ({ id }));
+      out.buckets.mid = byPitch.slice(Math.round(n / 3), Math.max(Math.round(n / 3) + 1, Math.round(2 * n / 3))).map(id => ({ id }));
+      out.buckets.lo = byPitch.slice(Math.round(2 * n / 3)).map(id => ({ id }));
+      continue;
+    }
+    const bySize = fam.slice().sort((a, b) => measure(b).size - measure(a).size);
+    out.buckets.main = [lead, ...fam.filter(id => id !== lead)].slice(0, 2).map(id => ({ id }));
+    out.buckets.acc = bySize.slice(0, 2).map(id => ({ id }));
+    out.buckets.ghost = bySize.slice(-2).reverse().map(id => ({ id }));
+    if (v.id === "ch" && NOISE_LIB.ch) out.buckets.ghost.push({ noise: "closed", vol: 4 });   // a quiet noise tick among the ghost hats
+    if (v.id === "p2") for (const b of Object.values(out.buckets)) b.forEach(it => used.add(it.id));
+    if (v.id === "p1") for (const b of Object.values(out.buckets)) b.forEach(it => used.add(it.id));
+  }
+  return k;
+}
+let actx = null, master = null, pulseWave = null;
+async function ctx() {
+  if (!actx) {
+    actx = new AudioContext({ sampleRate: SR, latencyHint: "interactive" }); master = actx.createGain(); master.gain.value = 1.6; master.connect(actx.destination);
+    const N = 32, re = new Float32Array(N), im = new Float32Array(N);   // NES pulse, 25% duty
+    for (let n = 1; n < N; n++) re[n] = 2 / (n * Math.PI) * Math.sin(n * Math.PI * 0.25);
+    pulseWave = actx.createPeriodicWave(re, im);
+  }
+  if (actx.state === "suspended") await actx.resume();
+}
+// NES mixer weights (linearised): pulse 0.00752 per step, noise 0.00494, DMC 0.00335, triangle 0.00851
+const W_PULSE = 0.00752, W_NOISE = 0.00494, W_DMC = 0.00335, W_TRI = 0.00851;
+let dmcVoice = null, noiseVoice = null;
+const bufCache = new Map();
+function dmcBuffer(id, speed) {
+  const key = id + "@" + speed;
+  if (!bufCache.has(key)) { const r = renderDmc(byId[id].bytes, speed), d = centred(r.out.subarray(0, r.n)); const b = actx.createBuffer(1, d.length, SR); b.copyToChannel(d, 0); bufCache.set(key, b); }
+  return bufCache.get(key);
+}
+function playBuffer(b, when, weight) {
+  const s = actx.createBufferSource(); s.buffer = b;
+  const g = actx.createGain(); g.gain.value = weight;
+  s.connect(g).connect(master); s.start(when);
+  return s;
+}
+function hitDmc(id, speed, when) {
+  if (dmcVoice) { try { dmcVoice.stop(when); } catch { /* */ } }   // one sample at a time, like the NES
+  dmcVoice = playBuffer(dmcBuffer(id, speed), when, W_DMC);
+}
+function noiseBuf(p, vol, dp = 0) {
+  const per = NOISE_PERIOD[Math.max(0, Math.min(15, p.period + dp))], n = Math.round(SR * p.len / 1000), out = new Float32Array(n);
+  let reg = 1, acc = 0; const step = CPU / per / SR;
+  for (let i = 0; i < n; i++) {
+    acc += step;
+    while (acc >= 1) { const fb = (reg & 1) ^ ((reg >> (p.mode ? 6 : 1)) & 1); reg = (reg >> 1) | (fb << 14); acc -= 1; }
+    const env = 1 - i / n;
+    out[i] = (reg & 1 ? 0 : 1) * Math.max(0, Math.round(vol * env)) - vol * env * 0.5;
+  }
+  return out;
+}
+// the MidiNES note for a noise sound: long mode C2–D#3, short ("metal") mode E3–G4, one note per noise period
+// (taken as higher note = shorter period = higher pitch; to check in the NES Lab)
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+function noiseNote(p, dp = 0) { const per = Math.max(0, Math.min(15, p.period + dp)), m = (p.mode ? 52 : 36) + 15 - per; return NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1); }
+function hitNoise(preset, when, vol, dp = 0) {
+  vol = Math.max(0, Math.min(15, Math.round(vol)));
+  if (noiseVoice) { try { noiseVoice.stop(when); } catch { /* */ } }
+  const d = noiseBuf(typeof preset === "string" ? NOISE[preset] : preset, vol, dp), b = actx.createBuffer(1, d.length, SR); b.copyToChannel(d, 0);
+  noiseVoice = playBuffer(b, when, W_NOISE);
+}
+
+// ====================================================================== the beats (patch/beats.json from fat-chip-64's tools/gen_beat_book.py)
+let DATA = null, GB = null;
+const LANE_NAME = { bd: "Kick", sd: "Snare", cp: "Clap", rm: "Rim", ht: "Hi tom", mt: "Mid tom", lt: "Lo tom", ch: "Closed hat", oh: "Open hat", cy: "Crash", rd: "Ride", sh: "Shaker", cb: "Cowbell", cl: "Clave" };
+const HAT_LANES = ["ch", "oh"];
+const PERC_LANES = ["cp", "rm", "cb", "cl"], PERC_NAME = { cp: "Clap", rm: "Rim shot", cb: "Cowbell", cl: "Clave / wood block" };
+const GB_SLOT = { bd: 0, rm: 1, sd: 2, cp: 3, lt: 5, ch: 6, mt: 7, oh: 8, ht: 9, cy: 10, rd: 11, sh: 12, cb: 13, cl: 14 };
+const GB_HAT_LANES = ["ch", "oh", "cy", "rd", "sh"];
+const SPLIT_GB = new Set(["ch", "oh", "cy", "rd", "sh", "cb", "cl"]);
+const FULL_ACCENT = new Set(["ch", "oh", "cy", "rd", "sh", "cb", "cl", "ht", "mt", "lt"]);
+
+let bankI = store.get("bank", 0), beatI = store.get("beat", 0);
+let part = store.get("part", "A");
+const beat = () => DATA.banks[bankI].beats[beatI];
+const laneStr = (b, l) => (b.lanes[l] || "").replace(/\s/g, "");
+const tsCur = () => DATA.timeSigs[+$("ts").value] || DATA.timeSigs[0];
+const hatCur = () => DATA.hatLayers.find(h => h.name === $("hats").value) || DATA.hatLayers[0];
+const accCur = () => DATA.accentLayers.find(a => a.name === $("accent").value) || DATA.accentLayers[0];
+
+// the cycle: the steps that play, in order, with each one's place in its bar
+function cycleSteps() {
+  const out = [];
+  tsCur().bars.forEach((bar, bi) => {
+    let p = 0;
+    for (const [first, n] of bar) for (let k = 0; k < n; k++) out.push({ s: first + k, p: p++, bar: bi, barLen: bar.reduce((t, x) => t + x[1], 0) });
+  });
+  return out;
+}
+function partOn(code, cyc) {
+  if (code === ".") return false;
+  if (code === "x") return true;
+  const want = part === "ALT" ? (cyc % 2 ? "B" : "A") : part;
+  return want === "AB" || (code === "a" && want === "A") || (code === "b" && want === "B");
+}
+function strength(p, bar) {
+  const a = accCur();
+  if (a.steps === "random") { const r = Math.random(); return r < 0.15 ? "S" : r < 0.4 ? "s" : "n"; }
+  const st = a.steps.replace(/\s/g, "");
+  return st[(st.length > 16 ? (bar % 2) * 16 : 0) + (p % 16)] || "n";
+}
+
+// ====================================================================== the NES: a kit per beat
+const nesKits = {};
+function percVoices(b) {   // the beat's percussion lanes onto the Beat Lab's two percussion voices
+  const used = PERC_LANES.filter(l => b.lanes[l]), map = {};
+  used.forEach((l, i) => { map[l] = i === 0 ? "p1" : "p2"; });
+  return map;
+}
+function styleFor(b) {
+  const pv = percVoices(b), st = { bd: b.nes.bd || {}, sd: b.nes.sd || {}, ch: { type: "Tight" }, oh: { type: "Open" }, cy: { type: "Crash" }, tom: {} };
+  for (const [l, v] of Object.entries(pv)) if (!st[v]) st[v] = { perc: PERC_NAME[l] };
+  return st;
+}
+function nesKit() {
+  const sel = $("nesKit").value, b = beat();
+  if (sel.startsWith("bl:")) { const k = (beatlab("kits2") || {})[sel.slice(3)]; if (k) return k; }
+  if (sel.startsWith("sv:")) { const k = (beatlab("saved2") || {})[sel.slice(3)]; if (k) return k.kit || k; }
+  const key = bankI + ":" + beatI;
+  if (!nesKits[key]) nesKits[key] = buildKit(styleFor(b));
+  return nesKits[key];
+}
+function bucketList(k, vid, c) {
+  const B = (k[vid] || {}).buckets || {};
+  const want = vid === "tom" ? ["hi", "mid", "lo"][(+c || 1) - 1] : c === "X" ? "acc" : c === "o" ? "ghost" : "main";
+  return { name: want, list: B[want]?.length ? B[want] : B.main?.length ? B.main : Object.values(B).find(x => x.length) || [] };
+}
+const lastPick = {};
+function pick(k, vid, b) {
+  const L = b.list; if (!L.length) return null;
+  const vary = (k[vid] || {}).vary ?? 40;
+  let it = L[0];
+  if (L.length > 1 && Math.random() * 100 < vary) { const key = vid + b.name, others = L.filter(x => itemKey(x) !== lastPick[key]); it = others[Math.floor(Math.random() * others.length)] || L[0]; }
+  lastPick[vid + b.name] = itemKey(it);
+  return it;
+}
+const NES_NOISE_ORDER = ["cy", "rd", "oh", "ch", "sh"];
+function nesStep(hits, when, log) {
+  const k = nesKit(), pv = percVoices(beat()), picks = [];
+  for (const h of hits) {
+    if (h.lane === "rd") { picks.push({ ...h, noise: { preset: "ride", vol: h.c === "X" ? 7 : h.c === "o" ? 4 : 5 } }); continue; }
+    if (h.lane === "sh") { picks.push({ ...h, noise: { preset: "pedal", vol: h.c === "X" ? 6 : h.c === "o" ? 3 : 4 } }); continue; }
+    const vid = h.lane === "ht" || h.lane === "mt" || h.lane === "lt" ? "tom" : pv[h.lane] || h.lane;
+    if (!k[vid]) continue;
+    const c = vid === "tom" ? { ht: "1", mt: "2", lt: "3" }[h.lane] : h.c;
+    const b = bucketList(k, vid, c), it = pick(k, vid, b); if (!it) continue;
+    if (it.noise) picks.push({ ...h, vid, noise: { preset: it.noise, vol: it.vol } });
+    else picks.push({ ...h, vid, id: it.id });
+  }
+  const dmc = picks.filter(p => p.id).sort((a, b) => V[a.vid].prio - V[b.vid].prio), noise = picks.filter(p => p.noise);
+  dmc.forEach((p, i) => {
+    if (i === 0) { hitDmc(p.id, byId[p.id].native, when); log.push(`NES ${LANE_NAME[p.lane]} ${p.id}`); }
+    else if (V[p.vid].noise) noise.push({ ...p, noise: { preset: V[p.vid].noise, vol: p.c === "X" ? 7 : p.c === "o" ? 4 : 5 } });
+  });
+  noise.sort((a, b) => NES_NOISE_ORDER.indexOf(a.lane) - NES_NOISE_ORDER.indexOf(b.lane));
+  if (noise.length) { const p = noise[0]; hitNoise(p.noise.preset, when, p.noise.vol); log.push(`NES ${LANE_NAME[p.lane]} noise ${p.noise.vol}`); }
+}
+
+// ====================================================================== the Game Boy: Fat Chip GB v0.17's drums
+let gbIn = null, gbOut = null, gbNoiseVoice = null, gbVoices = [];
+const gbBufs = new Map();
+function gbSetup() {
+  if (gbIn) return;
+  gbIn = actx.createGain(); gbIn.gain.value = 0.5;   // (two full hits sum to 2: the shaper sees -1..1)
+  const sh = actx.createWaveShaper(), N = 2048, curve = new Float32Array(N);
+  for (let i = 0; i < N; i++) {   // the ROM's mix table, as a curve: linear, then a soft knee into the top level
+    const s = (i / (N - 1) * 2 - 1) * 2 * 7.5; let m = Math.abs(s);
+    if (m > 5.5) m = Math.min(7.5, 5.5 + 2 * Math.tanh((m - 5.5) / 2));
+    curve[i] = Math.sign(s) * m / 7.5;
+  }
+  sh.curve = curve;
+  gbOut = actx.createGain(); gbOut.gain.value = 0;
+  gbIn.connect(sh).connect(gbOut).connect(actx.destination);
+}
+function gbBuffer(kit, slot) {
+  const key = kit + ":" + slot;
+  if (!gbBufs.has(key)) {
+    const raw = atob(GB.kits[kit].sounds[slot]), q = new Uint8Array(raw.length * 2);
+    for (let i = 0; i < raw.length; i++) { const v = raw.charCodeAt(i); q[2 * i] = v >> 4; q[2 * i + 1] = v & 15; }
+    const n = Math.ceil(q.length * SR / GB.rate), b = actx.createBuffer(1, n, SR), d = b.getChannelData(0), st = GB.rate / SR;
+    for (let i = 0; i < n; i++) d[i] = (q[Math.min(q.length - 1, Math.floor(i * st))] - 7.5) / 7.5;   // sample and hold, as the wave channel
+    gbBufs.set(key, b);
+  }
+  return gbBufs.get(key);
+}
+const gbLevel = () => +$("gbLevel").value / 100;
+function velVol(vel) { return Math.min(15, (vel >> 3) + 1); }               // level 15
+function waveCode(e) { return e >= 11 ? 1 : e >= 6 ? 0.5 : e >= 2 ? 0.25 : 0; }   // NR32: 100 / 50 / 25 %
+// HATS NOISE recipes (fat-chip-gb src/hats.c): NR43, envelope pace, length (64 - n) / 256 s
+const GB_NOISE = { ch: [0x00, 1, 54], oh: [0x00, 2, 0], cy: [0x12, 5, 0], rd: [0x09, 3, 0], sh: [0x00, 0, 50] };
+function gbNoise(lane, vel, when) {
+  const [nr43, pace, len] = GB_NOISE[lane], vol = velVol(vel);
+  const s = nr43 >> 4, r = nr43 & 7, short = nr43 & 8, clock = 524288 / (r ? r : 0.5) / Math.pow(2, s + 1);
+  const dur = len ? (64 - len) / 256 : pace ? vol * pace / 64 : 0.3, n = Math.round(SR * dur), out = new Float32Array(n);
+  let reg = 0x7FFF, acc = 0;
+  for (let i = 0; i < n; i++) {
+    acc += clock / SR;
+    while (acc >= 1) { const b = (reg ^ (reg >> 1)) & 1; reg = (reg >> 1) | (b << 14); if (short) reg = (reg & ~0x40) | (b << 6); acc -= 1; }
+    const v = pace ? Math.max(0, vol - Math.floor(i / SR / (pace / 64))) : vol;
+    out[i] = ((reg & 1) ? -1 : 1) * v / 15;
+  }
+  if (gbNoiseVoice) { try { gbNoiseVoice.stop(when); } catch { /* */ } }
+  const b = actx.createBuffer(1, n, SR); b.copyToChannel(out, 0);
+  const src = actx.createBufferSource(), g = actx.createGain(); src.buffer = b; g.gain.value = gbLevel() * 0.5;
+  src.connect(g).connect(actx.destination); src.start(when); gbNoiseVoice = src;
+}
+function gbHit(lane, vel, when, log) {
+  const kitName = $("gbKit").value === "beat" ? beat().gb : $("gbKit").value, kit = DATA.gbKits.indexOf(kitName);
+  if ($("gbHats").value === "noise" && GB_HAT_LANES.includes(lane)) { gbNoise(lane, vel, when); log.push(`GB ${LANE_NAME[lane]} noise`); return; }
+  const slot = GB_SLOT[lane], code = waveCode(velVol(vel)); if (slot == null || !code) return;
+  const buf = gbBuffer(kit, slot), end = when + buf.duration;
+  gbVoices = gbVoices.filter(v => v.end > when);
+  let take = gbVoices.find(v => v.slot === slot);                 // the same sound again restarts itself
+  if (!take && gbVoices.length >= 2) take = gbVoices.reduce((a, b) => (a.end < b.end ? a : b));   // else the one nearer its end
+  if (take) { try { take.src.stop(when); } catch { /* */ } gbVoices = gbVoices.filter(v => v !== take); }
+  const src = actx.createBufferSource(); src.buffer = buf; src.connect(gbIn); src.start(when);
+  gbVoices.push({ src, slot, end });
+  gbOut.gain.setValueAtTime(code * gbLevel(), when);
+  log.push(`GB ${LANE_NAME[lane]}${code < 1 ? " " + code * 100 + "%" : ""}`);
+}
+
+// ====================================================================== playing
+let playing = false, timer = 0, idx = 0, cyc = 0, nextTime = 0, steps = [];
+const stepDur = () => 60 / +$("bpm").value / 4;
+const nesReady = () => samples.length > 0;
+function swingOffset(p, S) {
+  const sw = +$("swing").value / 100, g = beat().grid;
+  if (g === 8) return p % 4 === 2 ? sw * S : p % 2 ? sw * S * 0.5 : 0;
+  return p % 2 ? sw * S * 0.5 : 0;
+}
+function velOf(lane, st) {
+  if (FULL_ACCENT.has(lane)) return st === "S" ? 127 : st === "s" ? 56 : 100;
+  return st === "S" ? 127 : 100;
+}
+function codeOf(lane, st) { return FULL_ACCENT.has(lane) ? (st === "S" ? "X" : st === "s" ? "o" : "x") : st === "S" ? "X" : "x"; }
+function dispatch(hits, when) {
+  const nes = $("nesOn").checked && nesReady(), gb = $("gbOn").checked, split = nes && gb && $("route").value === "split", log = [];
+  const toNes = hits.filter(h => nes && (!split || !SPLIT_GB.has(h.lane)));
+  const toGb = hits.filter(h => gb && (!split || SPLIT_GB.has(h.lane)));
+  if (toNes.length) nesStep(toNes, when, log);
+  for (const h of toGb) gbHit(h.lane, h.vel, when, log);
+  const wait = Math.max(0, (when - actx.currentTime) * 1000), lanes = hits.map(h => h.lane);
+  setTimeout(() => {
+    for (const l of lanes) document.querySelectorAll(`.lbl[data-lane="${l}"]`).forEach(el => { el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 110); });
+    if (log.length) { const el = $("hits"); el.textContent = (el.textContent + "\n" + log.join("  ·  ")).split("\n").slice(-80).join("\n"); el.scrollTop = el.scrollHeight; }
+  }, wait);
+}
+function tick() {
+  const S = stepDur(), b = beat(), hat = hatCur();
+  while (nextTime < actx.currentTime + 0.12) {
+    if (idx >= steps.length) { idx = 0; cyc++; steps = cycleSteps(); }
+    const { s, p, bar } = steps[idx], t0 = nextTime, t = t0 + swingOffset(p, S), st = strength(p, bar), hits = [];
+    for (const l of DATA.lanes) {
+      if (hat.name !== "OFF" && HAT_LANES.includes(l)) continue;
+      if (partOn(laneStr(b, l)[s] || ".", cyc)) hits.push({ lane: l, c: codeOf(l, st), vel: velOf(l, st) });
+    }
+    if (hat.name !== "OFF" && hat.grid === 16) for (const l of HAT_LANES) if ((hat[l] || "")[p % 16] === "x") hits.push({ lane: l, c: codeOf(l, st), vel: velOf(l, st) });
+    if (hits.length) dispatch(hits, t);
+    if (hat.name !== "OFF" && hat.grid === 12 && p % 4 === 0) {   // triplets: three to the beat, unswung
+      for (let k = 0; k < 3; k++) {
+        const j = (p / 4 * 3 + k) % 12, th = [];
+        for (const l of HAT_LANES) if ((hat[l] || "")[j] === "x") th.push({ lane: l, c: k ? "x" : codeOf(l, st), vel: k ? 100 : velOf(l, st) });
+        if (th.length) dispatch(th, t0 + k * 4 * S / 3);
+      }
+    }
+    const now = idx, delay = Math.max(0, (t - actx.currentTime) * 1000);
+    setTimeout(() => { if (!playing) return; document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); document.querySelectorAll(`[data-k="${now}"]`).forEach(e => e.classList.add("now")); }, delay);
+    nextTime += S; idx++;
+  }
+}
+async function start() {
+  await ctx(); gbSetup(); if (playing) return;
+  playing = true; idx = 0; cyc = 0; steps = cycleSteps(); nextTime = actx.currentTime + 0.08;
+  clearInterval(timer); timer = setInterval(tick, 20); tick();
+  $("playBtn").textContent = "■ Stop (Space)";
+}
+function stop() {
+  playing = false; clearInterval(timer);
+  for (const v of gbVoices) { try { v.src.stop(); } catch { /* */ } } gbVoices = [];
+  if (dmcVoice) { try { dmcVoice.stop(); } catch { /* */ } } if (noiseVoice) { try { noiseVoice.stop(); } catch { /* */ } }
+  if (gbNoiseVoice) { try { gbNoiseVoice.stop(); } catch { /* */ } }
+  document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now"));
+  $("playBtn").textContent = "▶ Play (Space)";
+}
+
+// ====================================================================== the page
+function drawBanks() {
+  $("banks").innerHTML = "";
+  DATA.banks.forEach((bk, bi) => {
+    const d = document.createElement("div"); d.className = "bank";
+    d.innerHTML = `<h3>${bk.name}</h3>`;
+    bk.beats.forEach((b, i) => {
+      const el = document.createElement("button"); el.className = "pill"; el.setAttribute("aria-pressed", bi === bankI && i === beatI);
+      el.innerHTML = `${b.name}<small>${b.bpm}${b.swing ? " · sw" : ""}</small>`;
+      el.onclick = () => chooseBeat(bi, i);
+      d.append(el);
+    });
+    $("banks").append(d);
+  });
+}
+function drawParts() { document.querySelectorAll("#parts button").forEach(b => b.setAttribute("aria-pressed", b.dataset.part === part)); }
+function drawSeq() {
+  const b = beat(), hat = hatCur(), cs = cycleSteps(), seq = $("seq");
+  // the cycle as played, step by step (its bars side by side)
+  const cols = cs.length;
+  seq.style.gridTemplateColumns = `92px repeat(${cols}, minmax(0, 1fr))`;
+  seq.innerHTML = "";
+  const rows = DATA.lanes.filter(l => b.lanes[l] && !(hat.name !== "OFF" && HAT_LANES.includes(l)));
+  const add = (html, cls, attrs = {}) => { const e = document.createElement("div"); e.className = cls; if (html) e.textContent = html; for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); seq.append(e); return e; };
+  for (const l of rows) {
+    add(LANE_NAME[l], "lbl", { "data-lane": l });
+    const s = laneStr(b, l);
+    cs.forEach((c, k) => { const code = s[c.s] || "."; add("", "cell" + (code !== "." ? " " + code : "") + (c.p % 4 === 0 ? " beat" : ""), { "data-k": k }); });
+  }
+  if (hat.name !== "OFF" && hat.name !== "NONE") for (const l of HAT_LANES) {
+    if (!hat[l]) continue;
+    add(LANE_NAME[l] + (hat.grid === 12 ? " ³" : ""), "lbl", { "data-lane": l });
+    cs.forEach((c, k) => {
+      const on = hat.grid === 16 ? hat[l][c.p % 16] === "x" : c.p % 4 === 0 && [0, 1, 2].some(j => hat[l][(c.p / 4 * 3 + j) % 12] === "x");
+      add("", "cell" + (on ? " lay" : "") + (c.p % 4 === 0 ? " beat" : ""), { "data-k": k });
+    });
+  }
+  const a = accCur();
+  add("Accent", "lbl");
+  cs.forEach((c, k) => { const st = a.steps === "random" ? "n" : strength(c.p, c.bar); add("", "acc " + st, { "data-k": k }); });
+  $("bpmOut").textContent = $("bpm").value; $("swingOut").textContent = (+$("swing").value ? $("swing").value + "%" : "off") + (beat().grid === 8 ? " (8ths)" : "");
+}
+function chooseBeat(bi, i) {
+  bankI = bi; beatI = i; store.set("bank", bi); store.set("beat", i);
+  const b = beat();
+  $("bpm").value = b.bpm; $("swing").value = b.swing; $("hats").value = b.hats; $("accent").value = b.accent;
+  if (playing) { steps = cycleSteps(); if (idx >= steps.length) idx = 0; }
+  drawBanks(); drawSeq(); labelGbKit();
+}
+function fillSelects() {
+  $("ts").innerHTML = DATA.timeSigs.map((t, i) => `<option value="${i}">${t.name}</option>`).join("");
+  $("hats").innerHTML = DATA.hatLayers.map(h => `<option value="${h.name}">${h.name === "OFF" ? "OFF (the beat's own)" : h.name}${h.grid === 12 ? " (triplets)" : ""}</option>`).join("");
+  $("accent").innerHTML = DATA.accentLayers.map(a => `<option>${a.name}</option>`).join("");
+  $("gbKit").innerHTML = `<option value="beat">the beat's (${"…"})</option>` + DATA.gbKits.map(k => `<option>${k}</option>`).join("");
+  const bl = beatlab("kits2") || {}, sv = beatlab("saved2") || {};
+  $("nesKit").innerHTML = `<option value="auto">Auto (built for each beat)</option>` +
+    Object.keys(bl).map(k => `<option value="bl:${k}">Beat Lab: ${k}</option>`).join("") +
+    Object.keys(sv).map(k => `<option value="sv:${k}">Beat Lab saved: ${k}</option>`).join("");
+  $("ts").value = store.get("ts", 0); $("gbKit").value = store.get("gbKit", "beat"); $("gbHats").value = store.get("gbHats", "sample");
+  $("route").value = store.get("route", "layer"); $("nesKit").value = store.get("nesKit", "auto");
+  if (!$("nesKit").value) $("nesKit").value = "auto";
+}
+function labelGbKit() { const o = $("gbKit").options[0]; if (o) o.textContent = `the beat's (${beat().gb})`; }
+function drawDevs() {
+  $("nesDev").classList.toggle("off", !$("nesOn").checked || !nesReady());
+  $("gbDev").classList.toggle("off", !$("gbOn").checked);
+  $("gbLevelOut").textContent = $("gbLevel").value;
+  labelGbKit();
+}
+
+async function init() {
+  [DATA, GB] = await Promise.all([fetch("beats.json").then(r => r.json()), fetch("gbkits.json").then(r => r.json())]);
+  fillSelects();
+  part = ["A", "B", "AB", "ALT"].includes(part) ? part : "A";
+  if (!DATA.banks[bankI] || !DATA.banks[bankI].beats[beatI]) { bankI = 0; beatI = 0; }
+  chooseBeat(bankI, beatI); drawParts(); drawDevs();
+  try { prepare(await loadFromDb()); } catch { /* */ }
+  $("noData").hidden = nesReady(); drawDevs();
+}
+$("dmcFolder").onchange = async e => {
+  prepare(await loadFiles(e.target.files)); Object.keys(nesKits).forEach(k => delete nesKits[k]);
+  $("noData").hidden = nesReady(); drawDevs();
+};
+$("playBtn").onclick = () => (playing ? stop() : start());
+document.querySelectorAll("#parts button").forEach(b => { b.onclick = () => { part = b.dataset.part; store.set("part", part); drawParts(); }; });
+for (const id of ["bpm", "swing"]) $(id).oninput = drawSeq;
+$("ts").onchange = () => { store.set("ts", +$("ts").value); if (playing) { steps = cycleSteps(); idx = 0; } drawSeq(); };
+$("hats").onchange = drawSeq; $("accent").onchange = drawSeq;
+$("gbKit").onchange = () => store.set("gbKit", $("gbKit").value);
+$("gbHats").onchange = () => store.set("gbHats", $("gbHats").value);
+$("route").onchange = () => store.set("route", $("route").value);
+$("nesKit").onchange = () => store.set("nesKit", $("nesKit").value);
+for (const id of ["nesOn", "gbOn", "gbLevel"]) $(id).oninput = drawDevs;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === " ") { e.preventDefault(); playing ? stop() : start(); return; }
+  const P = { a: "A", b: "B", n: "AB", m: "ALT" }[e.key.toLowerCase()];
+  if (P) { part = P; store.set("part", part); drawParts(); return; }
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    const n = bankI * 5 + beatI + (e.key === "ArrowRight" ? 1 : -1), t = (n + 25) % 25;
+    e.preventDefault(); chooseBeat(Math.floor(t / 5), t % 5);
+  }
+});
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,907 @@
+{
+ "lanes": [
+  "bd",
+  "sd",
+  "cp",
+  "rm",
+  "ht",
+  "mt",
+  "lt",
+  "ch",
+  "oh",
+  "cy",
+  "rd",
+  "sh",
+  "cb",
+  "cl"
+ ],
+ "gbKits": [
+  "FC CHIP",
+  "FC 808",
+  "808",
+  "909",
+  "CR-78",
+  "CHIP SQ",
+  "CHIP LFSR"
+ ],
+ "banks": [
+  {
+   "name": "BASIC",
+   "beats": [
+    {
+     "name": "ROCK",
+     "bpm": 116,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "909",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x.......x.x..b.. x.b.....x.x.....",
+      "sd": "....x......bx... ....x.......a...",
+      "ht": "................ ............bb..",
+      "mt": "................ ..............b.",
+      "lt": "................ ...............b",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.a.a.a.",
+      "cy": "x............... ................"
+     }
+    },
+    {
+     "name": "DISCO",
+     "bpm": 120,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "OFFBEAT",
+     "gb": "808",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "perc": "Clap"
+      }
+     },
+     "lanes": {
+      "bd": "x...x...x...x... x...x...x...x...",
+      "sd": "....x.......x... ....x.......x...",
+      "cp": "....b.......b... ....b.......b...",
+      "ch": "xb.bxb.bxb.bxb.b xb.bxb.bxb.bxb.b",
+      "oh": "..x...x...x...x. ..x...x...x...x.",
+      "cb": "................ ..........b.b..."
+     }
+    },
+    {
+     "name": "SYNTHPOP",
+     "bpm": 112,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "DOWNBEAT",
+     "gb": "808",
+     "nes": {
+      "bd": {
+       "tag": "Electro"
+      },
+      "sd": {
+       "type": "Electronic"
+      }
+     },
+     "lanes": {
+      "bd": "x..b....x.b..... x..b....x.b...x.",
+      "sd": "....x.......x... ....x.......x...",
+      "cp": "....b.......b... ....b.......b...",
+      "ch": "xbxbxbxbxbxbxbxb xbxbxbxbxbxbxbxb",
+      "oh": "................ ..............b."
+     }
+    },
+    {
+     "name": "FUNK",
+     "bpm": 100,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "SYNCOPATED",
+     "gb": "FC 808",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x.b.......x..b.. x.....x.b.ab....",
+      "sd": "....x..x.x.bx..x ....x..x.x..x.b.",
+      "ch": "xbxbxbx.xbxbxbx. xbxbxbx.xbxbxba.",
+      "oh": "......x......... ..............x."
+     }
+    },
+    {
+     "name": "MOTORIK",
+     "bpm": 132,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "FLAT",
+     "gb": "CHIP SQ",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Electronic"
+      }
+     },
+     "lanes": {
+      "bd": "x...b...x.x.b... x...b...x.x.b...",
+      "sd": "....x.......x... ....x.......x...",
+      "ch": "xbxbxbxbxbxbxbxb xbxbxbxbxbxbxbxb",
+      "oh": "................ ..............b."
+     }
+    }
+   ]
+  },
+  {
+   "name": "CHILL",
+   "beats": [
+    {
+     "name": "LO-FI",
+     "bpm": 76,
+     "swing": 58,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "SHUFFLE",
+     "gb": "FC 808",
+     "nes": {
+      "bd": {
+       "tag": "Lo-fi",
+       "type": "Short/Clicky"
+      },
+      "sd": {
+       "type": "Brushy"
+      }
+     },
+     "lanes": {
+      "bd": "x......ba.x....b x.b....x..x.....",
+      "sd": "....x..b....x... ....x..b.b..x...",
+      "rm": "................ ..............a.",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "sh": "..b...b...b...b. ..b...b...b...b."
+     }
+    },
+    {
+     "name": "TRIP HOP",
+     "bpm": 88,
+     "swing": 20,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "DOWNBEAT",
+     "gb": "909",
+     "nes": {
+      "bd": {
+       "type": "Long"
+      },
+      "sd": {
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x..b......x..b.. x......x..x..b..",
+      "sd": "........x......b ........x..b....",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "oh": "......b......... ......b........."
+     }
+    },
+    {
+     "name": "DUB",
+     "bpm": 72,
+     "swing": 30,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "OFFBEAT",
+     "gb": "CR-78",
+     "nes": {
+      "bd": {
+       "type": "Long"
+      }
+     },
+     "lanes": {
+      "bd": "x...b...x...b... x...b...x...b...",
+      "rm": "....x.......x... ....x.......x...",
+      "ch": "a.x.a.x.a.x.a.x. a.x.a.x.a.x.a.x.",
+      "oh": "................ ..............b.",
+      "cy": "b............... ................"
+     }
+    },
+    {
+     "name": "TRAP",
+     "bpm": 140,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "FLAT",
+     "gb": "808",
+     "nes": {
+      "bd": {
+       "type": "Long",
+       "tag": "Trap"
+      },
+      "sd": {
+       "perc": "Clap"
+      }
+     },
+     "lanes": {
+      "bd": "x......x..x...b. x.b...x...x..b..",
+      "cp": "........x....... ........x......b",
+      "ch": "x.x.x.xbx.x.xbxb x.x.x.x.xbxbx.x.",
+      "oh": "................ ......b........."
+     }
+    },
+    {
+     "name": "SLOW JAM",
+     "bpm": 68,
+     "swing": 30,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "808",
+     "nes": {
+      "bd": {
+       "type": "Long"
+      }
+     },
+     "lanes": {
+      "bd": "x..b....x..x..b. x.......x.b.....",
+      "rm": "....x.......x... ....x.......x..b",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "sh": "b.bbb.bbb.bbb.bb b.bbb.bbb.bbb.bb"
+     }
+    }
+   ]
+  },
+  {
+   "name": "BREAK",
+   "beats": [
+    {
+     "name": "DNB",
+     "bpm": 174,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "909",
+     "nes": {
+      "bd": {
+       "tag": "DnB",
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Jungle"
+      }
+     },
+     "lanes": {
+      "bd": "x.........x..b.. x.........x.b.b.",
+      "sd": "....x..b.b..x..b ....x..b.b..x..b",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "oh": "................ ..............b."
+     }
+    },
+    {
+     "name": "JUNGLE",
+     "bpm": 168,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "FC CHIP",
+     "nes": {
+      "bd": {
+       "tag": "DnB",
+       "type": "Layered"
+      },
+      "sd": {
+       "type": "Jungle"
+      }
+     },
+     "lanes": {
+      "bd": "x.x.......xa.... a.x.......x...b.",
+      "sd": "....x..x.x.ax.ba .b.bx..x.x.x.bxb",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "cy": "b............... ................"
+     }
+    },
+    {
+     "name": "BREAKS",
+     "bpm": 130,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "909",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x.b.......x..b.. x.x.......x.b...",
+      "sd": "....x..b....x... ....x..b..b.x...",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "oh": "......b.......b. ......b.......b."
+     }
+    },
+    {
+     "name": "HOUSE",
+     "bpm": 124,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "OFFBEAT",
+     "gb": "909",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "perc": "Clap"
+      }
+     },
+     "lanes": {
+      "bd": "x...x...x...x... x...x...x...x...",
+      "cp": "....x.......x... ....x.......x..b",
+      "ch": "bb.bbb.bbb.bbb.b bb.bbb.bbb.bbb.b",
+      "oh": "..x...x...x...x. ..x...x...x...x."
+     }
+    },
+    {
+     "name": "TECHNO",
+     "bpm": 130,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "FLAT",
+     "gb": "909",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "perc": "Clap"
+      }
+     },
+     "lanes": {
+      "bd": "x...x...x...x... x...x...x...x...",
+      "cp": "....b.......b... ....b.......b...",
+      "rm": "...b..b....b..b. ...b..b....b..b.",
+      "ch": "..x...x...x...x. ..x...x...x...x.",
+      "rd": "b.b.b.b.b.b.b.b. b.b.b.b.b.b.b.b."
+     }
+    }
+   ]
+  },
+  {
+   "name": "GLOBE",
+   "beats": [
+    {
+     "name": "SALSA",
+     "bpm": 100,
+     "swing": 0,
+     "grid": 16,
+     "hats": "NONE",
+     "accent": "FLAT",
+     "gb": "CR-78",
+     "nes": {
+      "bd": {
+       "type": "Short/Clicky"
+      }
+     },
+     "lanes": {
+      "bd": "...x.......x.... ...x.......x....",
+      "rm": "b.bb.b.bb.b.b.bb b.bb.b.bb.b.b.bb",
+      "mt": "..b...x.....b... ..b...x.....b...",
+      "lt": "..........x.x..b ..........x.x..b",
+      "cb": "a...a.a.a...a.a. a...a.a.a...a.a.",
+      "cl": "x..x..x...x.x... x..x..x...x.x..."
+     }
+    },
+    {
+     "name": "CUMBIA",
+     "bpm": 92,
+     "swing": 0,
+     "grid": 16,
+     "hats": "NONE",
+     "accent": "OFFBEAT",
+     "gb": "CR-78",
+     "nes": {
+      "bd": {
+       "type": "Short/Clicky"
+      }
+     },
+     "lanes": {
+      "bd": "x.......x....... x.......x.......",
+      "rm": "....x.......x... ....x.......x...",
+      "mt": "..b...b...b...b. ..b...b...b...b.",
+      "lt": "......bb......bb ......bb......bb",
+      "sh": "x.xxx.xxx.xxx.xx x.xxx.xxx.xxx.xx"
+     }
+    },
+    {
+     "name": "REGGAE",
+     "bpm": 76,
+     "swing": 33,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "OFFBEAT",
+     "gb": "CR-78",
+     "nes": {
+      "bd": {
+       "type": "Long"
+      }
+     },
+     "lanes": {
+      "bd": "........x....... ........x.......",
+      "rm": "........x....... ........x.......",
+      "ht": "................ ............b...",
+      "mt": "................ .............b..",
+      "lt": "................ ..............bb",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "oh": "..b...b...b...b. ..b...b...b...b."
+     }
+    },
+    {
+     "name": "BOSSA",
+     "bpm": 75,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "FLAT",
+     "gb": "CR-78",
+     "nes": {
+      "bd": {
+       "type": "Short/Clicky"
+      },
+      "sd": {
+       "type": "Brushy"
+      }
+     },
+     "lanes": {
+      "bd": "x..xx..xx..xx..x x..xx..xx..xx..x",
+      "rm": "a.ba.ba..ba.ba.. b.ab.ab..ab.ab..",
+      "ch": "a.a.a.a.a.a.a.a. a.a.a.a.a.a.a.a.",
+      "sh": "bbbbbbbbbbbbbbbb bbbbbbbbbbbbbbbb"
+     }
+    },
+    {
+     "name": "AFROBEAT",
+     "bpm": 110,
+     "swing": 0,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "SYNCOPATED",
+     "gb": "808",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x.....x.x.....x. x...x.x.......x.",
+      "sd": "....x.......x... ....x..x....x...",
+      "mt": "..b.......b..b.. ..b.......b..b..",
+      "lt": "......b.......b. ......b.......bb",
+      "ch": "xxxxxxxxxxxxxxxx xxxxxxxxxxxxxxxx",
+      "oh": "..b...b...b...b. ..b...b...b...b.",
+      "cb": "x.x.x..x.x.x.x.. x.x.x..x.x.x.x.."
+     }
+    }
+   ]
+  },
+  {
+   "name": "SWING",
+   "beats": [
+    {
+     "name": "SHUFFLE",
+     "bpm": 100,
+     "swing": 66,
+     "grid": 8,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "FC CHIP",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x......bx....... x......bx.....b.",
+      "sd": "....x..b....x..b ....x..b....x...",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x.",
+      "oh": "................ ..............b."
+     }
+    },
+    {
+     "name": "BOOM BAP",
+     "bpm": 90,
+     "swing": 55,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "FC 808",
+     "nes": {
+      "bd": {
+       "tag": "Boombap",
+       "type": "Punchy"
+      },
+      "sd": {
+       "tag": "Boombap",
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x......x..x....b x.x....x..x..b..",
+      "sd": "....x..b....x... ....x..b.b..x..b",
+      "ch": "x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "name": "NEW JACK",
+     "bpm": 104,
+     "swing": 60,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "BACKBEAT",
+     "gb": "808",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "perc": "Clap"
+      }
+     },
+     "lanes": {
+      "bd": "x..x..x...x..... x..x..x...x.x...",
+      "sd": "....b.......b... ....b.......b...",
+      "cp": "....x..b....x... ....x..b....x..b",
+      "ch": "x.xxx.xxx.xxx.xx x.xxx.xxx.xxx.xx",
+      "sh": "bbbbbbbbbbbbbbbb bbbbbbbbbbbbbbbb"
+     }
+    },
+    {
+     "name": "JAZZ",
+     "bpm": 140,
+     "swing": 66,
+     "grid": 8,
+     "hats": "NONE",
+     "accent": "BACKBEAT",
+     "gb": "CR-78",
+     "nes": {
+      "sd": {
+       "type": "Brushy"
+      }
+     },
+     "lanes": {
+      "bd": "x...a...a.b.a... a...a.b.a...a...",
+      "sd": "......b.......b. ..b....b..b..b..",
+      "ch": "....x.......x... ....x.......x...",
+      "rd": "x...x.x.x...x.x. x...x.x.x...x.x."
+     }
+    },
+    {
+     "name": "GO-GO",
+     "bpm": 96,
+     "swing": 50,
+     "grid": 16,
+     "hats": "OFF",
+     "accent": "SYNCOPATED",
+     "gb": "CR-78",
+     "nes": {
+      "bd": {
+       "type": "Punchy"
+      },
+      "sd": {
+       "type": "Fat"
+      }
+     },
+     "lanes": {
+      "bd": "x.....x...x..... x.....x...x.x...",
+      "sd": "....x..x....x... ....x..x.x..x...",
+      "mt": "..b...b.....b.b. ..b...b.....b.b.",
+      "lt": "....b.......b..b ....b.......b..b",
+      "ch": "xxxxxxxxxxxxxxxx xxxxxxxxxxxxxxxx",
+      "oh": "......b......... ......b.........",
+      "cb": "x..x..x...x.x... x..x..x...x.x..."
+     }
+    }
+   ]
+  }
+ ],
+ "hatLayers": [
+  {
+   "name": "OFF",
+   "desc": "the beat's own hats"
+  },
+  {
+   "name": "NONE",
+   "grid": 16,
+   "ch": "",
+   "oh": "",
+   "desc": "no hats"
+  },
+  {
+   "name": "8THS",
+   "grid": 16,
+   "ch": "x.x.x.x.x.x.x.x."
+  },
+  {
+   "name": "16THS",
+   "grid": 16,
+   "ch": "xxxxxxxxxxxxxxxx"
+  },
+  {
+   "name": "QUARTERS",
+   "grid": 16,
+   "ch": "x...x...x...x..."
+  },
+  {
+   "name": "OFFBEAT",
+   "grid": 16,
+   "oh": "..x...x...x...x."
+  },
+  {
+   "name": "DISCO",
+   "grid": 16,
+   "ch": "x...x...x...x...",
+   "oh": "..x...x...x...x."
+  },
+  {
+   "name": "GALLOP",
+   "grid": 16,
+   "ch": "x.xxx.xxx.xxx.xx"
+  },
+  {
+   "name": "SKIP",
+   "grid": 16,
+   "ch": "x.x.x.xxx.x.x.xx"
+  },
+  {
+   "name": "OPEN 16THS",
+   "grid": 16,
+   "ch": "xxx.xxx.xxx.xxx.",
+   "oh": "...x...x...x...x"
+  },
+  {
+   "name": "ROLLS",
+   "grid": 16,
+   "ch": "x.x.x.x.x.xxxxxx"
+  },
+  {
+   "name": "TRIPLETS",
+   "grid": 12,
+   "ch": "xxxxxxxxxxxx",
+   "desc": "triplet eighths over a straight beat"
+  },
+  {
+   "name": "TRIP SWING",
+   "grid": 12,
+   "ch": "x.xx.xx.xx.x",
+   "desc": "the shuffle's long-short on triplets"
+  },
+  {
+   "name": "TRIP OPEN",
+   "grid": 12,
+   "ch": "xx.xx.xx.xx.",
+   "oh": "..x..x..x..x"
+  }
+ ],
+ "accentLayers": [
+  {
+   "name": "FLAT",
+   "steps": "nnnnnnnnnnnnnnnn"
+  },
+  {
+   "name": "DOWNBEAT",
+   "steps": "SnsnnnsnSnsnnnsn"
+  },
+  {
+   "name": "BACKBEAT",
+   "steps": "nnsnSnsnnnsnSnsn"
+  },
+  {
+   "name": "OFFBEAT",
+   "steps": "snSnsnSnsnSnsnSn"
+  },
+  {
+   "name": "SYNCOPATED",
+   "steps": "SnsSnsSnsnSnSnsn"
+  },
+  {
+   "name": "SHUFFLE",
+   "steps": "nsnsnsnsnsnsnsns"
+  },
+  {
+   "name": "BUILD",
+   "steps": "ssssssssnnnnnnnn nnnnnnnnSSSSSSSS"
+  },
+  {
+   "name": "HUMAN",
+   "steps": "random",
+   "desc": "small random changes"
+  }
+ ],
+ "timeSigs": [
+  {
+   "name": "4/4",
+   "bars": [
+    [
+     [
+      0,
+      16
+     ]
+    ],
+    [
+     [
+      16,
+      16
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "3/4",
+   "bars": [
+    [
+     [
+      0,
+      12
+     ]
+    ],
+    [
+     [
+      16,
+      12
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "5/4 (3+2)",
+   "bars": [
+    [
+     [
+      0,
+      12
+     ],
+     [
+      16,
+      8
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "6/4 (4+2)",
+   "bars": [
+    [
+     [
+      0,
+      16
+     ],
+     [
+      16,
+      8
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "7/4 (4+3)",
+   "bars": [
+    [
+     [
+      0,
+      16
+     ],
+     [
+      16,
+      12
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "7/4 (3+4)",
+   "bars": [
+    [
+     [
+      0,
+      12
+     ],
+     [
+      16,
+      16
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "7/4 (7 in a row)",
+   "bars": [
+    [
+     [
+      0,
+      28
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "5/8 (3+2)",
+   "bars": [
+    [
+     [
+      0,
+      6
+     ],
+     [
+      16,
+      4
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "7/8 (4+3)",
+   "bars": [
+    [
+     [
+      0,
+      8
+     ],
+     [
+      16,
+      6
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "7/8 (2+2+3)",
+   "bars": [
+    [
+     [
+      0,
+      4
+     ],
+     [
+      8,
+      4
+     ],
+     [
+      16,
+      6
+     ]
+    ]
+   ]
+  }
+ ]
+}
