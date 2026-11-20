@@ -42,6 +42,12 @@
   }
   const GB_PENV = [131, 156, 178, 195, 209, 221, 229, 236, 241, 245, 248, 250, 251, 253, 253, 254];
   const bendK = ms => Math.max(1, Math.min(9, pyRound(Math.log2(ms / 12))));
+  const GB_STEP = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 24, 30, 36, 48, 60];   // Fat Chip GB v0.12
+  function gbStepT(ms) {
+    let best = 0;
+    for (let i = 1; i < 16; i++) if (Math.abs(GB_STEP[i] * 1000 / GB_TICK_HZ - ms) < Math.abs(GB_STEP[best] * 1000 / GB_TICK_HZ - ms)) best = i;
+    return best;
+  }
   function gbPenvT(ms) {
     const e = i => Math.abs(Math.log(3000 / GB_TICK_HZ / Math.log(256 / GB_PENV[i])) - Math.log(ms));
     let best = 0;
@@ -209,7 +215,7 @@
       f.sndPenvK = pe ? bendK(pe.time) : 0;
       const pg = has("penv", "gb") ? on.penv : null;
       f.gbPenvA = ccv(pg ? pg.amount + 24 : 24, 48);
-      f.gbPenvT = ccv(pg && pg.amount ? (pg.shape ? 1 : gbPenvT(pg.time)) : 0, 15);
+      f.gbPenvT = ccv(pg && (pg.amount || pg.click) ? (pg.shape || !pg.amount ? gbStepT(pg.time) : gbPenvT(pg.time)) : 0, 15);
       const rd = has("rdrop", "sid") ? on.rdrop : null;
       f.sndRdrop = rd ? rd.amount : 0;
       const ra = on.rdrop;
