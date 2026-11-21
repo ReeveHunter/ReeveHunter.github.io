@@ -151,6 +151,10 @@ span.bname { cursor: default; }
 .slot .nm { font: 600 13px "Inter", system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 2px; }
 .slot .nm.empty { color: var(--muted); font-weight: 500; }
 .slot.cur .nm { color: var(--accent-strong); }
+.slot .nm.grab { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 6px; }
+.slot .nm.grab:hover { background: var(--surface); }
+.slot.over { outline: 2px dashed var(--accent); outline-offset: 1px; border-radius: 6px; }
+.sghost { position: fixed; z-index: 10; pointer-events: none; font: 600 13px "Inter", system-ui, sans-serif; background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 4px 6px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
 .mini { font: 600 11.5px/1 "Inter", system-ui, sans-serif; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
 .mini:hover { border-color: var(--accent); }
 .devs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -267,7 +271,7 @@ span.bname { cursor: default; }
       <label class="btn small" for="importIn">Import beats</label>
       <input id="importIn" type="file" accept=".json,application/json" hidden>
     </div>
-    <p class="hint">A beat saves its name, tempo, swing, time signature (if it has one), Game Boy kit, its pads and both parts. The export carries your bank names too, for the Fat Chip 64 and Game Boy updates. Everything also stays in this browser.</p>
+    <p class="hint">Drag a beat by its name to move it to another slot or bank; dropping it on another beat swaps the two. A beat saves its name, tempo, swing, time signature (if it has one), Game Boy kit, its pads and both parts. The export carries your bank names too, for the Fat Chip 64 and Game Boy updates. Everything also stays in this browser.</p>
   </section>
 
   <section class="card">
@@ -891,8 +895,8 @@ function drawBanks() {
     inp.onchange = () => { bk.name = inp.value.trim().toUpperCase() || bk.name; saveLib(); drawBanks(); };
     d.append(inp);
     bk.beats.forEach((b, si) => {
-      const r = document.createElement("div"); r.className = "slot" + (curSlot && curSlot[0] === bi && curSlot[1] === si ? " cur" : "");
-      r.innerHTML = `<span class="nm${b ? "" : " empty"}">${si + 1}. ${b ? esc(b.name) : "empty"}</span><button class="mini" data-a="save">Save here</button>${b ? '<button class="mini" data-a="load">Load</button>' : "<span></span>"}`;
+      const r = document.createElement("div"); r.className = "slot" + (curSlot && curSlot[0] === bi && curSlot[1] === si ? " cur" : ""); r.dataset.b = bi; r.dataset.s = si;
+      r.innerHTML = `<span class="nm${b ? " grab" : " empty"}"${b ? ' title="Drag to move it (onto another beat to swap)"' : ""}>${si + 1}. ${b ? esc(b.name) : "empty"}</span><button class="mini" data-a="save">Save here</button>${b ? '<button class="mini" data-a="load">Load</button>' : "<span></span>"}`;
       r.querySelector('[data-a="save"]').onclick = e => saveTo(bi, si, e.target);
       if (b) r.querySelector('[data-a="load"]').onclick = () => { snapshot(); beat = clone(b); curSlot = [bi, si]; store.set("curSlot", curSlot); saveWork(); applyBeat(); drawAll(); toast(`Loaded ${b.name}`); };
       d.append(r);
@@ -911,6 +915,33 @@ function saveTo(bi, si, btn) {
   toast(`Saved ${beat.name} in ${lib.banks[bi].name} ${si + 1}`);
 }
 function saveLib() { store.set("lib", lib); }
+// drag a beat to another slot: it moves there, or swaps with the beat already in it
+let sdrag = null;
+document.addEventListener("pointerdown", e => { const n = e.target.closest(".slot .nm.grab"); if (!n) return; const r = n.closest(".slot"); sdrag = { b: +r.dataset.b, s: +r.dataset.s, el: n, x: e.clientX, y: e.clientY, on: false }; });
+document.addEventListener("pointermove", e => {
+  if (!sdrag) return;
+  if (!sdrag.on && Math.hypot(e.clientX - sdrag.x, e.clientY - sdrag.y) > 5) {
+    sdrag.on = true; const r = sdrag.el.getBoundingClientRect(); sdrag.g = sdrag.el.cloneNode(true); sdrag.g.classList.add("sghost"); sdrag.g.style.width = r.width + "px"; document.body.append(sdrag.g);
+    sdrag.dx = e.clientX - r.left; sdrag.dy = e.clientY - r.top;
+  }
+  if (sdrag.on) {
+    e.preventDefault(); sdrag.g.style.left = (e.clientX - sdrag.dx) + "px"; sdrag.g.style.top = (e.clientY - sdrag.dy) + "px";
+    document.querySelectorAll(".slot.over").forEach(z => z.classList.remove("over"));
+    const z = document.elementFromPoint(e.clientX, e.clientY)?.closest(".slot"); if (z) z.classList.add("over");
+  }
+}, { passive: false });
+document.addEventListener("pointerup", e => {
+  if (!sdrag) return; const d = sdrag; sdrag = null; if (!d.on) return;
+  d.g.remove(); document.querySelectorAll(".slot.over").forEach(z => z.classList.remove("over"));
+  const z = document.elementFromPoint(e.clientX, e.clientY)?.closest(".slot"); if (!z) return;
+  const tb = +z.dataset.b, ts = +z.dataset.s; if (tb === d.b && ts === d.s) return;
+  const A = lib.banks[d.b].beats, B = lib.banks[tb].beats, moving = A[d.s], there = B[ts];
+  B[ts] = moving; A[d.s] = there;
+  if (curSlot) { if (curSlot[0] === d.b && curSlot[1] === d.s) curSlot = [tb, ts]; else if (curSlot[0] === tb && curSlot[1] === ts) curSlot = there ? [d.b, d.s] : null; store.set("curSlot", curSlot); }
+  saveLib(); drawBanks();
+  toast(there ? `Swapped ${moving.name} and ${there.name}` : `Moved ${moving.name} to ${lib.banks[tb].name} ${ts + 1}`);
+});
+document.addEventListener("pointercancel", () => { if (sdrag?.g) sdrag.g.remove(); sdrag = null; });
 $("addBank").onclick = () => { lib.banks.push({ name: "BANK " + (lib.banks.length + 1), beats: [null, null, null, null, null] }); saveLib(); drawBanks(); };
 $("exportBtn").onclick = () => {
   const data = { app: "fatchip-beatlab", version: 2, exported: new Date().toISOString(), keys: KEYS, banks: lib.banks };
