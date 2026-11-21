@@ -93,6 +93,25 @@ details.more summary { cursor: pointer; color: var(--muted); font-size: 14px; fo
 .cell.out { opacity: 0.28; }
 .cell.now { outline: 2px solid var(--ok); outline-offset: 1px; }
 .tail { grid-row: 1; height: 8px; align-self: end; margin-bottom: -6px; border-radius: 3px; background: var(--tail); z-index: 0; pointer-events: none; }
+.block { border: 1px solid transparent; border-radius: 10px; padding: 6px 6px 2px; margin-bottom: 8px; min-width: 652px; }
+.block.playing { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 7%, transparent); }
+.block.ro .cell { cursor: default; opacity: 0.85; }
+.block.ro .cell.out { opacity: 0.25; }
+.block.ro { border-top: 1px dashed var(--border); border-radius: 0 0 10px 10px; }
+.block.ro.playing { border-top-style: solid; }
+.bhead { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.bname { font: 700 13px var(--mono); padding: 3px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+span.bname { cursor: default; }
+.block.sel .bname { background: var(--text); color: var(--surface); }
+.block.ro .bname { background: transparent; }
+.cell.over::after { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: #fff; opacity: 0.9; }
+.accrow { margin-top: 2px; padding: 0 6px; min-width: 652px; }
+.acc { grid-row: 1; height: 8px; align-self: end; border-radius: 3px; background: var(--muted); }
+.acc.q { margin-left: 4px; }
+.acc.S { height: 22px; background: var(--accent); }
+.acc.n { height: 12px; opacity: 0.6; }
+.acc.s { height: 5px; opacity: 0.35; }
+.acc.x { height: 2px; opacity: 0.15; }
 .ruler { display: grid; grid-template-columns: 92px repeat(32, minmax(14px, 1fr)); column-gap: 3px; min-width: 640px; font: 500 10.5px var(--mono); color: var(--muted); margin-bottom: 4px; }
 .ruler span.q { margin-left: 4px; }
 
@@ -193,16 +212,13 @@ details.more summary { cursor: pointer; color: var(--muted); font-size: 14px; fo
     <div class="card-head">
       <h2><span class="step-n">2</span>Steps</h2>
       <div class="row">
-        <div class="seg" id="editPart" role="group" aria-label="Part to edit"><button data-v="A" aria-pressed="true">Edit A</button><button data-v="B" aria-pressed="false">Edit B</button></div>
         <button class="btn small" id="copyAB">A → B</button>
         <button class="btn small" id="copyBA">B → A</button>
         <button class="btn small" id="swapAB">Swap</button>
-        <button class="btn small" id="bar12">Bar 1 → 2</button>
-        <button class="btn small" id="clearPart">Clear part</button>
       </div>
     </div>
-    <div class="seqwrap"><div id="ruler" class="ruler"></div><div id="seq"></div></div>
-    <p class="hint">Click a step to put the selected pad there (click again to take it off; right-click clears). The grey bars show how long each sample rings on the MidiNES, cut off by the next sample. Striped hits lose the step to the kick / snare / perc lane. While recording, hold <kbd>Backspace</kbd> to erase the selected pad's lane as the beat passes (<kbd>Shift</kbd> for both lanes).</p>
+    <div class="seqwrap"><div id="ruler" class="ruler" style="padding:0 7px"></div><div id="seq"></div></div>
+    <p class="hint">The part playing is outlined in green. Click a step to put the selected pad there (click again to take it off; right-click clears). A+B is worked out from A and B and can't be edited. The grey bars show how long each sample rings on the MidiNES, cut off by the next sample. Striped hits lose the step to the kick / snare / perc lane. While recording, hold <kbd>Backspace</kbd> to erase the selected pad's lane as the beat passes (<kbd>Shift</kbd> for both lanes).</p>
   </section>
 
   <section class="card">
@@ -260,12 +276,14 @@ details.more summary { cursor: pointer; color: var(--muted); font-size: 14px; fo
       <div class="dev">
         <h3>MidiNES</h3>
         <label class="check"><input type="checkbox" id="nesOn" checked> Hear it here</label>
+        <label class="field"><span>Level <output id="nesLevelOut"></output></span><input id="nesLevel" type="range" min="0" max="150" value="100"></label>
         <label class="field"><span>Send MIDI to</span><select id="nesOut"><option value="">Nothing</option></select></label>
         <label class="field"><span>Its first channel (samples on +4, noise on +3)</span><select id="nesBase"></select></label>
       </div>
       <div class="dev">
         <h3>Game Boy</h3>
         <label class="check"><input type="checkbox" id="gbOn"> Hear it here</label>
+        <label class="field"><span>Level <output id="gbLevelOut"></output></span><input id="gbLevel" type="range" min="0" max="100" value="25"></label>
         <div class="grid2">
           <label class="field"><span>With the MidiNES</span><select id="route"><option value="layer">Layer</option><option value="split">Split</option></select></label>
           <label class="field"><span>Hats</span><select id="gbHats"><option value="sample">Sample</option><option value="noise">Noise</option></select></label>
@@ -354,7 +372,7 @@ function centred(x) { let m = 0; for (const v of x) m += v; m /= x.length || 1; 
 // ====================================================================== audio: the NES (one sample voice, one noise voice) and the Game Boy
 let actx = null, master = null;
 async function ctx() {
-  if (!actx) { actx = new AudioContext({ sampleRate: SR, latencyHint: "interactive" }); master = actx.createGain(); master.gain.value = 1.6; master.connect(actx.destination); }
+  if (!actx) { actx = new AudioContext({ sampleRate: SR, latencyHint: "interactive" }); master = actx.createGain(); master.gain.value = 1.6 * +$("nesLevel").value / 100; master.connect(actx.destination); }
   if (actx.state === "suspended") await actx.resume();
 }
 const W_NOISE = 0.00494, W_DMC = 0.00335;
@@ -423,6 +441,7 @@ function gbBuffer(kit, slot) {
   }
   return gbBufs.get(key);
 }
+const gbLevel = () => +$("gbLevel").value / 100;
 const velVol = vel => Math.min(15, (vel >> 3) + 1);
 const waveCode = e => e >= 11 ? 1 : e >= 6 ? 0.5 : e >= 2 ? 0.25 : 0;
 const GB_NOISE = { ch: [0x00, 1, 54], oh: [0x00, 2, 0], cy: [0x12, 5, 0], rd: [0x09, 3, 0], sh: [0x00, 0, 50] };
@@ -438,7 +457,7 @@ function gbNoise(lane, vel, when) {
   }
   if (gbNoiseVoice) { try { gbNoiseVoice.stop(when); } catch { /* */ } }
   const b = actx.createBuffer(1, Math.max(1, n), SR); b.copyToChannel(out, 0);
-  const src = actx.createBufferSource(), g = actx.createGain(); src.buffer = b; g.gain.value = 0.25; src.connect(g).connect(actx.destination); src.start(when); gbNoiseVoice = src;
+  const src = actx.createBufferSource(), g = actx.createGain(); src.buffer = b; g.gain.value = 0.5 * gbLevel(); src.connect(g).connect(actx.destination); src.start(when); gbNoiseVoice = src;
 }
 function gbHit(glane, vel, when) {
   if (!GB || !gbIn) return;
@@ -452,7 +471,7 @@ function gbHit(glane, vel, when) {
   if (take) { try { take.src.stop(when); } catch { /* */ } gbVoices = gbVoices.filter(v => v !== take); }
   const src = actx.createBufferSource(); src.buffer = buf; src.connect(gbIn); src.start(when);
   gbVoices.push({ src, slot, end });
-  gbOut.gain.setValueAtTime(code * 0.5, when);
+  gbOut.gain.setValueAtTime(code * gbLevel(), when);
 }
 // which Game Boy drum(s) a clip plays: by its bucket (a layered clip plays two at once)
 function gbLanesOf(clip, padIndex) {
@@ -617,8 +636,14 @@ function tick() {
     }
     if (rec && $("click").checked && p % 4 === 0) clickAt(t0, p === 0);
     sched.push({ t, s, part: edPart }); if (sched.length > 64) sched.shift();
-    const delay = Math.max(0, (t - actx.currentTime) * 1000), shown = edPart === editPart || part === "AB" ? s : -1;
-    setTimeout(() => { if (!playing) return; document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); if (shown >= 0) document.querySelectorAll(`.cell[data-s="${shown}"]`).forEach(e => e.classList.add("now")); }, delay);
+    const delay = Math.max(0, (t - actx.currentTime) * 1000);
+    setTimeout(() => {
+      if (!playing) return;
+      if (nowPart !== part) { nowPart = part; markPlaying(); }
+      document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now"));
+      const sel = part === "AB" ? `.cell[data-s="${s}"]` : `.cell[data-s="${s}"][data-part="${part}"], .cell[data-s="${s}"][data-part="AB"]`;
+      document.querySelectorAll(sel).forEach(e => e.classList.add("now"));
+    }, delay);
     nextTime += S; idx++;
   }
 }
@@ -636,7 +661,7 @@ function stop() {
   playing = false; clearInterval(timer); setRec(false);
   for (const v of gbVoices) { try { v.src.stop(); } catch { /* */ } } gbVoices = [];
   for (const v of [dmcVoice, noiseVoice, gbNoiseVoice]) if (v) { try { v.stop(); } catch { /* */ } }
-  document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now"));
+  document.querySelectorAll(".cell.now").forEach(e => e.classList.remove("now")); nowPart = null; markPlaying();
   $("playBtn").textContent = "▶ Play (Space)"; $("playStatus").textContent = "";
 }
 function setRec(on) {
@@ -679,50 +704,81 @@ function drawRuler() {
   for (let s = 0; s < 32; s++) { const e = document.createElement("span"); e.textContent = s % 4 === 0 ? (s % 16 === 0 ? (s / 16 + 1) + "" : "·") : ""; if (s % 4 === 0 && s) e.className = "q"; r.append(e); }
 }
 function inCycle() { const set = new Set(); tsNow().bars.forEach(bar => { for (const [first, n] of bar) for (let k = 0; k < n; k++) set.add(first + k); }); return set; }
+function combined() { const o = {}; for (const l of ["k", "h"]) o[l] = [...Array(32)].map((_, i) => beat.A[l][i] !== "." ? beat.A[l][i] : beat.B[l][i]).join(""); return o; }
+function accentRow() {   // the accent layer's shape over the cycle (strong / normal / soft), or null for FLAT
+  const a = accLayer(); if (!a || a.name === "FLAT") return null;
+  const m = Array(32).fill(null);
+  if (a.steps === "random") return "random";
+  tsNow().bars.forEach((bar, bi) => { let p = 0; for (const [first, n] of bar) for (let k = 0; k < n; k++) m[first + k] = strength(p++, bi); });
+  return m;
+}
 function drawSeq() {
   const box = $("seq"); box.innerHTML = "";
   const S = stepDur(), cyc = inCycle(), noiseHats = $("nesHats").value === "noise";
-  const k = beat[editPart].k, h = beat[editPart].h;
-  // where each lane's samples ring until (the MidiNES: one sample at a time; a hat sample doesn't play where the k lane hits)
-  const dmcAt = [];
-  for (let s = 0; s < 32; s++) { if (k[s] !== ".") dmcAt.push({ s, lane: "k" }); else if (h[s] !== "." && !noiseHats) dmcAt.push({ s, lane: "h" }); }
-  const tailEnd = s => { const nx = dmcAt.find(x => x.s > s); return nx ? nx.s : 32; };
-  for (const [lane, name, sub] of [["k", "KICK / SNARE", "perc · vox · fx"], ["h", "HATS", "cymbals"]]) {
-    const row = document.createElement("div"); row.className = "lane";
-    row.innerHTML = `<div class="lbl"><b>${name}</b>${sub}</div>`;
-    const str = beat[editPart][lane];
-    for (let s = 0; s < 32; s++) {
-      const ch = str[s], pi = padAt(ch), p = pi >= 0 ? beat.pads[pi] : null;
-      const b = document.createElement("button"); b.className = "cell" + (s % 4 === 0 && s ? " q" : "") + (ch !== "." ? " on" : "") + (cyc.has(s) ? "" : " out");
-      b.style.gridColumn = s + 2; b.dataset.s = s; b.dataset.lane = lane;
-      if (ch !== ".") {
-        b.textContent = ch; b.style.setProperty("--c", padColor(pi));
-        if (lane === "h" && !noiseHats && k[s] !== ".") b.classList.add("cut");
-        b.title = p ? `${ch}: ${p.clip} ${C(p.clip)?.name || ""}` : ch;
-        // the tail
-        if (p && samples[p.clip] && !(lane === "h" && (noiseHats || k[s] !== "."))) {
-          const ms = C(p.clip).ms * HZ[C(p.clip).pitch] / HZ[pitchOf(p)], len = Math.max(1, Math.min(tailEnd(s) - s, Math.round(ms / (S * 1000) + 0.49)));
-          if (len > 1) { const t = document.createElement("div"); t.className = "tail"; t.style.gridColumn = `${s + 2} / span ${len}`; row.append(t); }
+  const blocks = [["A", beat.A, true], ["B", beat.B, true], ["AB", combined(), false]];
+  for (const [part, str, editable] of blocks) {
+    const blk = document.createElement("div"); blk.className = "block" + (part === editPart ? " sel" : "") + (editable ? "" : " ro"); blk.dataset.part = part;
+    const head = document.createElement("div"); head.className = "bhead";
+    head.innerHTML = part === "AB" ? `<span class="bname">A+B</span><span class="status">what A and B make together: A wins a step both use (a dot marks B's hit it covers)</span>`
+      : `<button class="bname" data-sel="${part}" title="Record into ${part} when A+B plays">${part}</button><button class="mini" data-bar="${part}">Bar 1 → 2</button><button class="mini" data-clear="${part}">Clear</button>`;
+    blk.append(head);
+    const { k, h } = str;
+    // where each sample rings until (the MidiNES: one sample at a time; a hat sample doesn't play where the k lane hits)
+    const dmcAt = [];
+    for (let i = 0; i < 32; i++) { if (k[i] !== ".") dmcAt.push(i); else if (h[i] !== "." && !noiseHats) dmcAt.push(i); }
+    const tailEnd = i => dmcAt.find(x => x > i) ?? 32;
+    for (const [lane, name, sub] of [["k", "KICK / SNARE", "perc · vox · fx"], ["h", "HATS", "cymbals"]]) {
+      const row = document.createElement("div"); row.className = "lane";
+      row.innerHTML = `<div class="lbl"><b>${name}</b>${sub}</div>`;
+      for (let i = 0; i < 32; i++) {
+        const ch = str[lane][i], pi = padAt(ch), pd = pi >= 0 ? beat.pads[pi] : null;
+        const b = document.createElement(editable ? "button" : "div"); b.className = "cell" + (i % 4 === 0 && i ? " q" : "") + (ch !== "." ? " on" : "") + (cyc.has(i) ? "" : " out");
+        b.style.gridColumn = i + 2; b.dataset.s = i; b.dataset.lane = lane; b.dataset.part = part;
+        if (ch !== ".") {
+          b.textContent = ch; b.style.setProperty("--c", padColor(pi));
+          if (lane === "h" && !noiseHats && k[i] !== ".") b.classList.add("cut");
+          if (part === "AB" && beat.A[lane][i] !== "." && beat.B[lane][i] !== "." && beat.B[lane][i] !== beat.A[lane][i]) b.classList.add("over");
+          b.title = pd ? `${ch}: ${pd.clip} ${C(pd.clip)?.name || ""}` : ch;
+          if (pd && samples[pd.clip] && !(lane === "h" && (noiseHats || k[i] !== "."))) {
+            const ms = C(pd.clip).ms * HZ[C(pd.clip).pitch] / HZ[pitchOf(pd)], len = Math.max(1, Math.min(tailEnd(i) - i, Math.round(ms / (S * 1000) + 0.49)));
+            if (len > 1) { const t = document.createElement("div"); t.className = "tail"; t.style.gridColumn = `${i + 2} / span ${len}`; row.append(t); }
+          }
         }
+        if (editable) b.setAttribute("aria-label", `${part}, ${lane === "k" ? "kick lane" : "hats lane"}, step ${i + 1}${ch !== "." ? ", pad " + ch : ""}`);
+        row.append(b);
       }
-      b.setAttribute("aria-label", `${lane === "k" ? "Kick lane" : "Hats lane"}, step ${s + 1}${ch !== "." ? ", pad " + ch : ""}`);
-      row.append(b);
+      blk.append(row);
     }
+    box.append(blk);
+  }
+  const acc = accentRow();
+  if (acc) {
+    const row = document.createElement("div"); row.className = "lane accrow";
+    row.innerHTML = `<div class="lbl"><b>ACCENT</b>${esc(accLayer().name.toLowerCase())}</div>`;
+    if (acc === "random") row.insertAdjacentHTML("beforeend", `<div class="status" style="grid-column: 2 / span 32">random each time round: some hits strong, some soft</div>`);
+    else for (let i = 0; i < 32; i++) { const e = document.createElement("div"); e.className = "acc " + (acc[i] || "x") + (i % 4 === 0 && i ? " q" : ""); e.style.gridColumn = i + 2; e.title = acc[i] ? { S: "strong", n: "normal", s: "soft" }[acc[i]] : "not played"; row.append(e); }
     box.append(row);
   }
+  markPlaying();
 }
+let nowPart = null;
+function markPlaying() { document.querySelectorAll("#seq .block").forEach(b => b.classList.toggle("playing", !!nowPart && (nowPart === "AB" ? true : b.dataset.part === nowPart))); }
 $("seq").addEventListener("click", e => {
-  const b = e.target.closest(".cell"); if (!b) return;
-  const s = +b.dataset.s, lane = b.dataset.lane, p = beat.pads[armed];
-  if (!p) { toast("Select a pad with a sound first"); return; }
-  if (laneOf(p.clip) !== lane) { toast(`Pad ${KEYS[armed]} belongs in the ${lane === "k" ? "hats" : "kick / snare / perc"} lane`); return; }
-  snapshot(); setStep(editPart, lane, s, beat[editPart][lane][s] === KEYS[armed] ? "." : KEYS[armed]); saveWork(); drawSeq();
-  if (beat[editPart][lane][s] !== ".") { ctx().then(() => dispatch([{ lane, pad: armed, clip: p.clip }], actx.currentTime + 0.005)); }
+  const sel = e.target.closest("[data-sel]"); if (sel) { setEdit(sel.dataset.sel); return; }
+  const bar = e.target.closest("[data-bar]"); if (bar) { const P = bar.dataset.bar; snapshot(); for (const l of ["k", "h"]) beat[P][l] = beat[P][l].slice(0, 16).repeat(2); saveWork(); drawSeq(); toast(`${P}: bar 1 copied to bar 2`); return; }
+  const clr = e.target.closest("[data-clear]"); if (clr) { const P = clr.dataset.clear; snapshot(); beat[P] = { k: ".".repeat(32), h: ".".repeat(32) }; saveWork(); drawSeq(); toast(`${P} cleared (Undo brings it back)`); return; }
+  const b = e.target.closest("button.cell"); if (!b) return;
+  const i = +b.dataset.s, lane = b.dataset.lane, P = b.dataset.part, pd = beat.pads[armed];
+  if (P !== editPart) setEditQuiet(P);
+  if (!pd) { toast("Select a pad with a sound first"); return; }
+  if (laneOf(pd.clip) !== lane) { toast(`Pad ${KEYS[armed]} belongs in the ${lane === "k" ? "hats" : "kick / snare / perc"} lane`); return; }
+  snapshot(); setStep(P, lane, i, beat[P][lane][i] === KEYS[armed] ? "." : KEYS[armed]); saveWork(); drawSeq();
+  if (beat[P][lane][i] !== ".") { ctx().then(() => dispatch([{ lane, pad: armed, clip: pd.clip }], actx.currentTime + 0.005)); }
 });
 $("seq").addEventListener("contextmenu", e => {
-  const b = e.target.closest(".cell"); if (!b) return; e.preventDefault();
-  const s = +b.dataset.s, lane = b.dataset.lane; if (beat[editPart][lane][s] === ".") return;
-  snapshot(); setStep(editPart, lane, s, "."); saveWork(); drawSeq();
+  const b = e.target.closest("button.cell"); if (!b) return; e.preventDefault();
+  const i = +b.dataset.s, lane = b.dataset.lane, P = b.dataset.part; if (beat[P][lane][i] === ".") return;
+  snapshot(); setStep(P, lane, i, "."); saveWork(); drawSeq();
 });
 
 // ====================================================================== drawing: pads and sounds
@@ -906,10 +962,12 @@ $("beatName").addEventListener("change", () => { beat.name = $("beatName").value
 $("beatTs").addEventListener("change", () => { snapshot(); beat.ts = $("beatTs").value || null; saveWork(); drawSeq(); });
 $("beatGb").addEventListener("change", () => { beat.gb = $("beatGb").value; out.gbKit = -1; saveWork(); });
 $("hats").addEventListener("change", () => { beat.hats = $("hats").value; saveWork(); });
-$("accent").addEventListener("change", () => { beat.accent = $("accent").value; saveWork(); });
+$("accent").addEventListener("change", () => { beat.accent = $("accent").value; saveWork(); drawSeq(); });
 $("ts").addEventListener("change", drawSeq);
 $("nesHats").addEventListener("change", () => { store.set("nesHats", $("nesHats").value); drawSeq(); });
 for (const id of ["nesOn", "gbOn", "route", "gbHats", "click", "countIn"]) $(id).addEventListener("change", async () => { store.set(id, $(id).type === "checkbox" ? $(id).checked : $(id).value); if (id === "gbOn" && $("gbOn").checked) { await ctx(); if (await gbLoad()) gbSetup(); } });
+function showLevels() { $("nesLevelOut").textContent = $("nesLevel").value + "%"; $("gbLevelOut").textContent = $("gbLevel").value + "%"; if (master) master.gain.value = 1.6 * +$("nesLevel").value / 100; }
+for (const id of ["nesLevel", "gbLevel"]) $(id).addEventListener("input", () => { store.set(id, +$(id).value); showLevels(); });
 for (const id of ["nesBase", "gbBase"]) $(id).addEventListener("change", () => { store.set(id, +$(id).value); Object.keys(out).forEach(k => out[k] = -1); });
 $("startFrom").addEventListener("change", () => {
   const i = $("startFrom").value; if (i === "") return;
@@ -921,15 +979,13 @@ function segVal(id) { return document.querySelector(`#${id} button[aria-pressed=
 function seg(id, onChange) {
   $(id).addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; $(id).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); onChange?.(b.dataset.v); });
 }
-seg("part", v => { store.set("part", v); if (v === "A" || v === "B") setEdit(v); if (rec) setRec(true); });
-seg("editPart", v => setEdit(v));
+seg("part", v => { store.set("part", v); if (v === "A" || v === "B") setEditQuiet(v); if (rec) setRec(true); });
 seg("recMode", v => store.set("recMode", v));
-function setEdit(v) { editPart = v; $("editPart").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === v)); drawSeq(); }
+function setEditQuiet(v) { editPart = v; document.querySelectorAll("#seq .block").forEach(b => b.classList.toggle("sel", b.dataset.part === v)); if (rec) setRec(true); }
+function setEdit(v) { setEditQuiet(v); drawSeq(); }
 $("copyAB").onclick = () => { snapshot(); beat.B = clone(beat.A); saveWork(); drawSeq(); toast("A copied to B"); };
 $("copyBA").onclick = () => { snapshot(); beat.A = clone(beat.B); saveWork(); drawSeq(); toast("B copied to A"); };
 $("swapAB").onclick = () => { snapshot(); [beat.A, beat.B] = [beat.B, beat.A]; saveWork(); drawSeq(); toast("A and B swapped"); };
-$("bar12").onclick = () => { snapshot(); for (const l of ["k", "h"]) beat[editPart][l] = beat[editPart][l].slice(0, 16).repeat(2); saveWork(); drawSeq(); toast(`${editPart}: bar 1 copied to bar 2`); };
-$("clearPart").onclick = () => { snapshot(); beat[editPart] = { k: ".".repeat(32), h: ".".repeat(32) }; saveWork(); drawSeq(); toast(`${editPart} cleared (Undo brings it back)`); };
 $("undoBtn").onclick = undo;
 $("playBtn").onclick = () => playing ? stop() : start(false);
 $("recBtn").onclick = toggleRec;
@@ -957,9 +1013,9 @@ function drawAll() { drawRuler(); drawSeq(); drawPads(); drawPadEdit(); drawBank
   fillSelects();
   for (const [id, d] of [["nesOn", true], ["gbOn", false], ["click", true], ["countIn", true]]) $(id).checked = store.get(id, d);
   for (const [id, d] of [["route", "layer"], ["gbHats", "sample"], ["nesHats", "sample"]]) $(id).value = store.get(id, d);
-  $("vary").value = store.get("vary", 0);
+  $("vary").value = store.get("vary", 0); $("nesLevel").value = store.get("nesLevel", 100); $("gbLevel").value = store.get("gbLevel", 25); showLevels();
   for (const [id, d] of [["part", "A"], ["recMode", "overdub"]]) { const v = store.get(id, d); $(id).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === v)); }
-  if (segVal("part") === "B") editPart = "B"; setEdit(editPart);
+  if (segVal("part") === "B") editPart = "B";
   applyBeat(); drawBrowser(); drawAll();
   let raw = [];
   try { raw = await loadFromDb(); } catch { /* */ }
