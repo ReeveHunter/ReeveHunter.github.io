@@ -123,6 +123,12 @@ code { font-family: var(--mono); font-size: 13px; }
 .cand.cur { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
 .cand.yes { background: color-mix(in srgb, var(--ok) 18%, var(--surface)); }
 .cand.no { opacity: 0.55; }
+.snd.guess { border-style: dashed; }
+.snd.also { opacity: 0.78; font-style: italic; }
+.zone.collapsed .items { display: none; }
+.zone.collapsed { min-height: 0; }
+.zone .zh .n { font: 500 11.5px var(--mono); margin-left: 4px; }
+.bsec { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 16px 0 0; }
 .split { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
 </style>
@@ -216,7 +222,7 @@ code { font-family: var(--mono); font-size: 13px; }
       <button id="resetBtn" class="btn small">Start over</button>
       <span class="status-line" id="saveStatus"></span>
     </div>
-    <p class="hint">Everything stays in this browser. Export to back it up or to hand to someone; importing a file merges their rounds, percussion names, types and tags with yours (rounds are never counted twice). No sample data goes in the file.</p>
+    <p class="hint">Everything stays in this browser. Export to back it up or to hand to someone; importing a file merges their rounds, percussion names, types, tags and checked buckets with yours (rounds are never counted twice). No sample data goes in the file.</p>
   </section>
 </main>
 <script>
@@ -227,6 +233,9 @@ const store = {
   set(k, v) { try { localStorage.setItem("sorter." + k, JSON.stringify(v)); } catch { /* */ } },
 };
 const MAP = {"A0":["kick","kick"],"A1":["bass",""],"A2":["kick","kick"],"A3":["kick",""],"A4":["kick","kick"],"A5":["kick","kick"],"A6":["snare","snare"],"A7":["snare","snare"],"A8":["snare","snare"],"A9":["snare","snare"],"A10":["kick","kick"],"A11":["snare","snare"],"A12":["hatc","hat"],"A13":["perc","perc"],"A14":["hatc","hat"],"A15":["hatc","hat"],"A16":["snare","snare"],"A17":["tom","tom"],"A18":["kick","kick"],"A19":["kick","kick"],"A20":["hato","ohat"],"A21":["hatc","hat"],"A22":["kick","kick hat"],"A23":["snare","snare"],"A24":["clap","clap"],"A25":["clap","clap"],"A26":["hatc","ohat"],"A27":["hato","ohat"],"A28":["snare","snare"],"A29":["snare","snare"],"A30":["tom","tom"],"A31":["tom","tom"],"A32":["snare","snare"],"A33":["snare","snare"],"A34":["snare","snare"],"A35":["snare","snare"],"A36":["kick","kick"],"A37":["kick","kick"],"A38":["perc","perc"],"A39":["hatc","hat"],"A40":["clap","snare clap"],"A41":["perc","perc"],"A42":["hato","ohat"],"A43":["tom","tom"],"A44":["hatc","hat"],"A45":["perc","perc"],"A46":["tom","tom"],"A47":["tom","tom"],"A48":["perc","perc"],"A49":["perc","perc"],"A50":["perc","perc"],"A51":["snare","snare"],"A52":["perc","perc"],"A53":["perc","perc"],"A54":["cymbal","cymbal"],"A55":["hatc","hat"],"A56":["hato","ohat"],"A57":["kick","kick"],"A58":["hato","ohat"],"A59":["perc","snare hat"],"A60":["snare","snare"],"A61":["snare","snare"],"A62":["hatc","perc"],"A63":["perc","perc"],"A64":["snare","snare"],"A65":["snare","snare"],"A66":["kick","kick"],"A67":["kick","kick"],"A68":["kick","kick"],"A69":["snare","snare"],"A70":["snare","snare ohat"],"A71":["snare","snare"],"A72":["snare","snare"],"A73":["kick","kick hat"],"A74":["hatc","hat"],"A75":["snare","snare"],"A76":["perc","perc"],"A77":["cymbal","cymbal"],"A78":["perc","perc"],"A79":["perc","perc"],"A80":["perc","perc"],"A81":["hato","ohat"],"A82":["cymbal","cymbal"],"A83":["hatc","hat"],"A84":["hatc","hat"],"A85":["fx",""],"A86":["snare","snare"],"A87":["hato","snare cymbal"],"A88":["snare","snare"],"A89":["hatc","hat"],"A90":["snare","snare"],"A91":["kick","kick hat"],"A92":["kick","kick"],"A93":["snare","snare hat"],"A94":["hatc","hat"],"A95":["snare","snare hat"],"A96":["snare","hat"],"A97":["snare","snare"],"A98":["kick","kick cymbal"],"A99":["snare","snare cymbal"],"A100":["kick","kick cymbal"],"A101":["hato","ohat"],"A102":["kick","kick hat"],"A103":["snare","snare"],"A104":["snare","snare"],"A105":["vocal","vocal"],"A106":["kick","kick"],"A107":["kick","kick"],"A108":["snare","snare"],"A109":["snare","snare"],"A110":["perc","snare tom"],"A111":["perc","snare"],"A112":["kick","kick cymbal"],"A113":["snare","snare cymbal"],"A114":["hato","ohat"],"A115":["kick","kick hat"],"A116":["hato","ohat"],"A117":["snare","snare"],"A118":["hatc","hat"],"A119":["kick","kick"],"A120":["snare","snare"],"A121":["snare","snare"],"A122":["snare","snare"],"A123":["hatc","hat"],"A124":["snare","snare"],"A125":["snare","snare"],"A126":["snare","snare hat"],"A127":["snare","snare"],"B0":["perc","snare"],"B1":["snare","snare"],"B2":["kick","kick ohat"],"B3":["kick","kick ohat"],"B4":["snare","snare hat"],"B5":["kick","kick ohat"],"B6":["kick","kick cymbal"],"B7":["kick","kick ohat"],"B8":["kick","kick"],"B9":["snare","snare hat"],"B10":["kick","kick"],"B11":["kick","kick"],"B12":["kick","kick"],"B13":["snare","snare"],"B14":["kick","kick"],"B15":["kick","kick"],"B16":["kick","kick"],"B17":["snare",""],"B18":["perc",""],"B19":["perc","perc"],"B20":["fx",""],"B21":["hatc","hat"],"B22":["vocal","vocal"],"B23":["vocal","vocal"],"B24":["vocal","vocal"],"B25":["vocal","vocal"],"B26":["vocal",""],"B27":["vocal",""],"B28":["vocal",""],"B29":["vocal",""],"B30":["vocal","vocal"],"B31":["vocal","vocal"],"B32":["vocal","vocal"],"B33":["vocal","vocal"],"B34":["vocal","vocal"],"B35":["vocal","vocal"],"B36":["tonal","vocal"],"B37":["vocal","vocal"],"B38":["vocal","vocal"],"B39":["vocal","vocal"],"B40":["vocal","vocal"],"B41":["fx",""],"B42":["tonal",""],"B43":["tonal",""],"B44":["tonal",""],"B45":["fx",""],"B46":["fx",""],"B47":["fx",""],"B48":["fx",""],"B49":["fx",""],"B50":["vocal","vocal"],"B51":["vocal",""],"B52":["vocal",""],"B53":["vocal",""],"B54":["vocal",""],"B55":["vocal",""],"B56":["vocal",""],"B57":["vocal",""],"B58":["vocal",""],"B59":["vocal",""],"B60":["tonal",""],"B61":["tonal",""],"B62":["tonal",""],"B63":["tonal",""],"B64":["tonal",""],"B65":["tonal",""],"B66":["tonal","tom"],"B67":["tonal","tom"],"B68":["tonal","tom"],"B69":["tonal","tom"],"B70":["tonal",""],"B71":["tonal",""],"B72":["tonal",""],"B73":["tonal",""],"B74":["tonal",""],"B75":["fx",""],"B76":["fx",""],"B77":["fx",""],"B78":["fx",""],"B79":["fx",""],"B80":["fx",""],"B81":["vocal","vocal"],"B82":["vocal","vocal"],"B83":["vocal","vocal"],"B84":["vocal","vocal"],"B85":["vocal","vocal"],"B86":["vocal","vocal"],"B87":["vocal","vocal"],"B88":["vocal","vocal"],"B89":["vocal","vocal"],"B90":["vocal","vocal"],"B91":["vocal","vocal"],"B92":["vocal","vocal"],"B93":["vocal","vocal"],"B94":["vocal","vocal"],"B95":["fx",""],"B96":["fx",""],"B97":["fx",""],"B98":["fx",""],"B99":["fx",""],"B100":["fx",""],"B101":["fx",""],"B102":["fx",""],"B103":["fx",""],"B104":["fx",""],"B105":["fx",""],"B106":["fx",""],"B107":["fx",""],"B108":["fx",""],"B109":["fx",""],"B110":["fx",""],"B111":["fx",""],"B112":["fx",""],"B113":["fx",""],"B114":["fx",""],"B115":["fx",""],"B116":["fx",""],"B117":["fx",""],"B118":["fx",""],"B119":["fx",""],"B120":["fx",""],"B121":["fx",""],"B122":["fx",""],"B123":["fx",""],"B124":["fx",""],"B125":["fx",""],"B126":["fx",""],"B127":["fx",""]};   // Reeve's categories (Sample Lab, 2026-11-04), used where this browser has none
+// Buckets: the Sample Lab (2026-11-21) and the Sorter combined. id -> [bucket, sub-bucket, why it's in doubt, also works as]
+const GUESS = {"A0":["kick",""],"A1":["tonal",""],"A2":["kick",""],"A3":["kick",""],"A4":["kick",""],"A5":["kick",""],"A6":["snare",""],"A7":["snare",""],"A8":["snare",""],"A9":["snare",""],"A10":["kick",""],"A11":["snare",""],"A12":["hats","cloose"],"A13":["perc","tamb","Sample Lab has: Perc · Sample Lab category: Percussion · Sorter: hato → Half open · Sorter: percussion → Tambourine / shaker","hats"],"A14":["hats","ctight"],"A15":["hats","cloose"],"A16":["snare",""],"A17":["perc","tom"],"A18":["kick",""],"A19":["kick",""],"A20":["hats","o2c"],"A21":["hats","ctight"],"A22":["layer","khc"],"A23":["snare",""],"A24":["perc","clap"],"A25":["perc","clap"],"A26":["hats","cloose"],"A27":["hats","open"],"A28":["snare",""],"A29":["snare",""],"A30":["perc","tom"],"A31":["perc","tom"],"A32":["snare",""],"A33":["snare",""],"A34":["snare",""],"A35":["snare",""],"A36":["kick",""],"A37":["kick",""],"A38":["perc","pfx"],"A39":["hats","cloose"],"A40":["perc","clap","Sample Lab has: Snare + Clap · Sample Lab category: Clap · Sorter: percussion → Clap","snare"],"A41":["perc","clave"],"A42":["hats","open"],"A43":["perc","tom"],"A44":["hats","cloose"],"A45":["perc","roto"],"A46":["perc","tom"],"A47":["perc","tom"],"A48":["perc","roto"],"A49":["perc","conga"],"A50":["perc","clave"],"A51":["snare",""],"A52":["perc","conga"],"A53":["perc","cowbell"],"A54":["hats","crash"],"A55":["hats","cloose"],"A56":["hats","open"],"A57":["kick",""],"A58":["hats","open"],"A59":["perc","rim","Sample Lab has: Snare + Hi-hat + Perc · Sample Lab category: Percussion · Sorter: snare → Rimshot · Sorter: percussion → Rim shot","snare"],"A60":["snare",""],"A61":["snare",""],"A62":["perc","tamb","Sample Lab has: Perc · Sample Lab category: Hi-hat closed · Sorter: percussion → Tambourine / shaker","hats"],"A63":["perc","rim"],"A64":["snare",""],"A65":["snare",""],"A66":["kick",""],"A67":["layer","ksn"],"A68":["kick",""],"A69":["snare",""],"A70":["layer","sho"],"A71":["snare",""],"A72":["perc","timbale","Sample Lab has: Perc · Sample Lab category: Percussion · Sorter: snare → Electronic · Sorter: percussion → Timbale","snare"],"A73":["layer","khc"],"A74":["hats","ctight"],"A75":["snare",""],"A76":["perc","pfx"],"A77":["hats","crash"],"A78":["perc","roto"],"A79":["perc","roto"],"A80":["perc","roto"],"A81":["hats","open"],"A82":["hats","ride"],"A83":["hats","ctight"],"A84":["hats","cloose"],"A85":["fx",""],"A86":["layer","shc","Sample Lab has: Snare + Hi-hat · Sample Lab category: Snare · Sorter: kick → Punchy · Sorter: snare → Fat",""],"A87":["layer","scy"],"A88":["snare",""],"A89":["hats","cloose"],"A90":["snare",""],"A91":["layer","khc"],"A92":["kick",""],"A93":["layer","shc"],"A94":["hats","cloose"],"A95":["layer","shc"],"A96":["hats","","Sample Lab has: Hi-hat · Sample Lab category: Snare · Sorter: snare → Jungle",""],"A97":["snare",""],"A98":["layer","kcy"],"A99":["layer","scy"],"A100":["layer","scy","Sample Lab name: Kick/Cymbal · has: Snare + Cymbal · Sorter: kick → Layered and snare → Layered",""],"A101":["hats","o2c"],"A102":["layer","kcy"],"A103":["snare",""],"A104":["snare",""],"A105":["vocal",""],"A106":["kick",""],"A107":["kick",""],"A108":["snare",""],"A109":["snare",""],"A110":["perc","timbale","Sample Lab has: Tom + Perc · Sample Lab category: Percussion · Sorter: percussion → Timbale",""],"A111":["perc","timbale"],"A112":["layer","kcy"],"A113":["layer","scy"],"A114":["hats","half"],"A115":["layer","khc"],"A116":["hats","half"],"A117":["snare","","Sample Lab has: Snare · Sample Lab category: Snare · Sorter: snare → Layered",""],"A118":["hats","pedal"],"A119":["kick",""],"A120":["snare",""],"A121":["snare","","Sample Lab has: Snare · Sample Lab category: Snare · Sorter: snare → Layered",""],"A122":["snare",""],"A123":["hats","","Sorter types: hatc Loose and hato Open → closed",""],"A124":["snare",""],"A125":["snare","","Sample Lab has: Snare · Sample Lab category: Snare · Sorter: snare → Layered",""],"A126":["layer","shc"],"A127":["snare",""],"B0":["perc","timbale","Sample Lab category: Percussion · Sorter: snare → Tight · Sorter: percussion → Timbale",""],"B1":["snare",""],"B2":["layer","kho"],"B3":["layer","kho"],"B4":["layer","shc"],"B5":["layer","kho"],"B6":["layer","kcy"],"B7":["layer","kho"],"B8":["kick",""],"B9":["layer","shc"],"B10":["kick",""],"B11":["kick",""],"B12":["kick",""],"B13":["snare",""],"B14":["kick",""],"B15":["kick",""],"B16":["kick",""],"B17":["fx",""],"B18":["perc","pfx"],"B19":["perc","pfx"],"B20":["fx",""],"B21":["hats","cloose"],"B22":["vocal",""],"B23":["vocal",""],"B24":["vocal",""],"B25":["vocal",""],"B26":["vocal",""],"B27":["vocal",""],"B28":["vocal",""],"B29":["vocal",""],"B30":["vocal",""],"B31":["vocal",""],"B32":["vocal",""],"B33":["vocal",""],"B34":["vocal",""],"B35":["vocal",""],"B36":["vocal","","Sample Lab has: Vocal · Sample Lab category: Tonal / music",""],"B37":["vocal",""],"B38":["vocal",""],"B39":["vocal",""],"B40":["vocal",""],"B41":["fx",""],"B42":["tonal",""],"B43":["tonal",""],"B44":["tonal",""],"B45":["fx",""],"B46":["fx",""],"B47":["fx",""],"B48":["fx",""],"B49":["fx",""],"B50":["vocal",""],"B51":["vocal",""],"B52":["vocal",""],"B53":["vocal",""],"B54":["vocal",""],"B55":["vocal",""],"B56":["vocal",""],"B57":["vocal",""],"B58":["vocal",""],"B59":["vocal",""],"B60":["tonal",""],"B61":["tonal",""],"B62":["tonal",""],"B63":["tonal",""],"B64":["tonal",""],"B65":["tonal",""],"B66":["perc","tom","Sample Lab has: Tom · Sample Lab category: Tonal / music",""],"B67":["perc","tom","Sample Lab has: Tom · Sample Lab category: Tonal / music",""],"B68":["perc","tom","Sample Lab has: Tom · Sample Lab category: Tonal / music",""],"B69":["perc","tom","Sample Lab has: Tom · Sample Lab category: Tonal / music",""],"B70":["tonal",""],"B71":["tonal",""],"B72":["tonal",""],"B73":["tonal",""],"B74":["tonal",""],"B75":["fx",""],"B76":["fx",""],"B77":["fx",""],"B78":["fx",""],"B79":["fx",""],"B80":["fx",""],"B81":["vocal",""],"B82":["vocal",""],"B83":["vocal",""],"B84":["vocal",""],"B85":["vocal",""],"B86":["vocal",""],"B87":["vocal",""],"B88":["vocal",""],"B89":["vocal",""],"B90":["vocal",""],"B91":["vocal",""],"B92":["vocal",""],"B93":["vocal",""],"B94":["vocal",""],"SWEEP":["fx",""]};
+const LABN = {"A0":"Kick 🦵","A1":"Bass stab 🎸🔪 (Low Bass)","A2":"Kick 🦵⌛ (Long)","A3":"Bass stab 🎸🔪 (Laser Bass) — Kick with Bass","A4":"Kick 🦵 (Short and punchy)","A5":"Kick 🦵 (Very short)","A6":"Snare 🥁 (Short DNB)","A7":"Snare 🥁","A8":"Snare 🥁 (Long and loose)","A9":"Snare 🥁 (Tight)","A10":"Kick 🦵","A11":"Snare 🥁 (Dirty/FX)","A12":"Hi-hat 🎩","A13":"Hi-hat Open 📂🎩 (Short) — Tambourine","A14":"Hi-hat Closed 🎩 (Very short)","A15":"Hi-hat Closed 🎩","A16":"Snare 🥁 (Crack)","A17":"Roto Tom 🛢️","A18":"Kick 🦵","A19":"Kick 🦵","A20":"Hi-hat Open 📂🎩 (Short)","A21":"Hi-hat Closed 🎩","A22":"Kick/Hats 🦵+🎩 — Kick with hats","A23":"Snare 🥁","A24":"Clap 👏","A25":"Clap 👏 (Longer)","A26":"Hi-hat Open 📂🎩 (slightly open)","A27":"Hi-hat Open 📂🎩 (mostly open)","A28":"Snare 🥁 (Punchy)","A29":"Snare 🥁 (Punch with tail)","A30":"Tom Low 🛢️","A31":"Tom High 🛢️ — This sounds like the previous sample with a higher tom layered on top of it. It sounds like they","A32":"Snare 🥁 (Short)","A33":"Snare 🥁","A34":"Snare 🥁 (Deep) — Might have a quiet kick layered underneath","A35":"Snare 🥁","A36":"Kick 🦵 (With filter) — Gnarly. Sounds like a very quick double hit on the kick drum with the second one ringin","A37":"Kick 🦵","A38":"Cowbell 🪇🐄🔔 (808 Cowbell)","A39":"Hi-Hat Closed 🎩","A40":"Snare 🥁","A41":"Clave 🪇 — Hi pitched","A42":"Hi-Hat Open 📂🎩 (Mostly open)","A43":"Tom High 🛢️","A44":"Hi-Hat Closed 🎩","A45":"Conga High 🪘","A46":"Tom Mid 🛢️ — Might be percussion","A47":"Tom Low 🛢️ — Might be percussion","A48":"Conga Mid 🪘 — Might be tom","A49":"Conga Low 🪘 — Might be tom","A50":"Snare Rim Shot 🥁 — Wood block or Rim shot","A51":"Snare 🥁","A52":"Clave 🪇 (???)","A53":"Cowbell 🪇🐄🔔 — Cowbell","A54":"Cymbal 🟠 (Crash) — Crash","A55":"Hi-Hat Closed 🎩","A56":"Hi-Hat Open 📂🎩","A57":"Kick 🦵","A58":"Hi-Hat Open 📂🎩","A59":"Snare Rim Shot 🥁 — Rim shot","A60":"Snare 🥁","A61":"Snare 🥁","A62":"Tamb 🪇⭕ — Might be a hihat","A63":"Percussion 🪇 (???)","A64":"Snare 🥁 (Short DNB) — Short and tight","A65":"Snare 🥁 (Short DNB) — Short and tight","A66":"Kick 🦵 — Short","A67":"Kick 🦵 — Short with a rim shot maybe","A68":"Kick 🦵 — Short","A69":"Snare 🥁 (High pitched) — Short","A70":"Snare 🥁 — Short. Might have short open hat","A71":"Snare 🥁","A72":"Snare 🥁 — Some kind of drum","A73":"Hi-Hat Closed 🦵+🎩 (DNB, slight kick) — Very short","A74":"Hi-Hat Closed 🎩 (DNB) — Might have quiet kick","A75":"Snare 🥁","A76":"Clave 🪇","A77":"Cymbal 🟠 (Crash) — Crash. Fairly quick decay.","A78":"Percussion 🪇 (Hi-roto tom?)","A79":"Percussion 🪇 (Hi-roto tom?) — Goes with A080. This one is higher. Roto tom?","A80":"Percussion 🪇 (Hi-roto tom?) — Goes with A079. This one is lower. Roto tom?","A81":"Hi-Hat Open 📂🎩 (mostly open) — Might have quiet kick","A82":"Hi-Hat Open 📂🎩 (mostly open long) — Ride cymbal. Maybe has a bit of a kick in the back ground.","A83":"Hi-Hat Closed 🎩 (DNB) — Might have quiet kick","A84":"Hi-Hat Closed 🎩","A85":"Sample 🎹 (Synth Sound) — Sounds almost like it goes with Star Trek bridge samples, but I don't think it does. ","A86":"Kick/Hat 🦵+🎩 (Amen?) — Fat snare. Maybe with hi-hat","A87":"Cymbal 🟠 (Amen?) — Sounds almost like a cymbal that's grabbed after being hit.","A88":"Snare 🥁 (Amen?)","A89":"Hi-Hat Closed 🎩 (Amen?)","A90":"Snare 🥁 (Amen?) — Very short","A91":"Kick/Snare 🦵+🥁 (Amen?) — Very short","A92":"Kick 🦵 (Amen?)","A93":"Snare 🥁 (Amen?) — Hi-hat sounds half open","A94":"Hi-Hat Closed 🎩 (Amen?) — Might have rim shot","A95":"Snare 🥁 (Amen?) — Short","A96":"Hi-Hat Closed 🎩 (Amen?)","A97":"Snare 🥁 (Amen?)","A98":"Kick/Cymbal 🦵+🟠 (Amen?) — Very quick release on cymbal","A99":"Snare/Cymbal 🥁+🟠 (Amen?) — Very quick release on cymbal.","A100":"Kick/Cymbal 🦵+🟠 (Amen?) — Very quick release on cymbal.","A101":"Hi-Hat Open 📂🎩 (Amen?) — Short","A102":"Kick/Hi-hat 🦵+🎩 (Amen?) — Short Cymbal grab with kick","A103":"Snare 🥁 (Amen?)","A104":"Snare 🥁 (Amen?)","A105":"Vocal Sample 🎤 (House???) — I don't know what this says. My best guess is \"house\", but I don't think that's ri","A106":"Kick 🦵 — boombap sound","A107":"Kick 🦵","A108":"Snare 🥁","A109":"Snare 🥁 — High pitched","A110":"Tom 🛢️ — Sounds almost like a tom. Almost like a snare with the snares off.","A111":"Snare 🥁","A112":"Kick/Cymbal 🦵+🟠 — Short. Cymbal grab? boombap sound","A113":"Snare/Cymbal 🥁 — Short. cymbal grab?","A114":"Hi-Hat Open 📂🎩","A115":"Kick/Hi-hat 🦵+🎩 — boombap sound","A116":"Hi-Hat Open 📂🎩 — Half open hat. Short.","A117":"Snare 🥁 — High pitched.","A118":"Hi-Hat 🎩 (Open to closed) — Sounds like an open hat that is closed using the hihat pedal.","A119":"Kick 🦵 — boombap sound","A120":"Snare 🥁","A121":"Snare 🥁 — Very short.","A122":"Snare 🥁 — very short","A123":"Hi-Hat Open 📂🎩 (Mostly open) — half open","A124":"Snare 🥁","A125":"Snare 🥁 (Deep) — Deep snare.","A126":"Snare/Hi-hat 🥁+🎩","A127":"Snare 🥁","B0":"Snare 🥁","B1":"Snare 🥁","B2":"Kick/Cymbal 🦵+📂🎩 (Half open hat)","B3":"Kick/Cymbal 🦵+🟠✊ — Sounds like cymbal grab.","B4":"Snare 🥁🎩","B5":"Kick/Cymbal 🦵+🟠 — Kick and open hat.","B6":"Kick/Cymbal Short 🦵+🟠 — sounds like cymbal grab.","B7":"Kick 🦵 (Lofi Boombap) — Short hihat sound on top, maybe.","B8":"Kick 🦵","B9":"Snare Hat 🥁+🎩 (Boombap) — Boombap sound","B10":"Kick 🦵","B11":"Kick 🦵","B12":"Kick 🦵","B13":"Snare 🥁","B14":"Kick 🦵","B15":"Kick 🦵 (Short)","B16":"Kick 🦵","B17":"Noise? 🌫️ — Sounds almost like noise. We could try looping this one.","B18":"Scratch ⚡ — Record scratch","B19":"Percussion 🪇 — Ringing sound","B20":"Laser 🔫","B21":"Hi-hat Closed 🎩","B22":"Care 🎤 (GI Joe Movie (1987)) — \"Care\" GI Joe Movie. Goes with B022-B024","B23":"To 🎤 (GI Joe) — \"To\"","B24":"Try It 🎤 (GI Joe) — \"Try?\"","B25":"Uh-huh 🎤 (GI Joe) — \"Uh-huh.\" GI Joe Movie.","B26":"? — I think it is someone yelling \"What!?\" GI Joe Movie","B27":"? — \"Mellow out\" GI Joe Movie.","B28":"? — \"Doctor\" GI Joe Movie. Goes with B028-B029. Could be used independently.","B29":"? — \"Mindbender\" GI Joe Movie.","B30":"Neatly done sister 🎤 (GI Joe 33:15) — \"Neatly done, sister!\" GI Joe Movie","B31":"Ninja master 🎤 (GI Joe 30:09) — \"Ninja Master\" GI Joe Movie","B32":"Time for socializing 🎤 (GI Joe) — \"Time for socializing\" GI Joe Movie","B33":"Again? 🎤 (GI Joe) — \"Again?\" GI Joe Movie","B34":"Laugh Part 1 😂 — Maniacal Laugh 1. GI Joe Movie. Goes with B034-B035","B35":"Laugh Part 2 😂 — Maniacal Laugh 2. GI Joe Movie. Goes with B034-B035. Has some background music audible toward","B36":"Laugh Part 3 (Orch Hit) 😂 — Orchestra hit. GI Joe Movie. Sounds like it probably comes right after B034-B035 i","B37":"I'm taking that film 🎤 (GI Joe) — \"I'm taking that film!\" GI Joe Movie","B38":"You let her bring a camera in here? 🎤 (GI Joe) — \"You let her bring a camera in here!?\" GI Joe Movie","B39":"? That's 🎤 — \"That's\" GI Joe Movie. Goes with B039-B040","B40":"? Tough 🎤 — \"Tough\" GI Joe Movie","B41":"Laser Gun 🔫 — Short laser gun sound.","B42":"BG Music 1 🎵 — Bass. Goes with B042-B043","B43":"BG Music 2 🎵 — Might be a minor chord.","B44":"BG Music 5th Arp 🎵🤍 — 3 distinct tones. Middle, high, middle, low. The middle and high tone sound a 5th apart.","B45":"FX Space Door 🎛️👾🚪 — Space door. Sounds like it has a background music tone, too.","B46":"FX Alarm Rising 🎛️👾🚨 — Alarm rising.","B47":"FX Laser 🎛️👾🔫 — Laser sound","B48":"FX Glitch Alarm 🎛️👾🚨 — Glitchy sounding alarm. Would be good to experiment with for gnarly tones.","B49":"FX Fast Alarm 🎛️🚨 — Fast Alarm","B50":"Yeah 🎤 — \"Yeah\"","B51":"Fighting? 🥷👊 — Fighting yells","B52":"Punch? 🥷👊 — Punching sound","B53":"Grunting? 🥷👊 — Fighting grunts","B54":"Punched? 🥷👊 — Punched","B55":"Alarmed Crowd 1? 👨‍👩‍👧‍👦 — Alarmed crowd 1. Goes with B055-B056","B56":"Alarmed Crowd 2? 👨‍👩‍👧‍👦 — Alarmed crowd 2. Goes with B055-B056","B57":"Fighting? 🥷👊 — Fighting sound. Has bass tone.","B58":"Fighting? 🥷👊 — Fighting sound. Has bass tone.","B59":"Fighting? 🥷👊 — Fighting yell.","B60":"Bass and sliding note 1 🎸🎵 — Bass with high pitched tones. Goes with B060-B064","B61":"Bass and sliding note 2 🎸🎵 — Bass with high pitched tones.","B62":"Bass and sliding note 3 (noise) 🎸🎵🌫️ — Sounds like a little patch of \"quiet\" between sample B061 and B063 that","B63":"Bass and sliding note 4 🎸🎵 — Bass with high pitched tones.","B64":"Bass and sliding note 5 🎸🎵 — 2 notes and 3rd bass note.","B65":"? 🎵 — This almost certainly goes with B066 and the other grouped with that. (BB065-BB073)","B66":"Tom Samples 1 🛢️ — B066-B069 Go together. They probably also go with B070-B073.","B67":"Tom Samples 2 🛢️","B68":"Tom Samples 3 🛢️","B69":"Tom Samples 4 🛢️","B70":"? 1 🎵 — 2 notes","B71":"? 2 🎵 — 2 notes","B72":"? 3 🎵 — 1 note","B73":"? 4 🎵 — 4 notes","B74":"Duh dun! 🎵😲 — Two distinct bass tones","B75":"FX Rapid high pitched tones 🎛️👾🎵 — Very fast scrambled tones. Definitely would be good to play around with.","B76":"FX Star Trek Bridge 🎛️🚀 (Star Trek (1966) S01E01) — STTOS classic bg sounds.","B77":"FX Harsh tones 🎛️🙉 (Star Trek) — STTOS classic sounds. Harsh tones.","B78":"FX ? 🎛️ (Star Trek) — STTOS classic bg sounds","B79":"FX ? 🎛️ (Star Trek) — STTOS classic bg sounds.","B80":"FX ? 🎛️ (Star Trek) — STTOS bg sounds. Alarm","B81":"Ah yes 🎤 (Star Trek) — \"Ah, yes!\" STTOS","B82":"I'll have you checkmated your next move 🎤 — \"I'll have you checkmated your next move\" STTOS","B83":"Laugh 😂 — \"Ha ha ha ha ha\" STTOS","B84":"Now? 🎤 — \"Now!\" STTOS","B85":"One of your earth emotions 🎤 — \"One of your Earth emotions\" STTOS","B86":"Your move captain 🎤 — \"Your move, Captain\" STTOS","B87":"Punch? 🥷👊 — Punch and yell","B88":"Yell? 🥷👊📣 — \"Aaaahhh!\" probably  Enter the Dragon","B89":"What was that? 🎤 (Bruce Lee (Enter the Dragon)) — \"What was that?\"  Enter the Dragon. B089-B090 go together bu","B90":"An exhibition? 🎤 (Bruce Lee) — \"An Exhibition?\"  Enter the Dragon","B91":"We need 🎤 (Bruce Lee) — \"We need\"  Enter the Dragon. B091-B093 go together but could be used independently.","B92":"Emotional 🎤 (Bruce Lee) — \"Emotional\"  Enter the Dragon","B93":"Content 🎤 (Bruce Lee) — \"Content\" Enter the Dragon","B94":"How did it feel to you? 🎤 (Bruce Lee) — \"How did it feel to you?\" Enter the Dragon"};   // the Sample Lab's name and notes, for the tooltips
 const HZ = [4181.7, 4709.9, 5264.0, 5593.0, 6258.0, 7046.4, 7919.4, 8363.4, 9419.9, 11186.1, 12604.0, 13982.6, 16884.6, 21306.8, 24858.0, 33143.9];
 const SR = 48000;
 function dbOpen() {
@@ -280,6 +289,7 @@ const FAM_COLOR = { kick: "#d9473f", snare: "#e0902b", clap: "#c9a227", hatc: "#
 const SORT_FAM = { A62: "perc", A24: "perc", A25: "perc" };   // the tambourine and the claps sort with the percussion
 const isSweep = s => s.bank === "B" && s.note >= 95;
 const MODES = [
+  { id: "buckets", name: "Buckets", fams: [], kind: "bucket" },
   { id: "kick", name: "Kicks", fams: ["kick"] },
   { id: "snare", name: "Snares", fams: ["snare"] },
   { id: "hatc", name: "Closed hats", fams: ["hatc"] },
@@ -312,7 +322,11 @@ function prepare(raw) {
     return { id, bank: r.bank, note: r.note, bytes: r.bytes, native: r.native ?? (r.bank === "A" || r.note <= 21 ? 15 : 12), fam, sf: SORT_FAM[id] || (fam === "clap" ? "perc" : fam) };   // claps are named with the percussion
   }).filter(s => FAM_NAME[s.sf] && !isSweep(s)).sort((a, b) => a.bank.localeCompare(b.bank) || a.note - b.note);
   byId = Object.fromEntries(samples.map(s => [s.id, s]));
+  allClips = raw.map(r => ({ id: r.bank + r.note, bank: r.bank, note: r.note, bytes: r.bytes, native: r.native ?? (r.bank === "A" || r.note <= 21 ? 15 : 12) })).sort((a, b) => a.bank.localeCompare(b.bank) || a.note - b.note);
+  allById = Object.fromEntries(allClips.map(s => [s.id, s]));
+  sweeps = allClips.filter(isSweep);
 }
+let allClips = [], allById = {}, sweeps = [];
 const members = mode => MODE[mode].roles ? samples.filter(s => roleOf(mode, s.id)).map(s => s.id) : samples.filter(s => MODE[mode].fams.includes(s.sf)).map(s => s.id);
 // how long a hat rings: the last moment it's within 30 dB of its peak (5 ms RMS), in ms at its own speed
 const ringCache = {};
@@ -381,7 +395,15 @@ function bufFor(s) {
   return bufCache[s.id];
 }
 function stopAll() { for (const p of playing) { try { p.stop(); } catch { /* */ } } playing = []; for (const t of timers) clearTimeout(t); timers = []; document.querySelectorAll(".snd.lit").forEach(e => e.classList.remove("lit")); litNodes.clear(); }
-function hit(id, when) { const src = actx.createBufferSource(); src.buffer = bufFor(byId[id]); src.connect(master); src.start(when); playing.push(src); }
+function hit(id, when) {
+  if (id === "SWEEP") { let t = when; for (const s of sweeps) { const src = actx.createBufferSource(); src.buffer = bufFor(s); src.connect(master); src.start(t); playing.push(src); t += src.buffer.duration; } return; }
+  const src = actx.createBufferSource(); src.buffer = bufFor(byId[id] || allById[id]); src.connect(master); src.start(when); playing.push(src);
+}
+const clipLen = id => id === "SWEEP" ? sweeps.reduce((a, s) => a + bufFor(s).duration, 0) : bufFor(byId[id] || allById[id]).duration;
+async function playSeq(ids) {   // one after another, each to its end (up to 1.5 s)
+  await ctx(); stopAll(); let t = actx.currentTime + 0.03, t0 = t;
+  for (const id of ids) { hit(id, t); light(id, (t - t0 + 0.03) * 1000, Math.min(1500, clipLen(id) * 1000)); t += Math.min(1.5, clipLen(id)) + 0.15; }
+}
 function light(id, at, ms = 220) {
   timers.push(setTimeout(() => {
     document.querySelectorAll(`.snd[data-id="${id}"]`).forEach(e => e.classList.add("lit")); litNodes.add(id); drawGraph();
@@ -431,7 +453,7 @@ function seenCount(m) { const c = {}; for (const r of rounds) if (r.mode === m) 
 function newRound(m) {
   const M = members(m);
   let items = [], old = [];
-  if (MODE[m].kind === "cat") items = [];
+  if (MODE[m].kind === "cat" || MODE[m].kind === "bucket") items = [];
   else if (MODE[m].kind === "kit") {
     const rl = id => roleOf(m, id), cross = {};
     for (const [k, o] of stats) { const [a, b] = k.split("|"); if (rl(a) && rl(b) && rl(a) !== rl(b)) { cross[a] = (cross[a] || 0) + o.t + o.a; cross[b] = (cross[b] || 0) + o.t + o.a; } }
@@ -476,7 +498,7 @@ function drawTabs() {
   const box = $("tabs"); box.innerHTML = "";
   for (const m of MODES) {
     const b = document.createElement("button"); b.className = "tab"; b.setAttribute("aria-pressed", m.id === mode);
-    const n = m.id === "perc" ? `${members("perc").filter(id => perc.of[id]).length}/${members("perc").length}` : m.id === "types" ? (() => { const all = TYPE_FAMS.flatMap(([f]) => famIds(f)); return `${all.filter(typeOf).length}/${all.length}`; })() : rounds.filter(r => r.mode === m.id).length;
+    const n = m.kind === "bucket" ? `${bkIds().filter(id => bk.ok[id]).length}/${bkIds().length}` : m.id === "perc" ? `${members("perc").filter(id => perc.of[id]).length}/${members("perc").length}` : m.id === "types" ? (() => { const all = TYPE_FAMS.flatMap(([f]) => famIds(f)); return `${all.filter(typeOf).length}/${all.length}`; })() : rounds.filter(r => r.mode === m.id).length;
     b.innerHTML = `${m.name}<small>${n}</small>`;
     b.onclick = () => { mode = m.id; store.set("mode", mode); if (!cur || cur.mode !== mode || MODE[mode].kind === "cat") newRound(mode); drawSort(); };
     box.append(b);
@@ -503,6 +525,7 @@ function drawSort() {
   const m = MODE[mode], tray = $("tray"), box = $("buckets");
   if (!cur || cur.mode !== mode) newRound(mode);
   const kind = m.kind || "pair";
+  if (kind === "bucket") { drawBuckets(); return; }
   $("subtabs").hidden = mode !== "types";
   if (mode === "types") {
     $("subtabs").innerHTML = "";
@@ -549,7 +572,8 @@ function drawSort() {
   tray.querySelector(".play").hidden = !tray.querySelector(".snd");
   drawStats();
 }
-function moveTo(id, b) {
+function moveTo(id, b, src) {
+  if (MODE[mode].kind === "bucket") return moveB(id, b, src);
   if (MODE[mode].kind === "cat") {
     const { st, word } = naming();
     if (b < 0) delete st.of[id];
@@ -620,20 +644,133 @@ document.addEventListener("pointerup", e => {
   d.g.remove(); d.el.classList.remove("away");
   document.querySelectorAll(".zone.over").forEach(z => z.classList.remove("over"));
   const z = document.elementFromPoint(e.clientX, e.clientY)?.closest(".zone");
-  if (z) moveTo(d.id, +z.dataset.b);
+  if (z) moveTo(d.id, +z.dataset.b, d.el);
 });
 document.addEventListener("pointercancel", () => { if (drag?.g) { drag.g.remove(); drag.el.classList.remove("away"); } drag = null; });
 document.addEventListener("click", e => {
   const p = e.target.closest("[data-play]"); if (!p) return;
   const z = p.closest(".zone"), ids = [...z.querySelectorAll(".snd")].map(c => c.dataset.id);
-  if (mode === "kit" && z.dataset.b !== "-1") playKit(ids); else if (mode === "hats" && z.dataset.b !== "-1") playHats(ids); else playList(ids);
+  if (MODE[mode].kind === "bucket") playSeq(ids);
+  else if (mode === "kit" && z.dataset.b !== "-1") playKit(ids); else if (mode === "hats" && z.dataset.b !== "-1") playHats(ids); else playList(ids);
 });
 document.addEventListener("keydown", e => {
   const c = e.target.closest?.(".snd"); if (!c || c.classList.contains("ghost")) return;
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playOne(c.dataset.id); return; }
-  if (/^[0-9]$/.test(e.key)) { moveTo(c.dataset.id, +e.key - 1); e.preventDefault(); }
+  if (/^[0-9]$/.test(e.key)) { moveTo(c.dataset.id, +e.key - 1, c); e.preventDefault(); }
   else if (e.key === "n" || e.key === "N") { moveTo(c.dataset.id, document.querySelectorAll("#buckets .zone").length - 1); e.preventDefault(); }
 });
+
+// ====================================================================== buckets: every clip in a broad bucket, then layered / hats / percussion split finer
+const BTOP = [["kick", "Kick"], ["snare", "Snare"], ["layer", "Layered"], ["hats", "Hats & cymbals"], ["perc", "Toms & percussion"], ["fx", "FX"], ["vocal", "Vocal"], ["tonal", "Tonal"]];
+const BSUB = {
+  layer: [["khc", "Kick + closed hat"], ["kho", "Kick + open hat"], ["kcy", "Kick + cymbal"], ["ksn", "Kick + snare"], ["shc", "Snare + closed hat"], ["sho", "Snare + open hat"], ["scy", "Snare + cymbal"], ["other", "Other layers"]],
+  hats: [["ctight", "Closed, tight"], ["cloose", "Closed, loose"], ["pedal", "Pedal"], ["half", "Half open"], ["open", "Open"], ["o2c", "Open → closed"], ["crash", "Crash"], ["ride", "Ride"]],
+  perc: [["tom", "Tom"], ["roto", "Rototom"], ["conga", "Conga / bongo"], ["timbale", "Timbale"], ["clap", "Clap"], ["rim", "Rim shot"], ["clave", "Clave / wood block"], ["cowbell", "Cowbell"], ["tamb", "Tambourine / shaker"], ["pfx", "Percussion FX"]],
+};
+const TOPNAME = Object.fromEntries(BTOP), SUBNAME = Object.fromEntries(Object.values(BSUB).flat());
+const SHORT = { kick: "Kick", snare: "Snare", layer: "Layer", hats: "Hat", perc: "Perc", fx: "FX", vocal: "Vocal", tonal: "Tonal" };
+const freshBk = () => ({ of: {}, sub: {}, also: {}, alsoSub: {}, ok: {}, okSub: {}, unsure: {} });
+let bk = Object.assign(freshBk(), store.get("bk", {}));
+let bkView = store.get("bkView", "all"), bkOpen = store.get("bkOpen", { fx: false, vocal: false, tonal: false });
+const bkIds = () => [...allClips.filter(s => !isSweep(s)).map(s => s.id), ...(sweeps.length ? ["SWEEP"] : [])];
+const bTop = id => bk.of[id] ?? GUESS[id]?.[0] ?? "fx";
+const bSub = id => { const v = bk.sub[id] ?? GUESS[id]?.[1] ?? ""; return BSUB[bTop(id)]?.some(([k]) => k === v) ? v : ""; };
+const bAlso = id => { const v = bk.also[id] ?? GUESS[id]?.[3] ?? ""; return v === bTop(id) ? "" : v; };
+const bAlsoSub = id => { const v = bk.alsoSub[id] ?? (id === "A13" && !(id in bk.also) ? "half" : ""); return BSUB[bAlso(id)]?.some(([k]) => k === v) ? v : ""; };
+const bFlag = id => GUESS[id]?.[2] || "";
+const bTray = id => (bFlag(id) || bk.unsure[id]) && !bk.ok[id];
+let bZones = [];   // what the zone numbers mean on the screen shown: [key, also?]
+function chipB(id, also) {
+  const b = document.createElement("button"), sub = bkView !== "all";
+  const guess = also ? false : sub ? !bk.okSub[id] && bSub(id) : !bk.ok[id];
+  b.className = "snd" + (guess ? " guess" : "") + (bFlag(id) && !bk.ok[id] ? " old" : "") + (also ? " also" : "");
+  b.dataset.id = id; b.type = "button"; if (also) b.dataset.also = "1";
+  const name = id === "SWEEP" ? "B95–127" : id;
+  let f = "";
+  if (also) f = "in " + SHORT[bTop(id)];
+  else if (!sub && bTray(id)) f = "→ " + SHORT[bTop(id)];
+  else if (!sub && bAlso(id)) f = "+" + SHORT[bAlso(id)];
+  else if (sub && bkView === "hats" && byId[id]) f = ringMs(id) + " ms";
+  b.innerHTML = `${name}<span class="f">${f}</span>`;
+  const lab = id === "SWEEP" ? "Sweep: B95–B127 played end to end" : LABN[id] || "";
+  b.title = [lab, bFlag(id) && !bk.ok[id] ? "In doubt: " + bFlag(id) : "", also ? `Also works as ${TOPNAME[bAlso(id)]}; main bucket ${TOPNAME[bTop(id)]}` : bAlso(id) ? `Also works as ${TOPNAME[bAlso(id)]}` : "", guess ? "Dashed: a guess (drag it, or ✓ its bucket)" : ""].filter(Boolean).join("\n");
+  b.setAttribute("aria-label", `${name}${lab ? ", " + lab : ""}. Click to play; keys 1 to 9 move it to a bucket, 0 to the tray.`);
+  return b;
+}
+function zoneB(i, title, ids, opts = {}) {
+  const z = document.createElement("div"); z.className = "zone" + (opts.closed ? " collapsed" : ""); z.dataset.b = i;
+  const unchecked = ids.filter(([id, also]) => !also && (bkView === "all" ? !bk.ok[id] : !bk.okSub[id])).length;
+  z.innerHTML = `<div class="zh"><span>${title}<span class="n">${ids.length}</span></span><span>${ids.length ? `<button class="play" data-play="${i}">Play</button>` : ""}${unchecked && !opts.closed ? `<button class="play" data-ok="${i}" title="These guesses are right">✓</button>` : ""}${opts.fold ? `<button class="play" data-fold="${opts.fold}">${opts.closed ? "Show" : "Hide"}</button>` : ""}</span></div><div class="items"></div>`;
+  if (!opts.closed) for (const [id, also] of ids) z.querySelector(".items").append(chipB(id, also));
+  else for (const [id] of ids) { const h = document.createElement("span"); h.className = "snd"; h.dataset.id = id; h.hidden = true; z.querySelector(".items").append(h); }   // (so Play works while folded)
+  z.querySelector("[data-ok]")?.addEventListener("click", () => {
+    for (const [id, also] of ids) if (!also) { if (bkView === "all") { bk.ok[id] = true; delete bk.unsure[id]; } else if (bSub(id)) bk.okSub[id] = true; }
+    store.set("bk", bk); drawAll();
+  });
+  z.querySelector("[data-fold]")?.addEventListener("click", e => { bkOpen[e.target.dataset.fold] = !!opts.closed; store.set("bkOpen", bkOpen); drawBuckets(); });
+  return z;
+}
+function drawBuckets() {
+  audStop();
+  const tray = $("tray"), box = $("buckets"), ids = bkIds();
+  tray.hidden = box.hidden = false; $("audition").hidden = true; $("stats").hidden = false;
+  $("doneBtn").hidden = $("skipBtn").hidden = $("clearTab").hidden = true;
+  if (!ids.length) { $("modeHint").textContent = "Load the samples first (above)."; tray.querySelector(".items").innerHTML = ""; box.innerHTML = ""; return; }
+  // the screens: all clips, then one per bucket that splits finer
+  const st = $("subtabs"); st.hidden = false; st.innerHTML = "";
+  for (const [v, name] of [["all", "All clips"], ["layer", "Layered"], ["hats", "Hats & cymbals"], ["perc", "Toms & percussion"]]) {
+    const b = document.createElement("button"); b.className = "tab"; b.setAttribute("aria-pressed", v === bkView);
+    const n = v === "all" ? `${ids.filter(id => bk.ok[id]).length}/${ids.length}` : (() => { const M = ids.filter(id => bTop(id) === v); return `${M.filter(id => bk.okSub[id]).length}/${M.length}`; })();
+    b.innerHTML = `${name}<small>${n}</small>`;
+    b.onclick = () => { bkView = v; store.set("bkView", v); drawBuckets(); };
+    st.append(b);
+  }
+  const items = tray.querySelector(".items"); items.innerHTML = ""; box.innerHTML = ""; bZones = [];
+  const put = (z, key, also) => { bZones.push([key, also]); box.append(z); };
+  if (bkView === "all") {
+    $("modeHint").innerHTML = "Every clip in a broad bucket. I've placed them from the Sample Lab and your sorting: <b>dashed</b> ones are my guesses, so drag any that are wrong and press <b>✓</b> on a bucket when the rest are right. The tray holds the ones the two disagree on (hover for why). Drop a clip on an <b>Also works as</b> bucket to give it a second home.";
+    $("trayLabel").textContent = "Check these first";
+    for (const id of ids) if (bTray(id)) items.append(chipB(id, false));
+    BTOP.forEach(([k, name]) => {
+      const fold = k in bkOpen ? k : null;
+      put(zoneB(bZones.length, name, ids.filter(id => bTop(id) === k && !bTray(id)).map(id => [id, false]), { fold, closed: fold && !bkOpen[k] }), k, false);
+    });
+    const h = document.createElement("p"); h.className = "bsec"; h.style.gridColumn = "1 / -1"; h.textContent = "Also works as"; box.append(h);
+    BTOP.forEach(([k, name]) => { const z = zoneB(100 + bZones.filter(x => x[1]).length, name, ids.filter(id => bAlso(id) === k).map(id => [id, true])); z.style.minHeight = "44px"; put(z, k, true); });
+  } else {
+    $("modeHint").innerHTML = bkView === "layer" ? "What's in each layered clip? Dashed ones are guesses from the Sample Lab's <b>has</b> column. <i>Italic</i> ones live in another bucket but also work here." :
+      bkView === "hats" ? "Split the hats and cymbals by how they behave in a beat. Each clip shows how long it rings. <i>Italic</i> ones live in another bucket but also work here." :
+      "Name the toms and percussion. Dashed ones come from your Percussion naming. <i>Italic</i> ones live in another bucket but also work here.";
+    $("trayLabel").textContent = "Not split yet";
+    for (const id of ids) { if (bTop(id) === bkView && !bSub(id)) items.append(chipB(id, false)); if (bAlso(id) === bkView && !bAlsoSub(id)) items.append(chipB(id, true)); }
+    for (const [k, name] of BSUB[bkView]) put(zoneB(bZones.length, name, [...ids.filter(id => bTop(id) === bkView && bSub(id) === k).map(id => [id, false]), ...ids.filter(id => bAlso(id) === bkView && bAlsoSub(id) === k).map(id => [id, true])]), k, false);
+  }
+  tray.querySelector(".play").hidden = !items.querySelector(".snd");
+  const checked = ids.filter(id => bk.ok[id]).length, toCheck = ids.filter(bTray).length;
+  $("stats").textContent = `${ids.length} clips · ${checked} checked · ${toCheck} in doubt` + (bkView !== "all" ? ` · ${TOPNAME[bkView]}: ${ids.filter(id => bTop(id) === bkView && bSub(id)).length} of ${ids.filter(id => bTop(id) === bkView).length} split` : "");
+  $("roundStatus").textContent = "";
+}
+function moveB(id, b, el) {
+  const also = el?.dataset.also === "1";
+  if (bkView === "all") {
+    const z = b >= 100 ? bZones.filter(x => x[1])[b - 100] : b >= 0 ? bZones.filter(x => !x[1])[b] : null;
+    if (b >= 100 && !z) return;
+    if (also) { bk.also[id] = z && z[1] ? z[0] : ""; bk.alsoSub[id] = ""; }
+    else if (z && z[1]) { if (z[0] !== bTop(id)) { bk.also[id] = z[0]; bk.alsoSub[id] = ""; } }
+    else if (!z) { if (b !== -1) return; bk.ok[id] = false; bk.unsure[id] = true; }
+    else {
+      if (z[0] !== bTop(id)) { if (GUESS[id]?.[0] === z[0]) delete bk.sub[id]; else bk.sub[id] = ""; bk.okSub[id] = false; }
+      bk.of[id] = z[0]; bk.ok[id] = true; delete bk.unsure[id];
+      if (bAlso(id) === z[0] || (bk.also[id] ?? GUESS[id]?.[3]) === z[0]) bk.also[id] = "";
+    }
+  } else {
+    const z = b >= 0 ? bZones[b] : null; if (b >= 0 && !z) return;
+    if (also) bk.alsoSub[id] = z ? z[0] : "";
+    else { bk.sub[id] = z ? z[0] : ""; bk.okSub[id] = !!z; }
+  }
+  store.set("bk", bk); drawSort();
+  const e = document.querySelector(`.snd[data-id="${id}"]`); if (e) e.focus();
+}
 
 // ====================================================================== hat pairs: the audition loop
 // A hat pattern loops; ←/→ swap the open hat, ↑/↓ the closed hat, Space = they pair, X = they don't.
@@ -785,7 +922,7 @@ document.addEventListener("keydown", e => {
 
 // ====================================================================== map
 let nodes = [], nodeOf = {}, alpha = 1, sel = new Set(), litNodes = new Set(), groupsOf = {}, groupList = [], raf = 0;
-const VIEWS = [["all", "All sorted sounds"], ...MODES.filter(m => m.kind !== "kit" && m.id !== "types").map(m => [m.id, m.name]), ["hats", "Hat pairs: closed and open"], ["kit", "Kits: kick, snare, hat"]];
+const VIEWS = [["all", "All sorted sounds"], ...MODES.filter(m => m.kind !== "kit" && m.kind !== "bucket" && m.id !== "types").map(m => [m.id, m.name]), ["hats", "Hat pairs: closed and open"], ["kit", "Kits: kick, snare, hat"]];
 for (const [v, l] of VIEWS) $("view").add(new Option(l, v));
 $("view").value = store.get("view", "all"); $("colorBy").value = store.get("colorBy", "fam");
 function viewIds() {
@@ -981,7 +1118,8 @@ function drawGroups() {
 
 // ====================================================================== save / share
 $("exportBtn").onclick = () => {
-  const data = { app: "fatchip-sound-sorter", version: 1, exported: new Date().toISOString(), rounds, perc, types, tags, styles: styleList, chars: charList };
+  const data = { app: "fatchip-sound-sorter", version: 1, exported: new Date().toISOString(), rounds, perc, types, tags, styles: styleList, chars: charList,
+    buckets: Object.fromEntries(bkIds().map(id => [id, [bTop(id), bSub(id), bAlso(id), bAlsoSub(id), bk.ok[id] ? 1 : 0, bk.okSub[id] ? 1 : 0]])) };   // id -> [bucket, sub, also, also sub, bucket checked, sub checked]
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
   a.download = `sound-sorter-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   $("saveStatus").textContent = `Exported ${rounds.length} rounds.`;
@@ -998,6 +1136,11 @@ $("importIn").onchange = async e => {
     for (const [id, t] of Object.entries(d.tags || {})) tags[id] = [...new Set([...(tags[id] || []), ...t])];
     for (const t of d.styles || []) if (!styleList.includes(t)) styleList.push(t);
     for (const t of d.chars || []) if (!charList.includes(t)) charList.push(t);
+    for (const [id, [top, sub, also, alsoSub, ok, okSub]] of Object.entries(d.buckets || {})) {   // only what they checked, where you haven't
+      if (ok && !bk.ok[id]) { bk.of[id] = top; bk.also[id] = also; bk.ok[id] = true; delete bk.unsure[id]; }
+      if (okSub && !bk.okSub[id]) { bk.sub[id] = sub; bk.alsoSub[id] = alsoSub; bk.okSub[id] = true; }
+    }
+    store.set("bk", bk);
     saveAll(); computeStats(); drawAll();
     $("saveStatus").textContent = `Merged: ${added} new round${added === 1 ? "" : "s"}.`;
   } catch (err) { $("saveStatus").textContent = "That file didn't import: " + err.message + "."; }
@@ -1006,7 +1149,7 @@ $("importIn").onchange = async e => {
 let resetArmed = 0;
 $("resetBtn").onclick = () => {
   if (Date.now() - resetArmed > 4000) { resetArmed = Date.now(); $("resetBtn").textContent = "Click again to erase all sorting"; setTimeout(() => $("resetBtn").textContent = "Start over", 4000); return; }
-  rounds = []; perc = { names: PERC_CATS.slice(), of: {} }; types = freshTypes(); tags = {}; styleList = STYLES.slice(); charList = CHARS.slice(); saveAll(); computeStats(); newRound(mode); drawAll();
+  rounds = []; perc = { names: PERC_CATS.slice(), of: {} }; types = freshTypes(); tags = {}; styleList = STYLES.slice(); charList = CHARS.slice(); bk = freshBk(); store.set("bk", bk); saveAll(); computeStats(); newRound(mode); drawAll();
   $("resetBtn").textContent = "Start over"; $("saveStatus").textContent = "Erased.";
 };
 
